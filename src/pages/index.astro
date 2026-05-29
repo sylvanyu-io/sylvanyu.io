@@ -1,0 +1,24 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base>
+  <main>
+    <h1>sylvanyu.io</h1>
+    <p>Scaffold ready. Design goes here.</p>
+  </main>
+</Base>
+
+<style>
+  main {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    padding: 24px;
+  }
+  h1 { margin: 0; font-size: clamp(28px, 6vw, 56px); letter-spacing: -0.02em; }
+  p { margin: 0; color: var(--muted); }
+</style>
