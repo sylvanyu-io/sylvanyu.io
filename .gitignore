@@ -16,3 +16,5 @@ pnpm-debug.log*
 .DS_Store
 # local editor / preview tooling
 .claude/
+# cloudflare wrangler
+.wrangler/
