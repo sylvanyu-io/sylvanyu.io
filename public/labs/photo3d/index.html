@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Photo3D — WebGL parallax demo</title>
+<style>
+  :root { --bg:#050505; --panel:#14161d; --muted:#9aa0b4; --text:#e8eaf0; --line:#262a35; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  #stage { position:fixed; inset:0; }
+  canvas { position:absolute; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.55); background:#000; }
+  #panel { position:fixed; top:14px; left:14px; width:240px; background:rgba(20,22,29,.88);
+    backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:12px; padding:12px 13px; font-size:12px; user-select:none; z-index:10; }
+  #panel h1 { font-size:12px; letter-spacing:.04em; margin:0 0 2px; font-weight:600; }
+  #panel .sub { color:var(--muted); font-size:11px; margin:0 0 8px; }
+  .grp { color:#6b7184; font-size:10px; letter-spacing:.1em; margin:11px 0 4px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0; }
+  .row label { color:var(--muted); }
+  .row output { font-variant-numeric:tabular-nums; color:var(--text); min-width:46px; text-align:right; }
+  input[type=range] { width:112px; accent-color:#7ee08a; }
+  .seg { display:flex; gap:4px; width:112px; }
+  .seg button { flex:1; background:#1c1f28; color:var(--muted); border:1px solid var(--line); border-radius:7px; padding:4px 0; cursor:pointer; font-size:12px; }
+  .seg button.on { background:#2f4a33; color:#cdffd4; border-color:#3f7a48; }
+  .urlin { width:100%; background:#1c1f28; color:var(--text); border:1px solid var(--line); border-radius:7px; padding:5px 7px; font-size:11px; }
+  .loadbtn { width:100%; margin-top:6px; background:#2f4a33; color:#cdffd4; border:1px solid #3f7a48; border-radius:7px; padding:6px 0; cursor:pointer; font-size:12px; }
+  .chk { display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--muted); }
+  #status { position:fixed; bottom:14px; left:14px; font-size:11px; color:var(--muted);
+    background:rgba(20,22,29,.8); border:1px solid var(--line); padding:6px 10px; border-radius:8px; z-index:10; }
+  #status.err { color:#ff9a9a; border-color:#5a2a2a; }
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div id="panel">
+    <h1>Photo3D · WebGL</h1>
+    <p class="sub">photo3d.fs · ray-marched LDI</p>
+
+    <div class="grp">位置偏移</div>
+    <div class="row"><label>X 偏移</label><input id="ox" type="range" min="-0.05" max="0.05" step="0.001" value="0.003"><output id="ox-o"></output></div>
+    <div class="row"><label>Y 偏移</label><input id="oy" type="range" min="-0.05" max="0.05" step="0.001" value="-0.01"><output id="oy-o"></output></div>
+    <div class="row"><label>Z 偏移</label><input id="oz" type="range" min="-0.1" max="0.3" step="0.001" value="0.176"><output id="oz-o"></output></div>
+
+    <div class="grp">缩放与聚焦</div>
+    <div class="row"><label>聚焦距离</label><input id="focus" type="range" min="0" max="1" step="0.01" value="0.51"><output id="focus-o"></output></div>
+    <div class="row"><label class="chk"><input id="hl" type="checkbox" checked> 聚焦高亮</label></div>
+    <div class="row"><label>整体缩放</label><input id="crop" type="range" min="0.8" max="1.3" step="0.01" value="0.97"><output id="crop-o"></output></div>
+
+    <div class="grp">图层与边缘</div>
+    <div class="row"><label>图层数量</label><div class="seg" id="seg-layers"><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button></div></div>
+    <div class="row"><label>羽化宽度</label><input id="feather" type="range" min="0" max="3" step="0.1" value="1.0"><output id="feather-o"></output></div>
+    <div class="row"><label>边缘锐度</label><input id="sharp" type="range" min="0" max="20" step="1" value="10"><output id="sharp-o"></output></div>
+
+    <div class="grp">图源 URL</div>
+    <div class="row"><input id="url" type="url" class="urlin" placeholder="https://.../sprite.png" /></div>
+    <button id="loadbtn" class="loadbtn">载入 URL</button>
+  </div>
+  <div id="status">initializing…</div>
+
+<script>
+const SPRITE_LAYOUT = '2x3';
+const spriteParam = new URLSearchParams(location.search).get('sprite');
+let spriteUrl = spriteParam || 'textures/sprite1.png';
+// exposed params (match the原工具面板); f1 / invZmin stay fixed at the reference values internally
+const CFG = {
+  offsetX: 0.003, offsetY: -0.01, offsetZ: 0.176,
+  focus: 0.51, highlight: true, crop: 0.97,
+  layers: 2, feather: 1.0, sharpness: 10,
+  W: 472, H: 1024,
+};
+const F1 = 1248.0, INVZMIN = 0.1282;   // fixed (not in the panel)
+
+const statusEl = document.getElementById('status');
+const setStatus = (m, err=false) => { statusEl.textContent = m; statusEl.classList.toggle('err', err); };
+
+const canvas = document.createElement('canvas');
+document.getElementById('stage').appendChild(canvas);
+const gl = canvas.getContext('webgl', { alpha:false, antialias:true, premultipliedAlpha:false });
+if (!gl) { setStatus('WebGL not available', true); throw new Error('no webgl'); }
+
+const VS = `
+attribute vec2 aPos;
+varying vec2 vTextureCoord;
+void main(){ vTextureCoord = aPos*0.5+0.5; gl_Position = vec4(aPos,0.,1.); }`;
+
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: '+gl.getShaderInfoLog(s));
+  return s;
+}
+
+function texFromSource(src){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  return t;
+}
+function transparentTexture(){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  return t;
+}
+
+// sprite slice + disparity repack — verbatim logic from photo3d-minimal.js
+const createCanvas = (w,h) => { const c=document.createElement('canvas'); c.width=w; c.height=h; return c; };
+function channelMax(data, ch){ let m=0; for(let i=ch;i<data.length;i+=4) m=Math.max(m,data[i]); return m; }
+function splitSprite(img, layout){
+  const [rows,cols] = layout==='1x6' ? [1,6] : [2,3];
+  const w = Math.floor(img.width/cols), h = Math.floor(img.height/rows);
+  return Array.from({length:6}, (_,i) => {
+    const c = createCanvas(w,h);
+    c.getContext('2d').drawImage(img, (i%cols)*w, Math.floor(i/cols)*h, w,h, 0,0, w,h);
+    return c;
+  });
+}
+function createDisparityCanvas(srcCanvas, remapR=false){
+  const { width, height } = srcCanvas;
+  const sd = srcCanvas.getContext('2d').getImageData(0,0,width,height).data;
+  const out = createCanvas(width,height);
+  const ctx = out.getContext('2d');
+  const id = ctx.createImageData(width,height);
+  const maxR = remapR ? channelMax(sd, 0) : 255;
+  for (let i=0;i<id.data.length;i+=4){
+    const r = sd[i+1];                                       // source GREEN = depth
+    id.data[i]   = remapR ? Math.round((r/255)*maxR) : r;    // dest R = depth
+    id.data[i+1] = sd[i+2];                                  // dest G = source BLUE = mask
+    id.data[i+2] = 0; id.data[i+3] = 255;
+  }
+  ctx.putImageData(id,0,0);
+  return out;
+}
+const loadImage = src => new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>rej(new Error('load '+src)); im.src=src; });
+
+let prog, uloc = {}, textures = {}, ASPECT = 472/1024;
+
+async function main(){
+  setStatus('loading shader…');
+  const fsBody = await (await fetch('photo3d.fs')).text();
+  const FS = 'precision highp float;\nprecision highp int;\n' + fsBody;
+  prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.bindAttribLocation(prog, 0, 'aPos');
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { setStatus('link: '+gl.getProgramInfoLog(prog), true); throw new Error('link'); }
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  ['offset','focus','aspect','layeredOutpaintingCrop','maskFeatherWidth','maskSharpness',
+   'focusHighlightIntensity','originalWidthPx','originalHeightPx','numberOfLayers','roll1','sk1','sl1',
+   'invZmin[0]','invZmax[0]','f1[0]','iRes[0]',
+   'disparity0','disparity1','disparity2','disparity3','rgb0','rgb1','rgb2','rgb3']
+   .forEach(n => uloc[n] = gl.getUniformLocation(prog, n));
+
+  await loadSprite(spriteUrl);
+  requestAnimationFrame(frame);
+}
+
+let tpTex = null;
+async function loadSprite(url){
+  setStatus('loading sprite…');
+  const frames = splitSprite(await loadImage(url), SPRITE_LAYOUT);
+  // frames: [disparity0, disparity1, disparity2, rgb0, rgb1, rgb2]
+  textures.rgb0 = texFromSource(frames[3]);
+  textures.rgb1 = texFromSource(frames[4]);
+  textures.rgb2 = texFromSource(frames[5]);
+  textures.disparity0 = texFromSource(createDisparityCanvas(frames[0], false));
+  textures.disparity1 = texFromSource(createDisparityCanvas(frames[1], true));
+  textures.disparity2 = texFromSource(createDisparityCanvas(frames[2], true));
+  if (!tpTex) tpTex = transparentTexture();
+  textures.rgb3 = tpTex; textures.disparity3 = tpTex;
+  CFG.W = frames[3].width; CFG.H = frames[3].height; ASPECT = CFG.W / CFG.H;
+  spriteUrl = url;
+
+  gl.useProgram(prog);
+  const units = { disparity0:0, disparity1:1, disparity2:2, disparity3:3, rgb0:4, rgb1:5, rgb2:6, rgb3:7 };
+  for (const [k,u] of Object.entries(units)) {
+    gl.activeTexture(gl.TEXTURE0+u); gl.bindTexture(gl.TEXTURE_2D, textures[k]);
+    if (uloc[k]) gl.uniform1i(uloc[k], u);
+  }
+  resize();
+  setStatus('sprite ' + CFG.W + '×' + CFG.H + ' · drag to look around');
+}
+
+// drag-to-look (index.js onMouseMove: offset.xy = mouse * 0.05); otherwise the slider pose
+let dragging = false, mx = 0, my = 0;
+function pointer(e){
+  const r = canvas.getBoundingClientRect();
+  mx = ((e.clientX - r.left) / r.width) * 2 - 1;
+  my = -(((e.clientY - r.top) / r.height) * 2 - 1);
+}
+canvas.addEventListener('pointermove', pointer);
+canvas.addEventListener('pointerdown', e=>{ dragging=true; canvas.setPointerCapture(e.pointerId); pointer(e); });
+canvas.addEventListener('pointerup', ()=>{ dragging=false; });
+canvas.addEventListener('pointerleave', ()=>{ dragging=false; });
+
+function resize(){
+  const cw = window.innerWidth, ch = window.innerHeight;
+  const [w,h] = (cw/ch > ASPECT) ? [ch*ASPECT, ch] : [cw, cw/ASPECT];
+  const W = Math.min(w, 1024*ASPECT), H = Math.min(h, 1024);
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  canvas.style.left = ((cw - W)/2)+'px'; canvas.style.top = ((ch - H)/2)+'px';
+  canvas.width = Math.round(W); canvas.height = Math.round(H);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('load', resize);
+
+function frame(){
+  let ox = CFG.offsetX, oy = CFG.offsetY, oz = CFG.offsetZ;
+  if (dragging) { ox = mx*0.05; oy = my*0.05; }   // z stays at the slider value (matches onMouseMove)
+
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.useProgram(prog);
+  gl.uniform3f(uloc['offset'], ox, oy, oz);
+  gl.uniform1f(uloc['focus'], CFG.focus);
+  if (uloc['aspect']) gl.uniform1f(uloc['aspect'], CFG.W/CFG.H);
+  gl.uniform1f(uloc['layeredOutpaintingCrop'], CFG.crop);
+  gl.uniform1f(uloc['maskFeatherWidth'], CFG.feather);
+  if (uloc['maskSharpness']) gl.uniform1f(uloc['maskSharpness'], CFG.sharpness);
+  gl.uniform1f(uloc['focusHighlightIntensity'], CFG.highlight ? 1.0 : 0.0);
+  gl.uniform1i(uloc['originalWidthPx'], CFG.W);
+  gl.uniform1i(uloc['originalHeightPx'], CFG.H);
+  gl.uniform1i(uloc['numberOfLayers'], CFG.layers);
+  gl.uniform1f(uloc['roll1'], 0.0);
+  gl.uniform2f(uloc['sk1'], 0, 0);
+  gl.uniform2f(uloc['sl1'], 0, 0);
+  const W = CFG.W, H = CFG.H;
+  gl.uniform1fv(uloc['invZmin[0]'], new Float32Array([INVZMIN,INVZMIN,INVZMIN,0]));
+  gl.uniform1fv(uloc['invZmax[0]'], new Float32Array([0,0,0,0]));
+  gl.uniform1fv(uloc['f1[0]'], new Float32Array([F1,F1,F1,0]));
+  gl.uniform2fv(uloc['iRes[0]'], new Float32Array([W,H, W,H, W,H, 1,1]));
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(frame);
+}
+
+// controls
+const bind = (id, key, fmt) => {
+  const el = document.getElementById(id), out = document.getElementById(id+'-o');
+  const upd = () => { CFG[key] = parseFloat(el.value); if (out) out.textContent = fmt ? fmt(CFG[key]) : CFG[key]; };
+  el.addEventListener('input', upd); upd();
+};
+bind('ox','offsetX', v=>v.toFixed(3));
+bind('oy','offsetY', v=>v.toFixed(3));
+bind('oz','offsetZ', v=>v.toFixed(3));
+bind('focus','focus', v=>v.toFixed(2));
+bind('crop','crop', v=>v.toFixed(2));
+bind('feather','feather', v=>v.toFixed(1));
+bind('sharp','sharpness', v=>v.toFixed(0));
+document.getElementById('hl').addEventListener('change', e=>CFG.highlight=e.target.checked);
+const seg = document.getElementById('seg-layers');
+seg.addEventListener('click', e=>{ const n=e.target.dataset&&e.target.dataset.n; if(!n) return; CFG.layers=parseInt(n);
+  [...seg.children].forEach(b=>b.classList.toggle('on', b.dataset.n===n)); });
+[...seg.children].forEach(b=>b.classList.toggle('on', b.dataset.n==CFG.layers));
+
+const urlInput = document.getElementById('url');
+urlInput.value = spriteParam || '';
+document.getElementById('loadbtn').addEventListener('click', ()=>{
+  const u = urlInput.value.trim();
+  if (u) loadSprite(u).catch(e=>{ console.error(e); setStatus('load failed (CORS?): '+(e.message||e), true); });
+});
+urlInput.addEventListener('keydown', e=>{
+  if (e.key !== 'Enter') return;
+  document.getElementById('loadbtn').click();
+});
+
+window.CFG = CFG;
+main().catch(e=>{ console.error(e); setStatus(String(e.message||e), true); });
+</script>
+</body>
+</html>
