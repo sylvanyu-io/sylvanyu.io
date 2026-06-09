@@ -52,12 +52,102 @@ const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
       return;
     }
 
+    let canvasGestureActive = false;
+    let gestureUnlockFrame = 0;
+    let scrollLockFrame = 0;
+    let lockedScrollY = 0;
+    const canvasGestureEvents = ['pointermove', 'wheel', 'touchmove'];
+    const canvasGestureStartEvents = ['pointerdown', 'touchstart'];
+    const canvasGestureEndEvents = ['pointerup', 'pointercancel', 'touchend', 'touchcancel'];
+    const gestureOptions = { capture: true, passive: false };
+
+    const containCanvasGesture = (event) => {
+      if (event.cancelable) event.preventDefault();
+      if (canvasGestureActive && window.scrollY !== lockedScrollY) {
+        window.scrollTo(0, lockedScrollY);
+      }
+    };
+
+    const keepPageScrollLocked = () => {
+      if (!canvasGestureActive) return;
+      if (window.scrollY !== lockedScrollY) {
+        window.scrollTo(0, lockedScrollY);
+      }
+      scrollLockFrame = requestAnimationFrame(keepPageScrollLocked);
+    };
+
+    const lockPageScroll = () => {
+      if (canvasGestureActive) return;
+      cancelAnimationFrame(gestureUnlockFrame);
+      cancelAnimationFrame(scrollLockFrame);
+      canvasGestureActive = true;
+      lockedScrollY = window.scrollY;
+      document.documentElement.classList.add('galacean-canvas-gesture-active');
+      document.body.classList.add('galacean-canvas-gesture-active');
+      keepPageScrollLocked();
+    };
+
+    const unlockPageScroll = () => {
+      if (!canvasGestureActive) return;
+      canvasGestureActive = false;
+      cancelAnimationFrame(scrollLockFrame);
+      document.documentElement.classList.remove('galacean-canvas-gesture-active');
+      document.body.classList.remove('galacean-canvas-gesture-active');
+      window.scrollTo(0, lockedScrollY);
+    };
+
+    const scheduleUnlockPageScroll = () => {
+      cancelAnimationFrame(gestureUnlockFrame);
+      gestureUnlockFrame = requestAnimationFrame(unlockPageScroll);
+    };
+
+    const startCanvasGesture = (event) => {
+      containCanvasGesture(event);
+      lockPageScroll();
+    };
+
+    const endCanvasGesture = (event) => {
+      if (!canvasGestureActive) return;
+      containCanvasGesture(event);
+      scheduleUnlockPageScroll();
+    };
+
+    const containActiveGesture = (event) => {
+      if (canvasGestureActive) containCanvasGesture(event);
+    };
+
+    canvasGestureEvents.forEach((eventName) => {
+      canvas.addEventListener(eventName, containCanvasGesture, gestureOptions);
+    });
+    canvasGestureStartEvents.forEach((eventName) => {
+      canvas.addEventListener(eventName, startCanvasGesture, gestureOptions);
+    });
+    canvasGestureEndEvents.forEach((eventName) => {
+      window.addEventListener(eventName, endCanvasGesture, gestureOptions);
+    });
+    document.addEventListener('touchmove', containActiveGesture, gestureOptions);
+    window.addEventListener('blur', unlockPageScroll);
+
     let disposed = false;
     let handle;
 
     const dispose = () => {
       disposed = true;
       document.body.classList.remove('galacean-stats-open');
+      cancelAnimationFrame(gestureUnlockFrame);
+      cancelAnimationFrame(scrollLockFrame);
+      unlockPageScroll();
+      canvasGestureEvents.forEach((eventName) => {
+        canvas.removeEventListener(eventName, containCanvasGesture, gestureOptions);
+      });
+      canvasGestureStartEvents.forEach((eventName) => {
+        canvas.removeEventListener(eventName, startCanvasGesture, gestureOptions);
+      });
+      canvasGestureEndEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, endCanvasGesture, gestureOptions);
+      });
+      document.removeEventListener('touchmove', containActiveGesture, gestureOptions);
+      window.removeEventListener('blur', unlockPageScroll);
       handle?.destroy?.();
     };
 
@@ -96,6 +186,7 @@ const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
     width: 100%;
     min-width: 0;
     overflow: hidden;
+    overscroll-behavior: contain;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -130,6 +221,8 @@ const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
     width: 100%;
     height: min(68svh, 720px);
     min-height: 420px;
+    overflow: hidden;
+    overscroll-behavior: contain;
     background: #050609;
   }
 
@@ -137,6 +230,9 @@ const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
     display: block;
     width: 100%;
     height: 100%;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .status {
@@ -196,6 +292,15 @@ const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
     z-index: 50;
     transform: scale(.72);
     transform-origin: top left;
+  }
+
+  :global(html.galacean-canvas-gesture-active) {
+    overscroll-behavior: contain;
+  }
+
+  :global(body.galacean-canvas-gesture-active) {
+    touch-action: none;
+    overscroll-behavior: contain;
   }
 
   @media (max-width: 760px) {
