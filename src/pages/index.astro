@@ -1,24 +1,211 @@
 ---
 import Base from '../layouts/Base.astro';
+import { featuredLabEntries } from '../labs/catalog';
 ---
-<Base>
-  <main>
-    <h1>sylvanyu.io</h1>
-    <p>Scaffold ready. Design goes here.</p>
+<Base title="sylvanyu.io" description="Notes, demos, and labs by Sylvan Yu.">
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="/">sylvanyu.io</a>
+      <nav>
+        <a href="/labs/">Labs</a>
+        <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="intro">
+      <p class="kicker">Sylvan Yu</p>
+      <h1>Notes, demos, and old rendering experiments.</h1>
+      <p>
+        A small site for browser demos, notes, and archive pieces. Some entries are current;
+        some are kept close to their original state.
+      </p>
+      <div class="actions">
+        <a class="primary" href="/labs/">View labs</a>
+        <a href="/labs/photo3d/">Open Photo3D</a>
+      </div>
+    </section>
+
+    <section class="featured" aria-label="Featured labs">
+      {featuredLabEntries.map((lab) => (
+        <a
+          class:list={['feature', lab.featureClass]}
+          href={lab.href}
+          style={lab.image ? `--photo3d-thumb: url("${lab.image}")` : undefined}
+        >
+          <span>{lab.label}</span>
+          <strong>{lab.title}</strong>
+        </a>
+      ))}
+    </section>
   </main>
 </Base>
 
 <style>
-  main {
+  .page {
     min-height: 100svh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-align: center;
+    max-width: 1120px;
+    margin: 0 auto;
     padding: 24px;
   }
-  h1 { margin: 0; font-size: clamp(28px, 6vw, 56px); letter-spacing: -0.02em; }
-  p { margin: 0; color: var(--muted); }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 8px 0 74px;
+  }
+
+  .brand,
+  nav a,
+  .actions a,
+  .feature {
+    text-decoration: none;
+  }
+
+  .brand {
+    font-weight: 650;
+  }
+
+  nav {
+    display: flex;
+    gap: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a:hover {
+    color: var(--text);
+  }
+
+  .intro {
+    max-width: 840px;
+    padding-bottom: 56px;
+  }
+
+  .kicker {
+    margin: 0 0 12px;
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(42px, 8vw, 86px);
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .intro > p:not(.kicker) {
+    max-width: 640px;
+    margin: 20px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .actions a {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .actions a:hover {
+    border-color: #3b4256;
+    background: var(--surface-2);
+  }
+
+  .actions .primary {
+    color: #061006;
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  .featured {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .feature {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 18px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .feature:hover {
+    border-color: #3b4256;
+    background: var(--surface-2);
+  }
+
+  .feature span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .feature strong {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+
+  .photo {
+    background-image:
+      linear-gradient(rgba(10,11,15,.28), rgba(10,11,15,.72)),
+      var(--photo3d-thumb);
+    background-size: cover;
+    background-position: 50% 54%;
+  }
+
+  .galacean {
+    background:
+      linear-gradient(90deg, rgba(44,127,143,.52), transparent 42%),
+      linear-gradient(135deg, #171a22 0%, #171a22 54%, #6f5cd1 54%, #6f5cd1 72%, #c9836b 72%);
+  }
+
+  .galacean09 {
+    background:
+      linear-gradient(180deg, rgba(10, 11, 15, .08), rgba(10, 11, 15, .62)),
+      linear-gradient(145deg, #1f7e8d 0%, #1f7e8d 48%, #171a22 48%, #171a22 100%);
+  }
+
+  @media (max-width: 760px) {
+    .page { padding: 18px; }
+    .topbar { padding-bottom: 52px; }
+    .featured { grid-template-columns: 1fr; }
+    h1 { font-size: clamp(38px, 12vw, 64px); }
+  }
+
+  @media (max-width: 560px) {
+    .topbar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 42px;
+    }
+
+    nav {
+      gap: 14px;
+    }
+  }
 </style>

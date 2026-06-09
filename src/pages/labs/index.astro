@@ -1,0 +1,271 @@
+---
+import Base from '../../layouts/Base.astro';
+import { labEntries } from '../../labs/catalog';
+---
+
+<Base title="Labs | sylvanyu.io" description="Small demos, notes, and archive experiments by Sylvan Yu.">
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="/">sylvanyu.io</a>
+      <nav>
+        <a href="/labs/">Labs</a>
+        <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="intro">
+      <p class="kicker">Labs</p>
+      <h1>Small demos, notes, and archive experiments.</h1>
+      <p>
+        A place for browser-native pieces and older tests. Not every entry is a finished project;
+        some are kept here for context.
+      </p>
+    </section>
+
+    <section class="grid" aria-label="Lab entries">
+      {labEntries.map((lab) => (
+        <article class="lab-card">
+          <a class="main-link" href={lab.href}>
+            <div class="media" aria-hidden="true">
+              {lab.image ? (
+                <img src={lab.image} alt="" loading="lazy" />
+              ) : (
+                <div class:list={['shader-thumb', lab.thumb]}>
+                  <span class="water"></span>
+                  <span class="gem"></span>
+                  <span class="skin"></span>
+                  <span class="post"></span>
+                </div>
+              )}
+            </div>
+            <div class="body">
+              <div class="meta-row">
+                <span>{lab.label}</span>
+                <span>{lab.meta}</span>
+              </div>
+              <h2>{lab.title}</h2>
+              <p>{lab.description}</p>
+            </div>
+          </a>
+          <div class="source-row" aria-label={`${lab.title} source links`}>
+            {lab.sourceLinks.length ? (
+              lab.sourceLinks.map((source) => (
+                <a href={source.href} rel="noreferrer">{source.label}</a>
+              ))
+            ) : (
+              <span>No public source link</span>
+            )}
+          </div>
+        </article>
+      ))}
+    </section>
+  </main>
+</Base>
+
+<style>
+  .page {
+    min-height: 100svh;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 8px 0 64px;
+  }
+
+  .brand,
+  nav a {
+    text-decoration: none;
+  }
+
+  .brand {
+    font-weight: 650;
+  }
+
+  nav {
+    display: flex;
+    gap: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a:hover {
+    color: var(--text);
+  }
+
+  .intro {
+    max-width: 720px;
+    margin-bottom: 36px;
+  }
+
+  .kicker {
+    margin: 0 0 10px;
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 780px;
+    font-size: clamp(36px, 7vw, 72px);
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .intro > p:not(.kicker) {
+    max-width: 620px;
+    margin: 18px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .lab-card {
+    overflow: hidden;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .lab-card:hover {
+    border-color: #3b4256;
+    background: var(--surface-2);
+  }
+
+  .main-link {
+    display: grid;
+    grid-template-rows: 220px 1fr;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .media {
+    min-height: 0;
+    background: #050609;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 54%;
+    display: block;
+    filter: saturate(1.08) contrast(1.02);
+  }
+
+  .shader-thumb {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background: #222634;
+  }
+
+  .shader-thumb span {
+    display: block;
+  }
+
+  .water { background: #2c7f8f; }
+  .gem { background: #6f5cd1; }
+  .skin { background: #c9836b; }
+  .post { background: #1a1d29; }
+
+  .galacean09-thumb {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .galacean09-thumb .water {
+    background:
+      linear-gradient(145deg, rgba(126, 224, 138, .18), transparent 42%),
+      #1f7e8d;
+  }
+
+  .galacean09-thumb .gem {
+    background:
+      linear-gradient(180deg, #171a22 0 48%, #4d6f74 48% 50%, #1c282c 50% 100%);
+  }
+
+  .galacean09-thumb .skin,
+  .galacean09-thumb .post {
+    display: none;
+  }
+
+  .body {
+    padding: 18px;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  h2 {
+    margin: 14px 0 8px;
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .body p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .source-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 0 18px 16px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .source-row a {
+    color: var(--green);
+    text-decoration: none;
+  }
+
+  .source-row a:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 760px) {
+    .page { padding: 18px; }
+    .topbar { padding-bottom: 44px; }
+    .grid { grid-template-columns: 1fr; }
+    .main-link { grid-template-rows: 190px 1fr; }
+  }
+
+  @media (max-width: 560px) {
+    .topbar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 36px;
+    }
+
+    nav {
+      gap: 14px;
+    }
+  }
+</style>
