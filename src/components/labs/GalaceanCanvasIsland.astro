@@ -1,0 +1,219 @@
+---
+interface Props {
+  family: 'galacean-1-1' | 'galacean-0-9';
+  scene: string;
+  title: string;
+  category: string;
+}
+
+const { family, scene, title, category } = Astro.props;
+const canvasId = `${family}-${scene}-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<section class="galacean-canvas-island" data-galacean-canvas-island data-family={family} data-scene={scene}>
+  <div class="stage-meta">
+    <span>{category}</span>
+    <strong>{title}</strong>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id={canvasId} aria-label={`${title} canvas`}></canvas>
+    <p class="status" data-galacean-canvas-status>Loading...</p>
+    <button class="stats-toggle" type="button" data-galacean-canvas-stats-toggle aria-pressed="false" disabled>
+      Stats
+    </button>
+  </div>
+</section>
+
+<script>
+  const sceneModules = {
+    'galacean-1-1': import.meta.glob('../../labs/galacean-1-1/scenes/*/index.ts'),
+    'galacean-0-9': import.meta.glob('../../labs/galacean-0-9/scenes/*/index.ts'),
+  };
+
+  document.querySelectorAll('[data-galacean-canvas-island]').forEach((island) => {
+    if (!(island instanceof HTMLElement) || island.dataset.mounted === 'true') return;
+
+    island.dataset.mounted = 'true';
+    const family = island.dataset.family;
+    const scene = island.dataset.scene;
+    const canvas = island.querySelector('canvas');
+    const status = island.querySelector('[data-galacean-canvas-status]');
+    const statsToggle = island.querySelector('[data-galacean-canvas-stats-toggle]');
+
+    const modules = family === 'galacean-1-1' || family === 'galacean-0-9'
+      ? sceneModules[family]
+      : undefined;
+    const modulePath = `../../labs/${family}/scenes/${scene}/index.ts`;
+    const loadScene = modules?.[modulePath];
+
+    if (!(canvas instanceof HTMLCanvasElement) || !scene || !loadScene) {
+      island.dataset.state = 'error';
+      if (status) status.textContent = 'Demo unavailable';
+      return;
+    }
+
+    let disposed = false;
+    let handle;
+
+    const dispose = () => {
+      disposed = true;
+      document.body.classList.remove('galacean-stats-open');
+      handle?.destroy?.();
+    };
+
+    window.addEventListener('pagehide', dispose, { once: true });
+
+    statsToggle?.addEventListener('click', () => {
+      if (!(statsToggle instanceof HTMLButtonElement) || !handle?.setStatsVisible) return;
+      const active = statsToggle.getAttribute('aria-pressed') !== 'true';
+      statsToggle.setAttribute('aria-pressed', String(active));
+      island.dataset.stats = active ? 'open' : 'closed';
+      handle.setStatsVisible(active);
+    });
+
+    loadScene()
+      .then((mod) => mod.initScene(canvas.id))
+      .then((sceneHandle) => {
+        handle = sceneHandle;
+        if (disposed) {
+          dispose();
+          return;
+        }
+        island.dataset.state = 'ready';
+        if (statsToggle instanceof HTMLButtonElement) statsToggle.disabled = false;
+        if (status) status.textContent = 'Loaded';
+      })
+      .catch((error) => {
+        console.error(error);
+        island.dataset.state = 'error';
+        if (status) status.textContent = 'Load failed';
+      });
+  });
+</script>
+
+<style>
+  .galacean-canvas-island {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .stage-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-meta span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .stage-meta strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: min(68svh, 720px);
+    min-height: 420px;
+    background: #050609;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .status {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    transition: opacity .18s ease;
+  }
+
+  .stats-toggle {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    min-height: 28px;
+    padding: 0 10px;
+    color: rgba(232, 234, 240, .74);
+    background: rgba(5, 6, 9, .32);
+    border: 1px solid rgba(232, 234, 240, .18);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: .58;
+    transition: opacity .16s ease, border-color .16s ease, background .16s ease;
+  }
+
+  .stats-toggle:hover,
+  .stats-toggle[aria-pressed="true"] {
+    opacity: 1;
+    border-color: rgba(126, 224, 138, .62);
+    background: rgba(5, 6, 9, .62);
+  }
+
+  .stats-toggle:disabled {
+    cursor: default;
+    opacity: .32;
+  }
+
+  [data-state="ready"] .status {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  [data-state="error"] .status {
+    color: var(--amber);
+  }
+
+  :global(body:not(.galacean-stats-open) .gl-perf) {
+    display: none;
+  }
+
+  :global(body.galacean-stats-open .gl-perf) {
+    z-index: 50;
+    transform: scale(.72);
+    transform-origin: top left;
+  }
+
+  @media (max-width: 760px) {
+    .canvas-wrap {
+      height: 62svh;
+      min-height: 340px;
+    }
+
+    .stage-meta {
+      align-items: flex-start;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      padding-block: 8px;
+    }
+
+    .stage-meta strong {
+      white-space: normal;
+    }
+  }
+</style>
