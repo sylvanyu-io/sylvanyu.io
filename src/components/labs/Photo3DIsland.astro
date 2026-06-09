@@ -1,0 +1,358 @@
+---
+import defaultSpriteUrl from '../../labs/photo3d/textures/sprite1.png?url';
+
+const title = 'Photo3D';
+const category = 'WebGL / LDI';
+---
+
+<section class="photo3d-island" data-photo3d-root data-local-sprite={defaultSpriteUrl}>
+  <div class="stage-meta">
+    <span>{category}</span>
+    <strong>{title}</strong>
+  </div>
+  <div class="canvas-wrap" data-photo3d-wrap>
+    <div class="stage" data-photo3d-stage aria-label="Photo3D WebGL canvas"></div>
+
+    <form class="panel" data-photo3d-panel>
+      <div class="panel-head">
+        <h2>Photo3D</h2>
+        <p>photo3d.fs · ray-marched LDI</p>
+      </div>
+
+      <div class="grp">位置偏移</div>
+      <label class="row">
+        <span>X 偏移</span>
+        <input data-control="ox" type="range" min="-0.05" max="0.05" step="0.001" value="0.003" />
+        <output data-output="ox"></output>
+      </label>
+      <label class="row">
+        <span>Y 偏移</span>
+        <input data-control="oy" type="range" min="-0.05" max="0.05" step="0.001" value="-0.01" />
+        <output data-output="oy"></output>
+      </label>
+      <label class="row">
+        <span>Z 偏移</span>
+        <input data-control="oz" type="range" min="-0.1" max="0.3" step="0.001" value="0.176" />
+        <output data-output="oz"></output>
+      </label>
+
+      <div class="grp">缩放与聚焦</div>
+      <label class="row">
+        <span>聚焦距离</span>
+        <input data-control="focus" type="range" min="0" max="1" step="0.01" value="0.51" />
+        <output data-output="focus"></output>
+      </label>
+      <label class="chk">
+        <input data-control="highlight" type="checkbox" checked />
+        <span>聚焦高亮</span>
+      </label>
+      <label class="row">
+        <span>整体缩放</span>
+        <input data-control="crop" type="range" min="0.8" max="1.3" step="0.01" value="0.97" />
+        <output data-output="crop"></output>
+      </label>
+
+      <div class="grp">图层与边缘</div>
+      <div class="row segmented-row">
+        <span>图层数量</span>
+        <div class="seg" data-layers>
+          <button type="button" data-n="1">1</button>
+          <button type="button" data-n="2">2</button>
+          <button type="button" data-n="3">3</button>
+        </div>
+      </div>
+      <label class="row">
+        <span>羽化宽度</span>
+        <input data-control="feather" type="range" min="0" max="3" step="0.1" value="1.0" />
+        <output data-output="feather"></output>
+      </label>
+      <label class="row">
+        <span>边缘锐度</span>
+        <input data-control="sharp" type="range" min="0" max="20" step="1" value="10" />
+        <output data-output="sharp"></output>
+      </label>
+
+      <div class="grp">图源 URL</div>
+      <input data-url-input type="url" class="urlin" placeholder="https://.../sprite.png" />
+      <button type="button" data-load-url class="loadbtn">载入 URL</button>
+    </form>
+
+    <p class="status" data-photo3d-status>Initializing...</p>
+  </div>
+</section>
+
+<script>
+  import shaderBody from '../../labs/photo3d/photo3d.fs?raw';
+  import { mountPhoto3D } from '../../labs/photo3d/runtime';
+
+  document.querySelectorAll('[data-photo3d-root]').forEach((root) => {
+    mountPhoto3D(root, { shaderBody });
+  });
+</script>
+
+<style>
+  .photo3d-island {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .stage-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-meta span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .stage-meta strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: min(72svh, 760px);
+    min-height: 520px;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: #050609;
+  }
+
+  .stage {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  canvas {
+    position: absolute;
+    display: block;
+    background: #000;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+    touch-action: none;
+  }
+
+  .panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    width: 248px;
+    max-width: calc(100% - 24px);
+    padding: 12px 13px;
+    color: var(--text);
+    background: rgba(17, 19, 26, .88);
+    border: 1px solid rgba(232, 234, 240, .14);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    user-select: none;
+  }
+
+  .panel-head h2 {
+    margin: 0 0 2px;
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .panel-head p {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .grp {
+    margin: 11px 0 4px;
+    color: #7a8194;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) 42px;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin: 6px 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .row output {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    min-width: 0;
+    width: 100%;
+    accent-color: var(--green);
+  }
+
+  .chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .segmented-row {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .seg {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .seg button,
+  .loadbtn {
+    color: var(--muted);
+    background: #1c1f28;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .seg button {
+    min-height: 25px;
+  }
+
+  .seg button.on {
+    color: #cdffd4;
+    background: #2f4a33;
+    border-color: #3f7a48;
+  }
+
+  .urlin {
+    width: 100%;
+    min-width: 0;
+    color: var(--text);
+    background: #1c1f28;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 7px;
+    font: inherit;
+    font-size: 11px;
+  }
+
+  .loadbtn {
+    width: 100%;
+    min-height: 30px;
+    margin-top: 6px;
+    color: #cdffd4;
+    background: #2f4a33;
+    border-color: #3f7a48;
+  }
+
+  .status {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    z-index: 2;
+    margin: 0;
+    padding: 6px 10px;
+    color: rgba(232, 234, 240, .66);
+    background: rgba(5, 6, 9, .42);
+    border: 1px solid rgba(232, 234, 240, .12);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .status.err {
+    color: var(--amber);
+    border-color: rgba(242, 189, 116, .34);
+  }
+
+  @media (max-width: 760px) {
+    .canvas-wrap {
+      height: auto;
+      min-height: 0;
+    }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      height: min(64svh, 540px);
+      min-height: 360px;
+    }
+
+    canvas {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .stage-meta {
+      align-items: flex-start;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      padding-block: 8px;
+    }
+
+    .panel {
+      position: relative;
+      top: auto;
+      left: auto;
+      width: 100%;
+      max-width: none;
+      max-height: none;
+      padding: 11px 12px;
+      overflow: visible;
+      background: rgba(17, 19, 26, .96);
+      border-right: 0;
+      border-left: 0;
+      border-radius: 0;
+    }
+
+    .row {
+      grid-template-columns: 52px minmax(72px, 1fr) 38px;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .segmented-row {
+      grid-template-columns: 52px minmax(0, 1fr);
+    }
+
+    .grp {
+      margin-top: 9px;
+    }
+
+    .status {
+      position: static;
+      display: inline-block;
+      margin: 9px 10px 10px;
+    }
+  }
+</style>
