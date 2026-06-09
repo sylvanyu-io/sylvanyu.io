@@ -104,17 +104,70 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
 
   const wrap = root.querySelector('[data-photo3d-wrap]');
   const stage = root.querySelector('[data-photo3d-stage]');
+  const panel = root.querySelector('[data-photo3d-panel]');
+  const panelToggle = root.querySelector('[data-photo3d-panel-toggle]');
+  const statsPanel = root.querySelector('[data-photo3d-stats]');
+  const statsToggle = root.querySelector('[data-photo3d-stats-toggle]');
   const statusEl = root.querySelector('[data-photo3d-status]');
 
   if (!(wrap instanceof HTMLElement) || !(stage instanceof HTMLElement) || !(statusEl instanceof HTMLElement)) {
     return;
   }
 
+  const statEls = new Map<string, HTMLElement>();
+  root.querySelectorAll('[data-stat]').forEach((element) => {
+    if (element instanceof HTMLElement && element.dataset.stat) {
+      statEls.set(element.dataset.stat, element);
+    }
+  });
+
+  const setStat = (id: string, value: string) => {
+    const element = statEls.get(id);
+    if (element) element.textContent = value;
+  };
+
   const setStatus = (message: string, error = false) => {
+    statusEl.hidden = false;
     statusEl.textContent = message;
     statusEl.classList.toggle('err', error);
-    root.dataset.state = error ? 'error' : root.dataset.state || 'loading';
+    root.dataset.state = error ? 'error' : 'loading';
   };
+
+  const hideStatus = () => {
+    statusEl.hidden = true;
+    statusEl.textContent = '';
+    statusEl.classList.remove('err');
+  };
+
+  const setPanelOpen = (open: boolean) => {
+    if (panel instanceof HTMLElement) {
+      panel.hidden = !open;
+    }
+    if (panelToggle instanceof HTMLButtonElement) {
+      panelToggle.setAttribute('aria-expanded', String(open));
+      panelToggle.classList.toggle('is-open', open);
+    }
+  };
+
+  const setStatsOpen = (open: boolean) => {
+    if (statsPanel instanceof HTMLElement) {
+      statsPanel.hidden = !open;
+    }
+    if (statsToggle instanceof HTMLButtonElement) {
+      statsToggle.setAttribute('aria-expanded', String(open));
+      statsToggle.classList.toggle('is-open', open);
+    }
+  };
+
+  setPanelOpen(false);
+  panelToggle?.addEventListener('click', () => {
+    setPanelOpen(panel instanceof HTMLElement ? panel.hidden : false);
+  });
+  setStatsOpen(false);
+  statsToggle?.addEventListener('click', () => {
+    setStatsOpen(statsPanel instanceof HTMLElement ? statsPanel.hidden : false);
+    updateStats();
+  });
 
   const spriteParam = new URLSearchParams(location.search).get('sprite');
   let spriteUrl = spriteParam || root.dataset.localSprite;
@@ -158,6 +211,9 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
   let dragging = false;
   let mx = 0;
   let my = 0;
+  let fps = 0;
+  let frameCount = 0;
+  let lastFpsTime = performance.now();
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
   const textures: Record<string, WebGLTexture | null> = {};
 
@@ -227,7 +283,18 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     canvas.style.top = '0';
     if (canvas.width !== backingWidth) canvas.width = backingWidth;
     if (canvas.height !== backingHeight) canvas.height = backingHeight;
+    updateStats();
   };
+
+  function updateStats() {
+    const rect = stage.getBoundingClientRect();
+    setStat('fps', fps > 0 ? `${Math.round(fps)}` : '--');
+    setStat('view', `${Math.round(rect.width)} x ${Math.round(rect.height)}`);
+    setStat('buffer', `${canvas.width} x ${canvas.height}`);
+    setStat('image', `${config.W} x ${config.H}`);
+    setStat('dpr', `${(window.devicePixelRatio || 1).toFixed(2)}x`);
+    setStat('layers', String(config.layers));
+  }
 
   const loadSprite = async (url: string) => {
     setStatus('Loading sprite...');
@@ -268,7 +335,8 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
 
     resize();
     root.dataset.state = 'ready';
-    setStatus(`Sprite ${config.W}x${config.H}`);
+    hideStatus();
+    updateStats();
   };
 
   const stopCanvasGesture = (event: Event) => {
@@ -303,7 +371,15 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
   canvas.addEventListener('touchstart', stopCanvasGesture, { passive: false });
   canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
 
-  const frame = () => {
+  const frame = (time = performance.now()) => {
+    frameCount += 1;
+    if (time - lastFpsTime >= 500) {
+      fps = (frameCount * 1000) / (time - lastFpsTime);
+      frameCount = 0;
+      lastFpsTime = time;
+      updateStats();
+    }
+
     let ox = config.offsetX;
     let oy = config.offsetY;
     const oz = config.offsetZ;
@@ -354,6 +430,7 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     const update = () => {
       config[key] = parseFloat(input.value);
       if (output) output.textContent = format(config[key]);
+      updateStats();
     };
 
     input.addEventListener('input', update);
@@ -373,6 +450,7 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     highlight.checked = config.highlight;
     highlight.addEventListener('change', () => {
       config.highlight = highlight.checked;
+      updateStats();
     });
   }
 
@@ -386,6 +464,7 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
         button.classList.toggle('on', button.dataset.n === target.dataset.n);
       }
     });
+    updateStats();
   });
 
   [...(layers?.children || [])].forEach((button) => {

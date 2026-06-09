@@ -11,9 +11,63 @@ const category = 'WebGL / LDI';
     <strong>{title}</strong>
   </div>
   <div class="canvas-wrap" data-photo3d-wrap>
-    <div class="stage" data-photo3d-stage aria-label="Photo3D WebGL canvas"></div>
+    <div class="stage" data-photo3d-stage aria-label="Photo3D WebGL canvas">
+      <div class="hud-actions" aria-label="Photo3D tools">
+        <button
+          class="hud-button"
+          type="button"
+          data-photo3d-stats-toggle
+          aria-controls="photo3d-stats"
+          aria-expanded="false"
+        >
+          Stats
+        </button>
+        <button
+          class="hud-button"
+          type="button"
+          data-photo3d-panel-toggle
+          aria-controls="photo3d-panel"
+          aria-expanded="false"
+        >
+          参数
+        </button>
+      </div>
+    </div>
 
-    <form class="panel" data-photo3d-panel>
+    <aside id="photo3d-stats" class="stats-panel" data-photo3d-stats hidden>
+      <div class="panel-head">
+        <h2>Stats</h2>
+        <p>runtime surface</p>
+      </div>
+      <dl class="stats-grid">
+        <div>
+          <dt>FPS</dt>
+          <dd data-stat="fps">--</dd>
+        </div>
+        <div>
+          <dt>View</dt>
+          <dd data-stat="view">--</dd>
+        </div>
+        <div>
+          <dt>Buffer</dt>
+          <dd data-stat="buffer">--</dd>
+        </div>
+        <div>
+          <dt>Image</dt>
+          <dd data-stat="image">--</dd>
+        </div>
+        <div>
+          <dt>DPR</dt>
+          <dd data-stat="dpr">--</dd>
+        </div>
+        <div>
+          <dt>Layers</dt>
+          <dd data-stat="layers">--</dd>
+        </div>
+      </dl>
+    </aside>
+
+    <form id="photo3d-panel" class="panel" data-photo3d-panel hidden>
       <div class="panel-head">
         <h2>Photo3D</h2>
         <p>photo3d.fs · ray-marched LDI</p>
@@ -148,6 +202,7 @@ const category = 'WebGL / LDI';
   canvas {
     position: absolute;
     inset: 0;
+    z-index: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -155,20 +210,110 @@ const category = 'WebGL / LDI';
     touch-action: none;
   }
 
-  .panel {
+  .hud-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+  }
+
+  .hud-button {
+    min-width: 0;
+    min-height: 28px;
+    padding: 0 10px;
+    color: rgba(232, 234, 240, .62);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .06)),
+      rgba(18, 21, 28, .42);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 999px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .1),
+      inset 0 -1px 0 rgba(255, 255, 255, .07),
+      0 6px 16px rgba(0, 0, 0, .2);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    opacity: .68;
+    transition: opacity .16s ease, color .16s ease, border-color .16s ease, background .16s ease;
+  }
+
+  .hud-button:hover,
+  .hud-button.is-open {
+    color: rgba(255, 255, 255, .94);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .08)),
+      rgba(24, 27, 35, .6);
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .12),
+      inset 0 -1px 0 rgba(255, 255, 255, .09),
+      0 7px 18px rgba(0, 0, 0, .22);
+    opacity: 1;
+  }
+
+  .panel,
+  .stats-panel {
     position: absolute;
     top: 12px;
-    left: 12px;
     z-index: 2;
-    width: 248px;
+    color: rgba(245, 247, 252, .92);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .055) 44%, rgba(126, 224, 138, .075)),
+      rgba(15, 18, 26, .56);
+    border: 1px solid rgba(255, 255, 255, .17);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .24),
+      inset 0 -1px 0 rgba(255, 255, 255, .06),
+      0 22px 70px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(24px) saturate(165%);
+    -webkit-backdrop-filter: blur(24px) saturate(165%);
+  }
+
+  .panel {
+    left: 12px;
+    width: 272px;
     max-width: calc(100% - 24px);
-    padding: 12px 13px;
-    color: var(--text);
-    background: rgba(17, 19, 26, .88);
-    border: 1px solid rgba(232, 234, 240, .14);
-    border-radius: 8px;
-    backdrop-filter: blur(8px);
+    max-height: calc(100% - 24px);
+    padding: 10px 11px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 16px;
+    scrollbar-color: rgba(255, 255, 255, .28) transparent;
+    scrollbar-width: thin;
     user-select: none;
+  }
+
+  .panel::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .24);
+    border-radius: 999px;
+  }
+
+  .stats-panel {
+    right: 12px;
+    width: 218px;
+    max-width: calc(100% - 24px);
+    padding: 13px 14px 14px;
+  }
+
+  .panel[hidden],
+  .stats-panel[hidden] {
+    display: none;
   }
 
   .panel-head h2 {
@@ -180,27 +325,31 @@ const category = 'WebGL / LDI';
 
   .panel-head p {
     margin: 0 0 8px;
-    color: var(--muted);
+    color: rgba(210, 216, 230, .68);
     font-size: 11px;
     line-height: 1.35;
   }
 
+  .panel > .panel-head p {
+    display: none;
+  }
+
   .grp {
-    margin: 11px 0 4px;
-    color: #7a8194;
-    font-size: 10px;
+    margin: 8px 0 3px;
+    color: rgba(210, 216, 230, .56);
+    font-size: 9px;
     line-height: 1.2;
   }
 
   .row {
     display: grid;
-    grid-template-columns: 58px minmax(0, 1fr) 42px;
+    grid-template-columns: 54px minmax(0, 1fr) 36px;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     min-width: 0;
-    margin: 6px 0;
-    color: var(--muted);
-    font-size: 12px;
+    margin: 4px 0;
+    color: rgba(210, 216, 230, .7);
+    font-size: 11px;
   }
 
   .row output {
@@ -219,14 +368,14 @@ const category = 'WebGL / LDI';
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin: 4px 0;
-    color: var(--muted);
-    font-size: 12px;
+    margin: 2px 0;
+    color: rgba(210, 216, 230, .76);
+    font-size: 11px;
     cursor: pointer;
   }
 
   .segmented-row {
-    grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-columns: 54px minmax(0, 1fr);
   }
 
   .seg {
@@ -238,10 +387,10 @@ const category = 'WebGL / LDI';
 
   .seg button,
   .loadbtn {
-    color: var(--muted);
-    background: #1c1f28;
-    border: 1px solid var(--line);
-    border-radius: 7px;
+    color: rgba(232, 234, 240, .72);
+    background: rgba(255, 255, 255, .075);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 10px;
     font: inherit;
     font-size: 12px;
     line-height: 1;
@@ -249,34 +398,79 @@ const category = 'WebGL / LDI';
   }
 
   .seg button {
-    min-height: 25px;
+    min-height: 22px;
   }
 
   .seg button.on {
-    color: #cdffd4;
-    background: #2f4a33;
-    border-color: #3f7a48;
+    color: #ddffe2;
+    background: rgba(126, 224, 138, .22);
+    border-color: rgba(126, 224, 138, .42);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
   }
 
   .urlin {
     width: 100%;
     min-width: 0;
     color: var(--text);
-    background: #1c1f28;
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 6px 7px;
+    background: rgba(255, 255, 255, .075);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 10px;
+    padding: 6px 8px;
     font: inherit;
     font-size: 11px;
   }
 
   .loadbtn {
     width: 100%;
-    min-height: 30px;
+    min-height: 28px;
     margin-top: 6px;
     color: #cdffd4;
-    background: #2f4a33;
-    border-color: #3f7a48;
+    background:
+      linear-gradient(135deg, rgba(126, 224, 138, .32), rgba(126, 224, 138, .16)),
+      rgba(34, 80, 43, .42);
+    border-color: rgba(126, 224, 138, .38);
+  }
+
+  .stats-grid {
+    display: grid;
+    gap: 7px;
+    margin: 9px 0 0;
+  }
+
+  .stats-grid div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+  }
+
+  .stats-grid div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .stats-grid dt,
+  .stats-grid dd {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .stats-grid dt {
+    color: rgba(210, 216, 230, .58);
+  }
+
+  .stats-grid dd {
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(245, 247, 252, .92);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .status {
@@ -292,6 +486,10 @@ const category = 'WebGL / LDI';
     border-radius: 8px;
     font-size: 12px;
     line-height: 1;
+  }
+
+  .status[hidden] {
+    display: none;
   }
 
   .status.err {
@@ -317,20 +515,30 @@ const category = 'WebGL / LDI';
       max-height: none;
       padding: 11px 12px;
       overflow: visible;
-      background: rgba(17, 19, 26, .96);
+      border-right: 0;
+      border-left: 0;
+      border-radius: 0 0 18px 18px;
+    }
+
+    .stats-panel {
+      position: relative;
+      top: auto;
+      right: auto;
+      width: 100%;
+      max-width: none;
       border-right: 0;
       border-left: 0;
       border-radius: 0;
     }
 
     .row {
-      grid-template-columns: 52px minmax(72px, 1fr) 38px;
+      grid-template-columns: 56px minmax(72px, 1fr) 38px;
       gap: 6px;
       font-size: 11px;
     }
 
     .segmented-row {
-      grid-template-columns: 52px minmax(0, 1fr);
+      grid-template-columns: 56px minmax(0, 1fr);
     }
 
     .grp {
