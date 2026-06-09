@@ -1,5 +1,14 @@
 import { defineConfig } from 'astro/config';
+import glsl from 'vite-plugin-glsl';
+
+const glslPlugin = await glsl();
 
 export default defineConfig({
   site: 'https://sylvanyu.io',
+  vite: {
+    plugins: [glslPlugin],
+    server: {
+      allowedHosts: ['.trycloudflare.com'],
+    },
+  },
 });

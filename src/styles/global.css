@@ -1,7 +1,13 @@
 :root {
   --bg: #0a0b0f;
+  --surface: #11131a;
+  --surface-2: #171a22;
   --text: #e8eaf0;
   --muted: #9aa0b4;
+  --line: #252936;
+  --green: #7ee08a;
+  --blue: #8bb7ff;
+  --amber: #f2bd74;
 }
 
 * { box-sizing: border-box; }
@@ -14,6 +20,18 @@ body {
     "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-a { color: inherit; }
+a { color: inherit; text-decoration-color: color-mix(in srgb, currentColor 42%, transparent); }
+a:hover { text-decoration-color: currentColor; }
+
+h1,
+h2,
+p {
+  overflow-wrap: break-word;
+}
+
+::selection {
+  background: rgba(126, 224, 138, 0.24);
+}

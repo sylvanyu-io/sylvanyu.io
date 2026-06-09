@@ -5,11 +5,14 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "rm -rf dist && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
+    "@galacean/engine": "1.1.0-beta.14",
+    "@galacean/engine-toolkit": "1.1.0-beta.0",
+    "vite-plugin-glsl": "^1.6.0",
     "astro": "^6.4.2"
   }
 }
