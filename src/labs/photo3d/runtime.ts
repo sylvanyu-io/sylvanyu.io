@@ -21,6 +21,7 @@ type NumericConfigKey = Exclude<keyof Photo3DConfig, 'highlight'>;
 const SPRITE_LAYOUT = '2x3';
 const F1 = 1248.0;
 const INVZMIN = 0.1282;
+const MAX_BACKING_EDGE = 2048;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -128,14 +129,15 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     offsetY: -0.01,
     offsetZ: 0.176,
     focus: 0.51,
-    highlight: true,
+    highlight: false,
     crop: 0.97,
     layers: 2,
     feather: 1.0,
     sharpness: 10,
-    W: 472,
-    H: 1024,
+    W: 1024,
+    H: 640,
   };
+  root.style.setProperty('--photo3d-aspect', `${config.W} / ${config.H}`);
 
   const canvas = document.createElement('canvas');
   stage.appendChild(canvas);
@@ -151,7 +153,6 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
   }
 
   let program: WebGLProgram;
-  let aspect = config.W / config.H;
   let transparentTextureRef: WebGLTexture | null = null;
   let animationFrame = 0;
   let dragging = false;
@@ -209,20 +210,23 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
 
   const resize = () => {
     const rect = stage.getBoundingClientRect();
-    const containerWidth = Math.max(1, rect.width);
-    const containerHeight = Math.max(1, rect.height);
-    const [rawWidth, rawHeight] = containerWidth / containerHeight > aspect
-      ? [containerHeight * aspect, containerHeight]
-      : [containerWidth, containerWidth / aspect];
-    const width = Math.min(rawWidth, 1024 * aspect);
-    const height = Math.min(rawHeight, 1024);
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const pixelRatio = window.devicePixelRatio || 1;
+    const backingScale = Math.min(
+      pixelRatio,
+      MAX_BACKING_EDGE / width,
+      MAX_BACKING_EDGE / height,
+    );
+    const backingWidth = Math.max(1, Math.round(width * backingScale));
+    const backingHeight = Math.max(1, Math.round(height * backingScale));
 
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    canvas.style.left = `${(containerWidth - width) / 2}px`;
-    canvas.style.top = `${(containerHeight - height) / 2}px`;
-    canvas.width = Math.round(width);
-    canvas.height = Math.round(height);
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    if (canvas.width !== backingWidth) canvas.width = backingWidth;
+    if (canvas.height !== backingHeight) canvas.height = backingHeight;
   };
 
   const loadSprite = async (url: string) => {
@@ -241,8 +245,8 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     textures.disparity3 = transparentTextureRef;
     config.W = frames[3].width;
     config.H = frames[3].height;
-    aspect = config.W / config.H;
     spriteUrl = url;
+    root.style.setProperty('--photo3d-aspect', `${config.W} / ${config.H}`);
 
     gl.useProgram(program);
     const units = {
@@ -366,6 +370,7 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
 
   const highlight = root.querySelector('[data-control="highlight"]');
   if (highlight instanceof HTMLInputElement) {
+    highlight.checked = config.highlight;
     highlight.addEventListener('change', () => {
       config.highlight = highlight.checked;
     });
