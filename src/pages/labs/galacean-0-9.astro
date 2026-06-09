@@ -1,0 +1,280 @@
+---
+import Base from '../../layouts/Base.astro';
+import { galacean09Demos } from '../../labs/galacean-0-9/demoCatalog';
+---
+
+<Base title="Galacean 0.9 Tests | sylvanyu.io" description="Archived Galacean 0.9 rendering tests from 2023.">
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="/">sylvanyu.io</a>
+      <nav>
+        <a href="/labs/">Labs</a>
+        <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="copy">
+        <p class="kicker">Archive / Galacean 0.9</p>
+        <h1>Galacean 0.9 tests.</h1>
+        <p>
+          Two old Galacean 0.9 demos: stylized island water and planar reflection. They are kept
+          close to the original small repos.
+        </p>
+      </div>
+      <div class="visual" aria-hidden="true">
+        <div class="tile water">
+          <span>water</span>
+        </div>
+        <div class="tile reflection">
+          <span>reflection</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="demos" aria-label="Galacean 0.9 demos">
+      {galacean09Demos.map((demo) => (
+        <a class="demo-card" href={demo.href}>
+          <div class="route">{demo.category}</div>
+          <div>
+            <h2>{demo.title}</h2>
+            <p>{demo.summary}</p>
+            <span>Open test</span>
+          </div>
+        </a>
+      ))}
+    </section>
+
+    <section class="notes">
+      <h2>Notes</h2>
+      <ul>
+        <li>These are old rendering experiments, not finished project pages.</li>
+        <li>The original repos used the old Oasis/Galacean 0.9 package names.</li>
+        <li>The site mounts them as separate Astro island pages.</li>
+        <li>Assets still load from CDN URLs used at the time.</li>
+        <li>Each demo page keeps its source repo link.</li>
+      </ul>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .page {
+    min-height: 100svh;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 8px 0 56px;
+  }
+
+  .brand,
+  nav a {
+    text-decoration: none;
+  }
+
+  .brand {
+    font-weight: 650;
+  }
+
+  nav {
+    display: flex;
+    gap: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a:hover {
+    color: var(--text);
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+    gap: 28px;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 420px;
+    min-width: 0;
+  }
+
+  .kicker {
+    margin: 0 0 12px;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 720px;
+    font-size: clamp(36px, 6.5vw, 70px);
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .copy > p:not(.kicker) {
+    max-width: 620px;
+    margin: 20px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+
+  .visual {
+    width: 100%;
+    min-width: 0;
+    min-height: 420px;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    overflow: hidden;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .tile {
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .tile span {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    color: rgba(255,255,255,.78);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .water {
+    background:
+      linear-gradient(145deg, rgba(126, 224, 138, .18), transparent 42%),
+      #1f7e8d;
+  }
+
+  .reflection {
+    background:
+      linear-gradient(180deg, #171a22 0 48%, #4d6f74 48% 50%, #1c282c 50% 100%);
+  }
+
+  .demos {
+    display: grid;
+    gap: 12px;
+    margin-top: 36px;
+  }
+
+  .demo-card,
+  .notes {
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .demo-card {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .demo-card:hover {
+    border-color: #3b4256;
+    background: var(--surface-2);
+  }
+
+  .route {
+    color: var(--green);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: 19px;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .demo-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .demo-card span {
+    display: inline-block;
+    margin-top: 10px;
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .notes {
+    margin-top: 12px;
+    padding: 18px;
+  }
+
+  .notes ul {
+    margin: 10px 0 0;
+    padding-left: 20px;
+    color: var(--muted);
+  }
+
+  .notes li + li {
+    margin-top: 4px;
+  }
+
+  @media (max-width: 820px) {
+    .page {
+      max-width: 100%;
+      padding: 18px;
+    }
+    .topbar { padding-bottom: 38px; }
+    .hero {
+      width: 100%;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .copy {
+      max-width: calc(100vw - 36px);
+      min-height: auto;
+    }
+    .visual {
+      min-height: 260px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .topbar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    nav {
+      gap: 14px;
+    }
+
+    .demo-card {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+  }
+</style>
