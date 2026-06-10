@@ -1,5 +1,6 @@
 import { galacean09Demos } from './galacean-0-9/demoCatalog';
 import { galaceanDemos, galaceanRepoUrl } from './galacean-1-1/demoCatalog';
+import { liquidGlassDemos } from './liquid-glass/demoCatalog';
 import photo3dThumbUrl from './photo3d/textures/sprite1.png?url';
 
 type SourceLink = {
@@ -25,10 +26,10 @@ export const labEntries: LabEntry[] = [
   {
     slug: 'liquid-glass',
     title: 'Liquid Glass',
-    label: 'SVG / displacement',
+    label: 'SVG / Three.js',
     href: '/labs/liquid-glass/',
-    description: 'A small displacement-map lab based on Aave-style glass implementation notes.',
-    meta: 'Local demo',
+    description: 'A split Liquid Glass lab with one SVG displacement filter demo and one Three.js shader pass.',
+    meta: `${liquidGlassDemos.length} demos`,
     featured: true,
     featureClass: 'liquidGlass',
     thumb: 'liquid-thumb',

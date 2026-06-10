@@ -12,7 +12,8 @@
   "dependencies": {
     "@galacean/engine": "1.1.0-beta.14",
     "@galacean/engine-toolkit": "1.1.0-beta.0",
-    "vite-plugin-glsl": "^1.6.0",
-    "astro": "^6.4.2"
+    "astro": "^6.4.2",
+    "three": "^0.184.0",
+    "vite-plugin-glsl": "^1.6.0"
   }
 }

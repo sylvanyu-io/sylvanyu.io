@@ -1,37 +1,50 @@
 ---
-import LiquidGlassIsland from '../../components/labs/LiquidGlassIsland.astro';
-import Base from '../../layouts/Base.astro';
+import LiquidGlassCanvasIsland from '../../../components/labs/LiquidGlassCanvasIsland.astro';
+import LiquidGlassIsland from '../../../components/labs/LiquidGlassIsland.astro';
+import Base from '../../../layouts/Base.astro';
+import { liquidGlassDemos, type LiquidGlassDemo } from '../../../labs/liquid-glass/demoCatalog';
+
+export function getStaticPaths() {
+  return liquidGlassDemos.map((demo) => ({
+    params: { demo: demo.slug },
+    props: { demo },
+  }));
+}
+
+const { demo } = Astro.props as { demo: LiquidGlassDemo };
 ---
 
-<Base title="Liquid Glass | sylvanyu.io" description="A small SVG displacement-map demo based on Aave's glass implementation notes.">
+<Base title={`${demo.title} | sylvanyu.io`} description={demo.summary}>
   <main class="page">
     <header class="topbar">
       <a class="brand" href="/">sylvanyu.io</a>
       <nav>
         <a href="/labs/">Labs</a>
-        <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
+        <a href="/labs/liquid-glass/">Liquid Glass</a>
+        {demo.sourceHref ? <a href={demo.sourceHref} rel="noreferrer">Reference</a> : null}
       </nav>
     </header>
 
     <section class="intro">
-      <p class="kicker">SVG / Displacement</p>
-      <h1>Liquid Glass.</h1>
-      <p>
-        A local lab for the Aave-style displacement map pipeline: generated lens maps,
-        SVG filtering for DOM layers, and a path toward canvas-aware glass.
-      </p>
+      <p class="kicker">{demo.category}</p>
+      <h1>{demo.title}</h1>
+      <p>{demo.summary}</p>
     </section>
 
-    <LiquidGlassIsland />
+    {demo.slug === 'svg' ? <LiquidGlassIsland /> : <LiquidGlassCanvasIsland />}
 
-    <section class="details" aria-label="Liquid Glass details">
+    <section class="details" aria-label="Demo details">
       <div>
         <span>Runtime</span>
-        <strong>src/labs/liquid-glass/runtime.ts</strong>
+        <strong>{demo.runtime}</strong>
       </div>
       <div>
-        <span>Research notes</span>
-        <strong>docs/research/aave-liquid-glass-source.md</strong>
+        <span>Reference</span>
+        {demo.sourceHref ? (
+          <a href={demo.sourceHref} rel="noreferrer">{demo.sourceLabel}</a>
+        ) : (
+          <strong>{demo.sourceLabel}</strong>
+        )}
       </div>
     </section>
   </main>
@@ -125,7 +138,8 @@ import Base from '../../layouts/Base.astro';
     font-size: 12px;
   }
 
-  .details strong {
+  .details strong,
+  .details a {
     display: block;
     margin-top: 6px;
     overflow-wrap: anywhere;
