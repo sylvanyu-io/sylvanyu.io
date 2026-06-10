@@ -1,0 +1,540 @@
+<section class="liquid-repro" data-liquid-root>
+  <div class="stage-meta">
+    <span>SVG / displacement</span>
+    <strong>Liquid Glass</strong>
+  </div>
+
+  <figure class="repro-figure">
+    <div class="playground" data-liquid-playground style="--split: 50%">
+      <div class="stage" data-liquid-stage aria-label="Refracted result">
+        <div class="source-scene" data-liquid-sample>
+          <div class="grid"></div>
+        </div>
+
+        <div class="glass-lens" data-liquid-lens aria-hidden="true">
+          <div class="lens-sheen"></div>
+          <div class="lens-outline"></div>
+        </div>
+      </div>
+
+      <div class="map-stage" data-liquid-map-stage aria-label="Displacement map preview">
+        <img data-liquid-map-image alt="Generated displacement map" draggable="false" />
+      </div>
+    </div>
+
+    <figcaption>On the left is the refracted result, on the right the map that drives it.</figcaption>
+  </figure>
+
+  <div class="controls" aria-label="Liquid glass controls">
+    <label class="control">
+      <span>Width</span>
+      <input data-liquid-control="width" type="range" min="20" max="120" step="1" value="70" />
+      <output data-liquid-output="width"></output>
+    </label>
+    <label class="control">
+      <span>Height</span>
+      <input data-liquid-control="height" type="range" min="20" max="80" step="1" value="60" />
+      <output data-liquid-output="height"></output>
+    </label>
+    <label class="control">
+      <span>BorderRadius</span>
+      <input data-liquid-control="radius" type="range" min="0" max="64" step="1" value="28" />
+      <output data-liquid-output="radius"></output>
+    </label>
+    <label class="control">
+      <span>Scale</span>
+      <input data-liquid-control="scale" type="range" min="0" max="0.2" step="0.001" value="0.1" />
+      <output data-liquid-output="scale"></output>
+    </label>
+    <label class="control">
+      <span>Depth</span>
+      <input data-liquid-control="depth" type="range" min="5" max="60" step="1" value="10" />
+      <output data-liquid-output="depth"></output>
+    </label>
+    <label class="control">
+      <span>Curvature</span>
+      <input data-liquid-control="curvature" type="range" min="0" max="80" step="1" value="40" />
+      <output data-liquid-output="curvature"></output>
+    </label>
+    <label class="control">
+      <span>Splay</span>
+      <input data-liquid-control="splay" type="range" min="0" max="1" step="0.01" value="1" />
+      <output data-liquid-output="splay"></output>
+    </label>
+    <label class="control">
+      <span>Chroma</span>
+      <input data-liquid-control="chroma" type="range" min="0" max="1" step="0.01" value="0.2" />
+      <output data-liquid-output="chroma"></output>
+    </label>
+    <label class="control">
+      <span>Blur</span>
+      <input data-liquid-control="blur" type="range" min="0" max="2" step="0.25" value="0" />
+      <output data-liquid-output="blur"></output>
+    </label>
+    <label class="control">
+      <span>Glow</span>
+      <input data-liquid-control="glow" type="range" min="0" max="1" step="0.01" value="0.1" />
+      <output data-liquid-output="glow"></output>
+    </label>
+    <label class="control">
+      <span>Edge Highlight</span>
+      <input data-liquid-control="edge" type="range" min="0" max="1" step="0.01" value="0.25" />
+      <output data-liquid-output="edge"></output>
+    </label>
+    <label class="control">
+      <span>Specular Angle</span>
+      <input data-liquid-control="angle" type="range" min="0" max="180" step="1" value="45" />
+      <output data-liquid-output="angle"></output>
+    </label>
+    <p class="map-meta" data-liquid-map-meta>512 x 512 map / filter v0</p>
+  </div>
+
+  <svg class="filter-defs" aria-hidden="true" width="0" height="0">
+    <filter
+      data-liquid-filter
+      filterUnits="objectBoundingBox"
+      primitiveUnits="objectBoundingBox"
+      x="0"
+      y="0"
+      width="1"
+      height="1"
+      color-interpolation-filters="sRGB"
+    >
+      <feFlood flood-color="rgb(128,128,128)" flood-opacity="1" result="mapBg" />
+      <feImage
+        data-liquid-filter-image
+        data-liquid-lens-region
+        preserveAspectRatio="none"
+        result="rawMap"
+        x="0"
+        y="0"
+        width="1"
+        height="1"
+      />
+      <feComposite in="rawMap" in2="mapBg" operator="over" result="map" />
+      <feGaussianBlur data-liquid-filter-blur in="SourceGraphic" stdDeviation="0 0" result="blurred" />
+      <feDisplacementMap
+        data-liquid-displace-r
+        data-liquid-lens-region
+        in="blurred"
+        in2="map"
+        scale="0.104"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+      <feColorMatrix
+        type="matrix"
+        values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+        result="dispR"
+      />
+      <feDisplacementMap
+        data-liquid-displace-g
+        data-liquid-lens-region
+        in="blurred"
+        in2="map"
+        scale="0.102"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+      <feColorMatrix
+        type="matrix"
+        values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
+        result="dispG"
+      />
+      <feDisplacementMap
+        data-liquid-displace-b
+        data-liquid-lens-region
+        in="blurred"
+        in2="map"
+        scale="0.1"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+      <feColorMatrix
+        type="matrix"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+        result="dispB"
+      />
+      <feComposite in="dispR" in2="dispG" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+      <feComposite in2="dispB" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="lensResult" />
+      <feImage
+        data-liquid-mask-image
+        data-liquid-lens-region
+        preserveAspectRatio="none"
+        result="lensMask"
+      />
+      <feComposite in="SourceGraphic" in2="lensMask" operator="out" result="holedSG" />
+      <feComposite in="lensResult" in2="lensMask" operator="in" result="maskedLensResult" />
+      <feComposite in="maskedLensResult" in2="holedSG" operator="over" />
+    </filter>
+  </svg>
+</section>
+
+<script>
+  import { mountLiquidGlassDemo } from '../../labs/liquid-glass/runtime';
+
+  document.querySelectorAll('[data-liquid-root]').forEach((root) => {
+    mountLiquidGlassDemo(root);
+  });
+</script>
+
+<style>
+  .liquid-repro {
+    --demo-paper: #f7f5ff;
+    --demo-ink: #171821;
+    --control-fill: var(--green);
+    --control-track: #252936;
+    --grid-line: rgba(132, 145, 255, .18);
+
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .stage-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+    padding: 0 14px;
+    background: color-mix(in srgb, var(--surface-2) 64%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-meta span {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-meta strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .repro-figure {
+    min-width: 0;
+    margin: 0;
+    padding: 14px 14px 0;
+  }
+
+  .playground {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .stage,
+  .map-stage {
+    position: relative;
+    height: 320px;
+    overflow: hidden;
+    border-radius: 8px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .stage:active,
+  .map-stage:active {
+    cursor: grabbing;
+  }
+
+  .stage {
+    background:
+      radial-gradient(circle at 22% 12%, rgba(255, 255, 255, .9), transparent 30%),
+      linear-gradient(135deg, var(--demo-paper) 0%, #f1edff 42%, #e9e2ff 100%);
+  }
+
+  .map-stage {
+    background: rgb(128, 128, 128);
+  }
+
+  .source-scene {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(255, 255, 255, .88), transparent 28%),
+      radial-gradient(circle at 82% 72%, rgba(190, 180, 255, .3), transparent 34%),
+      linear-gradient(135deg, #f8f6ff 0%, #f1edff 48%, #e7e0ff 100%);
+  }
+
+  .source-copy {
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: auto;
+    border-radius: 32px;
+    transform-origin: 0 0;
+  }
+
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-line) 2px, transparent 2px),
+      linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
+    background-size: 96px 45px;
+    background-position: -12px 0;
+  }
+
+  .glass-lens {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+    pointer-events: none;
+    will-change: transform, width, height;
+  }
+
+  .lens-sheen,
+  .lens-outline {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .lens-sheen {
+    display: none;
+  }
+
+  .lens-outline {
+    border: 1px solid rgba(255, 255, 255, .92);
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, .95),
+      inset 0 -1px 0 rgba(144, 126, 255, .14),
+      0 10px 24px rgba(65, 55, 120, .22),
+      0 22px 48px rgba(70, 62, 120, .16);
+  }
+
+  .map-stage img {
+    position: absolute;
+    display: block;
+    image-rendering: auto;
+    transform: translate(-50%, -50%);
+  }
+
+  figcaption {
+    margin: 12px 0 0;
+    padding: 0 8px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .controls {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 28px;
+    margin: 14px;
+    padding: 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .control {
+    display: grid;
+    grid-template-columns: 126px minmax(0, 1fr) 52px;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .control span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .control output {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .control input[type="range"] {
+    --range-percent: 50%;
+
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .control input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    background:
+      linear-gradient(
+        90deg,
+        var(--control-fill) 0 var(--range-percent),
+        var(--control-track) var(--range-percent) 100%
+      );
+    border-radius: 999px;
+  }
+
+  .control input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -5px;
+    background: var(--text);
+    border: 1px solid color-mix(in srgb, var(--green) 45%, var(--line));
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
+  }
+
+  .control input[type="range"]::-moz-range-track {
+    height: 6px;
+    background: var(--control-track);
+    border: 0;
+    border-radius: 999px;
+  }
+
+  .control input[type="range"]::-moz-range-progress {
+    height: 6px;
+    background: var(--control-fill);
+    border-radius: 999px;
+  }
+
+  .control input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--text);
+    border: 1px solid color-mix(in srgb, var(--green) 45%, var(--line));
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
+  }
+
+  .map-meta {
+    grid-column: 1 / -1;
+    margin: -4px 0 0;
+    color: color-mix(in srgb, var(--muted) 72%, transparent);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .filter-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  @media (max-width: 880px) {
+    .liquid-repro {
+      width: min(100%, calc(100vw - 36px));
+      max-width: calc(100vw - 36px);
+    }
+
+    .repro-figure {
+      padding: 12px 12px 0;
+    }
+
+    .playground {
+      grid-template-columns: 1fr;
+    }
+
+    .stage,
+    .map-stage {
+      height: 260px;
+    }
+
+    figcaption {
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .controls {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin: 12px;
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .stage-meta strong {
+      display: none;
+    }
+
+    .control {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .control input[type="range"] {
+      height: 18px;
+    }
+
+    .control output {
+      display: none;
+    }
+
+    .map-meta {
+      display: none;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .playground {
+      display: block;
+      position: relative;
+      height: 260px;
+    }
+
+    .stage,
+    .map-stage {
+      position: absolute;
+      inset: 0;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .stage {
+      clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
+      border-radius: 8px 0 0 8px;
+    }
+
+    .map-stage {
+      clip-path: inset(0 0 0 var(--split, 50%));
+      border-radius: 0 8px 8px 0;
+    }
+
+    figcaption {
+      display: none;
+    }
+  }
+</style>
