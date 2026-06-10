@@ -297,8 +297,9 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
     pointer-events: none;
     content: "";
     background:
-      radial-gradient(circle at 50% 45%, transparent 46%, rgba(3, 7, 18, .28) 100%),
-      linear-gradient(90deg, rgba(255, 255, 255, .07), transparent 28%, transparent 72%, rgba(0, 0, 0, .16));
+      radial-gradient(circle at 28% 16%, rgba(255, 255, 255, .12), transparent 34%),
+      linear-gradient(90deg, rgba(255, 255, 255, .05), transparent 32%, transparent 72%, rgba(255, 255, 255, .03));
+    mix-blend-mode: soft-light;
   }
 
   .source-copy {
@@ -547,6 +548,10 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
       display: block;
       position: relative;
       height: 260px;
+      overflow: hidden;
+      background: rgb(128, 128, 128);
+      border-radius: 8px;
+      isolation: isolate;
     }
 
     .stage,
@@ -554,17 +559,16 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
       position: absolute;
       inset: 0;
       height: auto;
-      border-radius: 8px;
+      border-radius: 0;
     }
 
     .stage {
       clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
-      border-radius: 8px 0 0 8px;
+      background: transparent;
     }
 
     .map-stage {
       clip-path: inset(0 0 0 var(--split, 50%));
-      border-radius: 0 8px 8px 0;
     }
 
     figcaption {
