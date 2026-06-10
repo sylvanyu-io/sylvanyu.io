@@ -16,12 +16,24 @@ export type LabEntry = {
   meta: string;
   featured: boolean;
   image?: string;
-  featureClass: 'photo' | 'galacean' | 'galacean09';
-  thumb?: 'galacean-thumb' | 'galacean09-thumb';
+  featureClass: 'photo' | 'galacean' | 'galacean09' | 'liquidGlass';
+  thumb?: 'galacean-thumb' | 'galacean09-thumb' | 'liquid-thumb';
   sourceLinks: SourceLink[];
 };
 
 export const labEntries: LabEntry[] = [
+  {
+    slug: 'liquid-glass',
+    title: 'Liquid Glass',
+    label: 'SVG / displacement',
+    href: '/labs/liquid-glass/',
+    description: 'A small displacement-map lab based on Aave-style glass implementation notes.',
+    meta: 'Local demo',
+    featured: true,
+    featureClass: 'liquidGlass',
+    thumb: 'liquid-thumb',
+    sourceLinks: [{ label: 'Aave article', href: 'https://aave.com/design/building-glass-for-the-web' }],
+  },
   {
     slug: 'photo3d',
     title: 'Photo3D',
