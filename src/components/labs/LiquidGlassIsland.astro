@@ -1,5 +1,36 @@
 ---
 import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.jpg?url';
+
+type Control = {
+  name: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  decimals: number;
+};
+
+const controls: Control[] = [
+  { name: 'tint', label: 'Tint', min: 0, max: 1, step: 0.01, value: 0.78, decimals: 2 },
+  { name: 'width', label: 'Width', min: 20, max: 120, step: 1, value: 70, decimals: 0 },
+  { name: 'height', label: 'Height', min: 20, max: 80, step: 1, value: 60, decimals: 0 },
+  { name: 'radius', label: 'BorderRadius', min: 0, max: 64, step: 1, value: 28, decimals: 0 },
+  { name: 'scale', label: 'Scale', min: 0, max: 0.2, step: 0.001, value: 0.1, decimals: 3 },
+  { name: 'depth', label: 'Depth', min: 5, max: 60, step: 1, value: 10, decimals: 0 },
+  { name: 'curvature', label: 'Curvature', min: 0, max: 80, step: 1, value: 40, decimals: 0 },
+  { name: 'splay', label: 'Splay', min: 0, max: 1, step: 0.01, value: 1, decimals: 2 },
+  { name: 'chroma', label: 'Chroma', min: 0, max: 1, step: 0.01, value: 0.2, decimals: 2 },
+  { name: 'blur', label: 'Blur', min: 0, max: 2, step: 0.25, value: 0, decimals: 2 },
+  { name: 'glow', label: 'Glow', min: 0, max: 1, step: 0.01, value: 0.1, decimals: 2 },
+  { name: 'edge', label: 'Edge Highlight', min: 0, max: 1, step: 0.01, value: 0.25, decimals: 2 },
+  { name: 'angle', label: 'Specular Angle', min: 0, max: 180, step: 1, value: 45, decimals: 0 },
+];
+
+function rangePercent(control: Control) {
+  const pct = ((control.value - control.min) / (control.max - control.min)) * 100;
+  return Math.min(100, Math.max(0, Number(pct.toFixed(3))));
+}
 ---
 
 <section class="liquid-repro" data-liquid-root style={`--liquid-demo-bg: url(${demoBackgroundUrl})`}>
@@ -30,71 +61,21 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
   </figure>
 
   <div class="controls" aria-label="Liquid glass controls">
-    <label class="control">
-      <span>Tint</span>
-      <input data-liquid-control="tint" type="range" min="0" max="1" step="0.01" value="0.78" />
-      <output data-liquid-output="tint"></output>
-    </label>
-    <label class="control">
-      <span>Width</span>
-      <input data-liquid-control="width" type="range" min="20" max="120" step="1" value="70" />
-      <output data-liquid-output="width"></output>
-    </label>
-    <label class="control">
-      <span>Height</span>
-      <input data-liquid-control="height" type="range" min="20" max="80" step="1" value="60" />
-      <output data-liquid-output="height"></output>
-    </label>
-    <label class="control">
-      <span>BorderRadius</span>
-      <input data-liquid-control="radius" type="range" min="0" max="64" step="1" value="28" />
-      <output data-liquid-output="radius"></output>
-    </label>
-    <label class="control">
-      <span>Scale</span>
-      <input data-liquid-control="scale" type="range" min="0" max="0.2" step="0.001" value="0.1" />
-      <output data-liquid-output="scale"></output>
-    </label>
-    <label class="control">
-      <span>Depth</span>
-      <input data-liquid-control="depth" type="range" min="5" max="60" step="1" value="10" />
-      <output data-liquid-output="depth"></output>
-    </label>
-    <label class="control">
-      <span>Curvature</span>
-      <input data-liquid-control="curvature" type="range" min="0" max="80" step="1" value="40" />
-      <output data-liquid-output="curvature"></output>
-    </label>
-    <label class="control">
-      <span>Splay</span>
-      <input data-liquid-control="splay" type="range" min="0" max="1" step="0.01" value="1" />
-      <output data-liquid-output="splay"></output>
-    </label>
-    <label class="control">
-      <span>Chroma</span>
-      <input data-liquid-control="chroma" type="range" min="0" max="1" step="0.01" value="0.2" />
-      <output data-liquid-output="chroma"></output>
-    </label>
-    <label class="control">
-      <span>Blur</span>
-      <input data-liquid-control="blur" type="range" min="0" max="2" step="0.25" value="0" />
-      <output data-liquid-output="blur"></output>
-    </label>
-    <label class="control">
-      <span>Glow</span>
-      <input data-liquid-control="glow" type="range" min="0" max="1" step="0.01" value="0.1" />
-      <output data-liquid-output="glow"></output>
-    </label>
-    <label class="control">
-      <span>Edge Highlight</span>
-      <input data-liquid-control="edge" type="range" min="0" max="1" step="0.01" value="0.25" />
-      <output data-liquid-output="edge"></output>
-    </label>
-    <label class="control">
-      <span>Specular Angle</span>
-      <input data-liquid-control="angle" type="range" min="0" max="180" step="1" value="45" />
-      <output data-liquid-output="angle"></output>
-    </label>
+    {controls.map((control) => (
+      <label class="control">
+        <span>{control.label}</span>
+        <input
+          data-liquid-control={control.name}
+          type="range"
+          min={control.min}
+          max={control.max}
+          step={control.step}
+          value={control.value}
+          style={`--range-percent: ${rangePercent(control)}%;`}
+        />
+        <output data-liquid-output={control.name}>{control.value.toFixed(control.decimals)}</output>
+      </label>
+    ))}
     <p class="map-meta" data-liquid-map-meta>512 x 512 map / filter v0</p>
   </div>
 
@@ -415,7 +396,7 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
   }
 
   .control input[type="range"] {
-    --range-percent: 50%;
+    --range-percent: 0%;
 
     appearance: none;
     -webkit-appearance: none;
