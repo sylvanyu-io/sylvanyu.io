@@ -5,6 +5,9 @@ const glslPlugin = await glsl();
 
 export default defineConfig({
   site: 'https://sylvanyu.io',
+  devToolbar: {
+    enabled: false,
+  },
   vite: {
     plugins: [glslPlugin],
     server: {
