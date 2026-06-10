@@ -18,7 +18,7 @@ const canvasControls: CanvasControl[] = [
   { name: 'strength', label: 'Strength', min: 0, max: 0.2, step: 0.001, value: 0.11, decimals: 3 },
   { name: 'chroma', label: 'Chroma', min: 0, max: 0.8, step: 0.001, value: 0.34, decimals: 3 },
   { name: 'frost', label: 'Frost', min: 0, max: 1, step: 0.001, value: 0.18, decimals: 3 },
-  { name: 'tint', label: 'Tint', min: 0, max: 1, step: 0.001, value: 0.36, decimals: 3 },
+  { name: 'tint', label: 'Tint', min: 0, max: 1, step: 0.001, value: 0.2, decimals: 3 },
 ];
 
 function rangePercent(control: CanvasControl) {
@@ -57,6 +57,31 @@ function rangePercent(control: CanvasControl) {
         <output data-liquid-canvas-output={control.name}>{control.value.toFixed(control.decimals)}</output>
       </label>
     ))}
+    <div class="blur-control" data-liquid-canvas-blur-stage data-stage="standard" aria-live="polite">
+      <div class="blur-control-header">
+        <span>Blur</span>
+        <output data-liquid-canvas-output="blur">0.72</output>
+      </div>
+      <div class="blur-gears" role="radiogroup" aria-label="Blur stage">
+        <button type="button" data-liquid-canvas-blur-gear="standard" role="radio" aria-checked="true">1</button>
+        <button type="button" data-liquid-canvas-blur-gear="deep" role="radio" aria-checked="false">2</button>
+        <button type="button" data-liquid-canvas-blur-gear="heavy" role="radio" aria-checked="false">3</button>
+      </div>
+      <label class="blur-amount">
+        <span>Amount</span>
+        <input
+          data-liquid-canvas-blur-amount
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.3"
+          style="--range-percent: 30%;"
+        />
+        <output data-liquid-canvas-blur-amount-output>30%</output>
+      </label>
+      <p data-liquid-canvas-blur-stage-detail>Stage 1 / 0.00-2.40 / 1/4 pyramid</p>
+    </div>
     <p class="canvas-meta">Drag the lens. The background, refraction, chroma and material are all drawn in one custom shader.</p>
   </div>
 </section>
@@ -277,6 +302,161 @@ function rangePercent(control: CanvasControl) {
     text-align: right;
   }
 
+  .blur-control {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(96px, .48fr) minmax(132px, .55fr) minmax(240px, 1fr);
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    margin-top: 2px;
+    padding: 10px 12px;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .blur-control-header span,
+  .blur-amount span {
+    display: block;
+    font-size: 11px;
+  }
+
+  .blur-control-header output {
+    display: block;
+    margin-top: 3px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .blur-gears {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    min-width: 0;
+    padding: 3px;
+    background: var(--control-track);
+    border-radius: 8px;
+  }
+
+  .blur-gears button {
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    height: 28px;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    transition:
+      color .18s ease,
+      background .18s ease,
+      box-shadow .18s ease;
+  }
+
+  .blur-gears button:hover {
+    color: var(--text);
+  }
+
+  .blur-gears button[aria-checked="true"] {
+    color: var(--text);
+    background: color-mix(in srgb, var(--control-fill) 78%, white 10%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .28),
+      0 5px 14px rgba(0, 0, 0, .22);
+  }
+
+  .blur-amount {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) 48px;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .blur-amount output {
+    color: var(--text);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .blur-amount input[type="range"] {
+    --range-percent: 100%;
+
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .blur-amount input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    background:
+      linear-gradient(
+        90deg,
+        var(--control-fill) 0 var(--range-percent),
+        var(--control-track) var(--range-percent) 100%
+      );
+    border-radius: 999px;
+  }
+
+  .blur-amount input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -5px;
+    background: var(--text);
+    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
+  }
+
+  .blur-amount input[type="range"]::-moz-range-track {
+    height: 6px;
+    background: var(--control-track);
+    border: 0;
+    border-radius: 999px;
+  }
+
+  .blur-amount input[type="range"]::-moz-range-progress {
+    height: 6px;
+    background: var(--control-fill);
+    border-radius: 999px;
+  }
+
+  .blur-amount input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--text);
+    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
+  }
+
+  .blur-control p {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin: -2px 0 0;
+    overflow: hidden;
+    font-size: 12px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   @media (max-width: 880px) {
     .canvas-stage {
       min-height: 260px;
@@ -287,6 +467,15 @@ function rangePercent(control: CanvasControl) {
       gap: 14px;
       margin: 12px;
       padding: 12px;
+    }
+
+    .blur-control {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .blur-control p {
+      text-align: left;
     }
   }
 
@@ -301,7 +490,21 @@ function rangePercent(control: CanvasControl) {
     }
 
     .control output,
-    .canvas-meta {
+    .canvas-meta,
+    .blur-control p {
+      display: none;
+    }
+
+    .blur-control {
+      gap: 12px;
+    }
+
+    .blur-amount {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .blur-amount output {
       display: none;
     }
   }

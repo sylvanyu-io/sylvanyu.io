@@ -389,9 +389,9 @@ export function mountLiquidGlassDemo(root: Element) {
     blur?.setAttribute('stdDeviation', `${blurX} ${blurY}`);
 
     const scaleBase = Math.max(state.scale, 0);
-    displaceR?.setAttribute('scale', String(scaleBase * (1 + 0.2 * state.chroma)));
-    displaceG?.setAttribute('scale', String(scaleBase * (1 + 0.1 * state.chroma)));
-    displaceB?.setAttribute('scale', String(scaleBase));
+    displaceR?.setAttribute('scale', String(scaleBase * (1 + 0.18 * state.chroma)));
+    displaceG?.setAttribute('scale', String(scaleBase));
+    displaceB?.setAttribute('scale', String(scaleBase * (1 - 0.18 * state.chroma)));
     updateGlassMaterial();
 
     updateFilterRegion(rect);
