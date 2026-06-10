@@ -31,6 +31,11 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
 
   <div class="controls" aria-label="Liquid glass controls">
     <label class="control">
+      <span>Tint</span>
+      <input data-liquid-control="tint" type="range" min="0" max="1" step="0.01" value="0.78" />
+      <output data-liquid-output="tint"></output>
+    </label>
+    <label class="control">
       <span>Width</span>
       <input data-liquid-control="width" type="range" min="20" max="120" step="1" value="70" />
       <output data-liquid-output="width"></output>
@@ -167,9 +172,17 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
         preserveAspectRatio="none"
         result="lensMask"
       />
-      <feComposite in="SourceGraphic" in2="lensMask" operator="out" result="holedSG" />
       <feComposite in="lensResult" in2="lensMask" operator="in" result="maskedLensResult" />
-      <feComposite in="maskedLensResult" in2="holedSG" operator="over" />
+      <feComponentTransfer in="maskedLensResult" result="tonedLensResult">
+        <feFuncR data-liquid-filter-contrast type="linear" slope="1.07" intercept="-0.018" />
+        <feFuncG data-liquid-filter-contrast type="linear" slope="1.07" intercept="-0.018" />
+        <feFuncB data-liquid-filter-contrast type="linear" slope="1.07" intercept="-0.018" />
+      </feComponentTransfer>
+      <feFlood data-liquid-filter-tint flood-color="rgb(246,248,244)" flood-opacity="0.54" result="materialTint" />
+      <feComposite in="materialTint" in2="lensMask" operator="in" result="maskedMaterialTint" />
+      <feComposite in="maskedMaterialTint" in2="tonedLensResult" operator="over" result="materialLensResult" />
+      <feComposite in="SourceGraphic" in2="lensMask" operator="out" result="sourceOutsideLens" />
+      <feComposite in="materialLensResult" in2="sourceOutsideLens" operator="over" />
     </filter>
   </svg>
 </section>
@@ -327,16 +340,25 @@ import demoBackgroundUrl from '../../labs/liquid-glass/textures/demo-background.
   }
 
   .lens-sheen {
-    display: none;
+    display: block;
+    opacity: var(--lens-material-opacity, .5);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .62), rgba(255, 255, 255, .18) 48%, rgba(218, 224, 214, .14)),
+      radial-gradient(circle at 24% 10%, rgba(255, 255, 255, .42), transparent 28%),
+      radial-gradient(circle at 80% 92%, rgba(174, 184, 164, .16), transparent 36%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .78),
+      inset 0 -8px 18px rgba(188, 194, 180, .12);
   }
 
   .lens-outline {
-    border: 1px solid rgba(255, 255, 255, .92);
+    opacity: var(--lens-outline-opacity, .93);
+    border: 1px solid rgba(255, 255, 255, .82);
     box-shadow:
       inset 0 1px 1px rgba(255, 255, 255, .95),
-      inset 0 -1px 0 rgba(144, 126, 255, .14),
-      0 10px 24px rgba(65, 55, 120, .22),
-      0 22px 48px rgba(70, 62, 120, .16);
+      inset 0 -1px 0 rgba(120, 128, 116, .16),
+      0 4px 10px rgba(0, 0, 0, .1),
+      0 12px 24px rgba(0, 0, 0, .08);
   }
 
   .map-stage img {

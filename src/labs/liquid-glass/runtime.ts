@@ -7,6 +7,7 @@ type ControlName =
   | 'curvature'
   | 'splay'
   | 'chroma'
+  | 'tint'
   | 'blur'
   | 'glow'
   | 'edge'
@@ -35,6 +36,7 @@ const DEFAULT_STATE: LensState = {
   curvature: 40,
   splay: 1,
   chroma: 0.2,
+  tint: 0.78,
   blur: 0,
   glow: 0.1,
   edge: 0.25,
@@ -233,7 +235,7 @@ function readState(root: Element) {
 
 function decimalsFor(name: ControlName) {
   if (name === 'scale') return 3;
-  if (name === 'splay' || name === 'chroma' || name === 'blur' || name === 'glow' || name === 'edge') return 2;
+  if (name === 'splay' || name === 'chroma' || name === 'tint' || name === 'blur' || name === 'glow' || name === 'edge') return 2;
   return 0;
 }
 
@@ -278,6 +280,8 @@ export function mountLiquidGlassDemo(root: Element) {
   const displaceR = root.querySelector<SVGFEDisplacementMapElement>('[data-liquid-displace-r]');
   const displaceG = root.querySelector<SVGFEDisplacementMapElement>('[data-liquid-displace-g]');
   const displaceB = root.querySelector<SVGFEDisplacementMapElement>('[data-liquid-displace-b]');
+  const tintFlood = root.querySelector<SVGElement>('[data-liquid-filter-tint]');
+  const contrastFuncs = Array.from(root.querySelectorAll<SVGElement>('[data-liquid-filter-contrast]'));
 
   if (!playground || !stage || !lens || !sample || !mapImage || !mapStage || !filter || !filterImage || !maskImage) {
     return;
@@ -321,9 +325,29 @@ export function mountLiquidGlassDemo(root: Element) {
     filter!.id = id;
     sample!.style.filter = `url(#${id})`;
 
+    updateMapMeta();
+  }
+
+  function updateMapMeta() {
     if (mapMeta) {
       mapMeta.textContent = `${state.mapSize} x ${state.mapSize} map / filter v${filterVersion}`;
     }
+  }
+
+  function updateGlassMaterial() {
+    const tint = clamp(state.tint, 0, 1);
+    const tintEase = Math.pow(tint, 1.15);
+    const contrast = 1 + 0.28 * tintEase;
+    const intercept = -0.06 * tintEase;
+    const materialOpacity = 0.72 * tintEase;
+
+    contrastFuncs.forEach((func) => {
+      func.setAttribute('slope', contrast.toFixed(3));
+      func.setAttribute('intercept', intercept.toFixed(3));
+    });
+    tintFlood?.setAttribute('flood-opacity', materialOpacity.toFixed(3));
+    setCssVar(root as HTMLElement, '--lens-material-opacity', (0.16 * tintEase).toFixed(3));
+    setCssVar(root as HTMLElement, '--lens-outline-opacity', (0.18 + 0.82 * tintEase).toFixed(3));
   }
 
   function updateFilterRegion(rect: LensRect) {
@@ -368,6 +392,7 @@ export function mountLiquidGlassDemo(root: Element) {
     displaceR?.setAttribute('scale', String(scaleBase * (1 + 0.2 * state.chroma)));
     displaceG?.setAttribute('scale', String(scaleBase * (1 + 0.1 * state.chroma)));
     displaceB?.setAttribute('scale', String(scaleBase));
+    updateGlassMaterial();
 
     updateFilterRegion(rect);
   }
@@ -386,6 +411,7 @@ export function mountLiquidGlassDemo(root: Element) {
     setCssVar(root as HTMLElement, '--lens-width', `${rect.width}px`);
     setCssVar(root as HTMLElement, '--lens-height', `${rect.height}px`);
     setCssVar(root as HTMLElement, '--lens-radius', `${rect.radius}px`);
+    updateGlassMaterial();
 
     if (regenerateMap) {
       updateFilterMap(rect);
