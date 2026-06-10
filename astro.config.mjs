@@ -11,7 +11,7 @@ export default defineConfig({
   vite: {
     plugins: [glslPlugin],
     server: {
-      allowedHosts: ['.trycloudflare.com'],
+      allowedHosts: ['.trycloudflare.com', 'yu4321.s.3q.hair'],
     },
   },
 });
