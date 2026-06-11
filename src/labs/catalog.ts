@@ -49,10 +49,11 @@ export const labEntries: LabEntry[] = [
   },
   {
     slug: 'galacean-1-1',
-    title: 'Galacean 1.1 beta tests',
+    title: 'Galacean shader pipeline archive',
     label: 'Archive / 2023-2024',
     href: '/labs/galacean-1-1/',
-    description: 'Old Galacean Engine tests around water, gem, skin, and post-processing. Kept as a record of shader/material trials.',
+    description:
+      'Archived Galacean Engine work around stylized water, ice and skin materials, plus a reusable HDR post-processing pipeline.',
     meta: `${galaceanDemos.length} demos`,
     featured: true,
     featureClass: 'galacean',
@@ -61,10 +62,11 @@ export const labEntries: LabEntry[] = [
   },
   {
     slug: 'galacean-0-9',
-    title: 'Galacean 0.9 tests',
+    title: 'Galacean 0.9 render pipelines',
     label: 'Archive / Galacean 0.9',
     href: '/labs/galacean-0-9/',
-    description: 'Two old Galacean 0.9 demos around stylized water and planar reflection.',
+    description:
+      'Two compact Galacean 0.9 repos: a stylized water render pipeline and a planar reflection camera/render-target pipeline.',
     meta: `${galacean09Demos.length} repos`,
     featured: true,
     featureClass: 'galacean09',

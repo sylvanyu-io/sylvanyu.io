@@ -3,7 +3,7 @@ import Base from '../../layouts/Base.astro';
 import { galaceanDemos, galaceanRepoUrl } from '../../labs/galacean-1-1/demoCatalog';
 ---
 
-<Base title="Galacean 1.1 Beta Tests | sylvanyu.io" description="Archived Galacean 1.1 beta shader and material tests from 2023-2024.">
+<Base title="Galacean Shader Pipeline Archive | sylvanyu.io" description="Archived Galacean shader, material, and post-processing pipeline work from 2023-2024.">
   <main class="page">
     <header class="topbar">
       <a class="brand" href="/">sylvanyu.io</a>
@@ -16,10 +16,11 @@ import { galaceanDemos, galaceanRepoUrl } from '../../labs/galacean-1-1/demoCata
     <section class="hero">
       <div class="copy">
         <p class="kicker">Archive / 2023-2024</p>
-        <h1>Galacean 1.1 beta tests.</h1>
+        <h1>Galacean shader pipeline archive.</h1>
         <p>
-          Old Galacean Engine tests around water, gem/ice, skin, and post-processing. They are
-          kept close to the original repo instead of being rebuilt as polished portfolio work.
+          Archived Galacean Engine work around stylized water, ice and digital-human skin
+          materials, plus a camera-driven HDR post-processing pipeline. They are kept close to
+          the original repo instead of being rebuilt as polished portfolio work.
         </p>
       </div>
       <div class="visual" aria-hidden="true">
@@ -45,7 +46,7 @@ import { galaceanDemos, galaceanRepoUrl } from '../../labs/galacean-1-1/demoCata
           <div>
             <h2>{demo.title}</h2>
             <p>{demo.summary}</p>
-            <span>Open test</span>
+            <span>Open demo</span>
           </div>
         </a>
       ))}
@@ -54,8 +55,8 @@ import { galaceanDemos, galaceanRepoUrl } from '../../labs/galacean-1-1/demoCata
     <section class="notes">
       <h2>Notes</h2>
       <ul>
-        <li>These are old exploration demos, not finished project pages.</li>
-        <li>Each test is mounted as a separate Astro island page.</li>
+        <li>These are old material and render-pipeline demos, not finished project pages.</li>
+        <li>Each demo is mounted as a separate Astro island page.</li>
         <li>Most assets still load from CDN URLs used at the time.</li>
         <li>Dependencies are pinned to old Galacean beta packages.</li>
         <li>Source repo: <a href={galaceanRepoUrl} rel="noreferrer">Galacean-1.1-Demo</a>.</li>
