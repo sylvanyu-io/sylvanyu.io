@@ -96,8 +96,8 @@ function rangePercent(control: CanvasControl) {
 
 <style>
   .liquid-canvas {
-    --control-fill: var(--blue);
-    --control-track: #252936;
+    --control-fill: var(--accent);
+    --control-track: rgba(242, 241, 237, 0.1);
 
     width: 100%;
     min-width: 0;
@@ -105,7 +105,7 @@ function rangePercent(control: CanvasControl) {
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .stage-meta {
@@ -170,7 +170,7 @@ function rangePercent(control: CanvasControl) {
       linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .06)),
       rgba(8, 10, 16, .46);
     border: 1px solid rgba(255, 255, 255, .16);
-    border-radius: 8px;
+    border-radius: 6px;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, .16),
       0 12px 28px rgba(0, 0, 0, .26);
@@ -210,7 +210,7 @@ function rangePercent(control: CanvasControl) {
     padding: 14px;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .control {
@@ -267,7 +267,7 @@ function rangePercent(control: CanvasControl) {
     height: 16px;
     margin-top: -5px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }
@@ -289,7 +289,7 @@ function rangePercent(control: CanvasControl) {
     width: 16px;
     height: 16px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }
@@ -314,7 +314,7 @@ function rangePercent(control: CanvasControl) {
     color: var(--muted);
     background: color-mix(in srgb, var(--surface) 72%, transparent);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .blur-control-header span,
@@ -339,7 +339,7 @@ function rangePercent(control: CanvasControl) {
     min-width: 0;
     padding: 3px;
     background: var(--control-track);
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .blur-gears button {
@@ -419,7 +419,7 @@ function rangePercent(control: CanvasControl) {
     height: 16px;
     margin-top: -5px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }
@@ -441,7 +441,7 @@ function rangePercent(control: CanvasControl) {
     width: 16px;
     height: 16px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }

@@ -178,8 +178,8 @@ function rangePercent(control: Control) {
 
 <style>
   .liquid-repro {
-    --control-fill: var(--green);
-    --control-track: #252936;
+    --control-fill: var(--accent);
+    --control-track: rgba(242, 241, 237, 0.1);
     --grid-line: rgba(255, 255, 255, .14);
 
     display: flex;
@@ -191,7 +191,7 @@ function rangePercent(control: Control) {
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
   }
 
@@ -242,7 +242,7 @@ function rangePercent(control: Control) {
     position: relative;
     height: 320px;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -368,7 +368,7 @@ function rangePercent(control: Control) {
     padding: 14px;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .control {
@@ -425,7 +425,7 @@ function rangePercent(control: Control) {
     height: 16px;
     margin-top: -5px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--green) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }
@@ -447,7 +447,7 @@ function rangePercent(control: Control) {
     width: 16px;
     height: 16px;
     background: var(--text);
-    border: 1px solid color-mix(in srgb, var(--green) 45%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
   }
@@ -531,7 +531,7 @@ function rangePercent(control: Control) {
       height: 260px;
       overflow: hidden;
       background: rgb(128, 128, 128);
-      border-radius: 8px;
+      border-radius: 6px;
       isolation: isolate;
     }
 

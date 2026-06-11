@@ -1,12 +1,25 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { labEntries } from '../../labs/catalog';
+
+const labCoverMap = {
+  'liquid-glass': '/lab-covers/liquid-svg.jpg',
+  photo3d: '/lab-covers/photo3d.jpg',
+  'galacean-1-1': '/lab-covers/galacean-water.jpg',
+  'galacean-0-9': '/lab-covers/galacean09-planar-reflection.jpg',
+} as const;
+
+const labCards = labEntries.map((lab, index) => ({
+  ...lab,
+  cover: labCoverMap[lab.slug as keyof typeof labCoverMap],
+  no: String(index + 1).padStart(2, '0'),
+}));
 ---
 
 <Base title="Labs | sylvanyu.io" description="Small demos, notes, and archive experiments by Sylvan Yu.">
   <main class="page">
     <header class="topbar">
-      <a class="brand" href="/">sylvanyu.io</a>
+      <a class="brand" href="/">SYLVAN YU — 俞宇锋</a>
       <nav>
         <a href="/labs/">Labs</a>
         <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
@@ -24,24 +37,15 @@ import { labEntries } from '../../labs/catalog';
     </section>
 
     <section class="grid" aria-label="Lab entries">
-      {labEntries.map((lab) => (
+      {labCards.map((lab) => (
         <article class="lab-card">
           <a class="main-link" href={lab.href}>
             <div class="media" aria-hidden="true">
-              {lab.image ? (
-                <div class="photo-media" style={`--thumb: url("${lab.image}")`}></div>
-              ) : (
-                <div class:list={['shader-thumb', lab.thumb]}>
-                  <span class="water"></span>
-                  <span class="gem"></span>
-                  <span class="skin"></span>
-                  <span class="post"></span>
-                </div>
-              )}
+              <img src={lab.cover} alt="" loading="lazy" decoding="async" />
             </div>
             <div class="body">
               <div class="meta-row">
-                <span>{lab.label}</span>
+                <span>{lab.no}</span>
                 <span>{lab.meta}</span>
               </div>
               <h2>{lab.title}</h2>
@@ -66,9 +70,9 @@ import { labEntries } from '../../labs/catalog';
 <style>
   .page {
     min-height: 100svh;
-    max-width: 1120px;
+    max-width: 1280px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 24px clamp(20px, 5vw, 64px) 72px;
   }
 
   .topbar {
@@ -76,7 +80,11 @@ import { labEntries } from '../../labs/catalog';
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 8px 0 64px;
+    padding: 0 0 64px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
   }
 
   .brand,
@@ -85,14 +93,13 @@ import { labEntries } from '../../labs/catalog';
   }
 
   .brand {
-    font-weight: 650;
+    color: var(--text);
+    font-weight: 500;
   }
 
   nav {
     display: flex;
     gap: 18px;
-    color: var(--muted);
-    font-size: 14px;
   }
 
   nav a:hover {
@@ -101,14 +108,17 @@ import { labEntries } from '../../labs/catalog';
 
   .intro {
     max-width: 720px;
-    margin-bottom: 36px;
+    margin-bottom: 44px;
+    padding-top: 58px;
+    border-top: 1px solid var(--line);
   }
 
   .kicker {
     margin: 0 0 10px;
-    color: var(--green);
-    font-size: 13px;
-    font-weight: 650;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
   }
 
   h1 {
@@ -116,7 +126,7 @@ import { labEntries } from '../../labs/catalog';
     max-width: 780px;
     font-size: clamp(36px, 7vw, 72px);
     line-height: 1.02;
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
   }
 
   .intro > p:not(.kicker) {
@@ -137,12 +147,14 @@ import { labEntries } from '../../labs/catalog';
     color: inherit;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 6px;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   }
 
   .lab-card:hover {
-    border-color: #3b4256;
+    border-color: rgba(242, 241, 237, 0.24);
     background: var(--surface-2);
+    transform: translateY(-2px);
   }
 
   .main-link {
@@ -153,139 +165,19 @@ import { labEntries } from '../../labs/catalog';
   }
 
   .media {
+    position: relative;
     min-height: 0;
     background: #050609;
     border-bottom: 1px solid var(--line);
   }
 
-  .photo-media {
-    /* The thumb is a 3x2 sprite sheet; show only the bottom-left RGB cell. */
+  .media img {
+    display: block;
+    width: 100%;
     height: 100%;
-    background-image: var(--thumb);
-    background-size: 300% 200%;
-    background-position: 0% 100%;
-    filter: saturate(1.08) contrast(1.02);
-  }
-
-  .shader-thumb {
-    height: 100%;
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 1px;
-    background: #222634;
-  }
-
-  .shader-thumb span {
-    display: block;
-  }
-
-  .water { background: #2c7f8f; }
-  .gem { background: #6f5cd1; }
-  .skin { background: #c9836b; }
-  .post { background: #1a1d29; }
-
-  .galacean09-thumb {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
-  }
-
-  .galacean09-thumb .water {
-    background:
-      linear-gradient(145deg, rgba(126, 224, 138, .18), transparent 42%),
-      #1f7e8d;
-  }
-
-  .galacean09-thumb .gem {
-    background:
-      linear-gradient(180deg, #171a22 0 48%, #4d6f74 48% 50%, #1c282c 50% 100%);
-  }
-
-  .galacean09-thumb .skin,
-  .galacean09-thumb .post {
-    display: none;
-  }
-
-  .liquid-thumb {
-    position: relative;
-    display: block;
-    overflow: hidden;
-    background:
-      linear-gradient(135deg, rgba(126, 224, 138, .2), transparent 36%),
-      linear-gradient(225deg, rgba(139, 183, 255, .28), transparent 42%),
-      #0b0e14;
-  }
-
-  .liquid-thumb::before {
-    position: absolute;
-    inset: 24px 34px 34px 28px;
-    content: "";
-    background-image:
-      linear-gradient(rgba(255, 255, 255, .08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, .08) 1px, transparent 1px);
-    background-size: 28px 28px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 8px;
-  }
-
-  .liquid-thumb::after {
-    position: absolute;
-    top: 54px;
-    left: 50%;
-    width: 150px;
-    height: 98px;
-    content: "";
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, .38), transparent 42%),
-      rgba(255, 255, 255, .12);
-    border: 1px solid rgba(255, 255, 255, .42);
-    border-radius: 48px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, .64),
-      inset 0 -8px 18px rgba(255, 255, 255, .12),
-      0 18px 48px rgba(0, 0, 0, .34);
-    transform: translateX(-50%);
-  }
-
-  .liquid-thumb span {
-    position: absolute;
-    display: block;
-    border-radius: 999px;
-  }
-
-  .liquid-thumb .water {
-    left: 40px;
-    bottom: 48px;
-    width: 42%;
-    height: 16px;
-    background: var(--green);
-  }
-
-  .liquid-thumb .gem {
-    right: 48px;
-    bottom: 76px;
-    width: 25%;
-    height: 16px;
-    background: var(--blue);
-  }
-
-  .liquid-thumb .skin {
-    right: 68px;
-    top: 42px;
-    width: 64px;
-    height: 64px;
-    background: var(--amber);
-    border-radius: 8px;
-  }
-
-  .liquid-thumb .post {
-    left: 48px;
-    top: 52px;
-    width: 92px;
-    height: 54px;
-    background: rgba(255, 255, 255, .1);
-    border: 1px solid rgba(255, 255, 255, .16);
-    border-radius: 8px;
+    object-fit: cover;
+    object-position: center;
+    filter: saturate(0.98) contrast(0.98);
   }
 
   .body {
@@ -298,14 +190,17 @@ import { labEntries } from '../../labs/catalog';
     justify-content: space-between;
     gap: 12px;
     color: var(--muted);
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
   }
 
   h2 {
     margin: 14px 0 8px;
     font-size: 22px;
     line-height: 1.2;
-    letter-spacing: 0;
+    letter-spacing: -0.01em;
   }
 
   .body p {
@@ -320,11 +215,14 @@ import { labEntries } from '../../labs/catalog';
     gap: 8px 12px;
     padding: 0 18px 16px;
     color: var(--muted);
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   .source-row a {
-    color: var(--green);
+    color: var(--accent);
     text-decoration: none;
   }
 

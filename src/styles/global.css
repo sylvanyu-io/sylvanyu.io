@@ -1,13 +1,18 @@
 :root {
-  --bg: #0a0b0f;
-  --surface: #11131a;
-  --surface-2: #171a22;
-  --text: #e8eaf0;
-  --muted: #9aa0b4;
-  --line: #252936;
+  --bg: #060708;
+  --surface: rgba(255, 255, 255, 0.018);
+  --surface-2: rgba(255, 255, 255, 0.032);
+  --text: #f2f1ed;
+  --muted: #9097a2;
+  --muted-2: #61656e;
+  --line: rgba(242, 241, 237, 0.11);
+  --accent: #ff5440;
   --green: #7ee08a;
   --blue: #8bb7ff;
   --amber: #f2bd74;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -18,7 +23,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  font-family: var(--font-display), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -35,5 +40,5 @@ p {
 }
 
 ::selection {
-  background: rgba(126, 224, 138, 0.24);
+  background: rgba(255, 84, 64, 0.32);
 }
