@@ -2,6 +2,9 @@
 import Photo3DHero from '../components/home/Photo3DHero.astro';
 import Base from '../layouts/Base.astro';
 import { featuredLabEntries } from '../labs/catalog';
+import { galacean09Demos } from '../labs/galacean-0-9/demoCatalog';
+import { galaceanDemos } from '../labs/galacean-1-1/demoCatalog';
+import { liquidGlassDemos } from '../labs/liquid-glass/demoCatalog';
 
 const workItems = [
   {
@@ -28,7 +31,7 @@ const workItems = [
     period: '2022 — 2025',
     title: 'Galacean engine & toolchain',
     description:
-      'Engine features and artist tooling for Ant Group’s interactive 3D engine: planar reflection and HDR post-processing, an Uber shader framework covering most art requirements with zero code, a Unity-to-Galacean asset exporter, and stylized digital-human rendering for events like the Asian Games torch relay.',
+      'Engine features and artist tooling for Ant Group’s interactive 3D engine: planar reflection and HDR post-processing pipelines, an Uber shader framework covering most art requirements with zero code, a Unity-to-Galacean asset exporter, and stylized digital-human rendering for events like the Asian Games torch relay.',
     stack: 'SHADERS · UNITY PIPELINE · DIGITAL HUMANS',
   },
   {
@@ -68,6 +71,30 @@ const experience = [
     role: 'B.ENG., ELECTRONIC INFORMATION ENGINEERING',
     note: '',
   },
+];
+
+const photo3dLab = featuredLabEntries.find((lab) => lab.slug === 'photo3d');
+
+const homeLabEntries = [
+  ...liquidGlassDemos.map((demo) => ({
+    href: demo.href,
+    title: demo.title,
+    label: demo.category,
+    featureClass: 'liquidGlass',
+  })),
+  ...(photo3dLab ? [photo3dLab] : []),
+  ...galaceanDemos.map((demo) => ({
+    href: demo.href,
+    title: demo.title,
+    label: `Galacean 1.1 / ${demo.category}`,
+    featureClass: 'galacean',
+  })),
+  ...galacean09Demos.map((demo) => ({
+    href: demo.href,
+    title: demo.title,
+    label: `Galacean 0.9 / ${demo.category}`,
+    featureClass: 'galacean09',
+  })),
 ];
 ---
 
@@ -187,12 +214,12 @@ const experience = [
           <p class="sub">demos that run live in your browser.</p>
         </header>
         <div class="lab-list">
-          {featuredLabEntries.map((lab) => (
+          {homeLabEntries.map((lab) => (
             <a
               class="lab-row"
               href={lab.href}
               data-reveal
-              style={lab.image ? `--thumb: url("${lab.image}")` : undefined}
+              style={'image' in lab && lab.image ? `--thumb: url("${lab.image}")` : undefined}
             >
               <span class:list={['swatch', lab.featureClass]}></span>
               <strong>{lab.title}</strong>
@@ -381,6 +408,11 @@ const experience = [
   .hero-copy {
     position: relative;
     z-index: 2;
+    pointer-events: none;
+  }
+
+  .hero-links {
+    pointer-events: auto;
   }
 
   .kicker {
