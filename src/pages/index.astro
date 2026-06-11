@@ -77,25 +77,64 @@ const photo3dLab = featuredLabEntries.find((lab) => lab.slug === 'photo3d');
 
 const homeLabEntries = [
   ...liquidGlassDemos.map((demo) => ({
+    slug: `liquid-${demo.slug}`,
     href: demo.href,
     title: demo.title,
     label: demo.category,
+    family: 'Liquid Glass',
+    description: demo.slug === 'svg'
+      ? 'A Safari-compatible DOM/SVG version that generates displacement maps, masks, tint, chroma offsets, and an SVG filter preview.'
+      : demo.summary,
+    cover: `/lab-covers/liquid-${demo.slug}.jpg`,
     featureClass: 'liquidGlass',
   })),
-  ...(photo3dLab ? [photo3dLab] : []),
+  ...(photo3dLab ? [{
+    slug: photo3dLab.slug,
+    href: photo3dLab.href,
+    title: photo3dLab.title,
+    label: photo3dLab.label,
+    family: 'Photo3D',
+    description: photo3dLab.description,
+    cover: '/lab-covers/photo3d.jpg',
+    featureClass: photo3dLab.featureClass,
+  }] : []),
   ...galaceanDemos.map((demo) => ({
+    slug: `galacean-${demo.slug}`,
     href: demo.href,
     title: demo.title,
     label: `Galacean 1.1 / ${demo.category}`,
+    family: 'Galacean 1.1',
+    description: demo.summary,
+    cover: `/lab-covers/galacean-${demo.slug}.jpg`,
     featureClass: 'galacean',
   })),
   ...galacean09Demos.map((demo) => ({
+    slug: `galacean09-${demo.slug}`,
     href: demo.href,
     title: demo.title,
     label: `Galacean 0.9 / ${demo.category}`,
+    family: 'Galacean 0.9',
+    description: demo.summary,
+    cover: `/lab-covers/galacean09-${demo.slug}.jpg`,
     featureClass: 'galacean09',
   })),
 ];
+
+const featuredLabSlugs = ['liquid-svg', 'photo3d', 'galacean09-planar-reflection'];
+const isHomeLab = (
+  lab: (typeof homeLabEntries)[number] | undefined,
+): lab is (typeof homeLabEntries)[number] => Boolean(lab);
+
+const displayHomeLabs = [
+  ...featuredLabSlugs.map((slug) => homeLabEntries.find((lab) => lab.slug === slug)).filter(isHomeLab),
+  ...homeLabEntries.filter((lab) => !featuredLabSlugs.includes(lab.slug)),
+].map((lab, index) => ({
+  ...lab,
+  no: String(index + 1).padStart(2, '0'),
+}));
+
+const featuredHomeLabs = displayHomeLabs.slice(0, featuredLabSlugs.length);
+const archiveHomeLabs = displayHomeLabs.slice(featuredLabSlugs.length);
 ---
 
 <Base
@@ -213,18 +252,47 @@ const homeLabEntries = [
           <h2>LABS</h2>
           <p class="sub">demos that run live in your browser.</p>
         </header>
-        <div class="lab-list">
-          {homeLabEntries.map((lab) => (
+        <div class="lab-feature-grid">
+          {featuredHomeLabs.map((lab) => (
             <a
-              class="lab-row"
+              class:list={['lab-feature', lab.featureClass]}
               href={lab.href}
               data-reveal
-              style={'image' in lab && lab.image ? `--thumb: url("${lab.image}")` : undefined}
             >
-              <span class:list={['swatch', lab.featureClass]}></span>
-              <strong>{lab.title}</strong>
-              <span class="lab-tag">{lab.label.toUpperCase()}</span>
-              <span class="arrow" aria-hidden="true">→</span>
+              <span class="lab-cover" aria-hidden="true">
+                <img src={lab.cover} alt="" loading="lazy" decoding="async" />
+              </span>
+              <span class="lab-feature-body">
+                <span class="lab-kicker">
+                  <span>{lab.no}</span>
+                  <span>{lab.label.toUpperCase()}</span>
+                </span>
+                <h3>{lab.title}</h3>
+                <p>{lab.description}</p>
+                <span class="lab-open">OPEN DEMO <span aria-hidden="true">→</span></span>
+              </span>
+            </a>
+          ))}
+        </div>
+        <div class="lab-archive" aria-label="Galacean archive demos">
+          {archiveHomeLabs.map((lab) => (
+            <a
+              class:list={['lab-archive-row', lab.featureClass]}
+              href={lab.href}
+              data-reveal
+            >
+              <span class="lab-thumb" aria-hidden="true">
+                <img src={lab.cover} alt="" loading="lazy" decoding="async" />
+              </span>
+              <span class="lab-archive-main">
+                <span class="lab-kicker">
+                  <span>{lab.no}</span>
+                  <span>{lab.label.toUpperCase()}</span>
+                </span>
+                <strong>{lab.title}</strong>
+                <span>{lab.description}</span>
+              </span>
+              <span class="lab-arrow" aria-hidden="true">→</span>
             </a>
           ))}
         </div>
@@ -712,82 +780,197 @@ const homeLabEntries = [
 
   /* ---- labs ---- */
 
-  .lab-list {
-    display: flex;
-    flex-direction: column;
+  .lab-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
   }
 
-  .lab-row {
-    display: grid;
-    grid-template-columns: 56px minmax(0, 1fr) auto 28px;
-    align-items: center;
-    gap: 20px;
-    padding: 17px 0;
-    border-top: 1px solid var(--hairline);
+  .lab-feature,
+  .lab-archive-row {
     color: var(--ink);
     text-decoration: none;
   }
 
-  .lab-row strong {
-    font-size: clamp(18px, 2vw, 24px);
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    transition: color 0.2s ease;
+  .lab-feature {
+    display: grid;
+    grid-template-rows: clamp(150px, 16vw, 210px) 1fr;
+    min-width: 0;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.018);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
   }
 
-  .lab-row:hover strong {
-    color: var(--accent);
+  .lab-feature:hover {
+    background: rgba(255, 255, 255, 0.028);
+    border-color: rgba(242, 241, 237, 0.24);
+    transform: translateY(-2px);
   }
 
-  .lab-tag {
+  .lab-cover,
+  .lab-thumb {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .lab-cover img,
+  .lab-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    filter: saturate(0.98) contrast(0.98);
+  }
+
+  .lab-cover {
+    min-height: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .lab-cover::after,
+  .lab-thumb::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background: linear-gradient(180deg, transparent 72%, rgba(0, 0, 0, 0.12));
+    pointer-events: none;
+  }
+
+  .lab-feature-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 190px;
+    padding: 18px;
+  }
+
+  .lab-kicker {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    color: var(--mut-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.13em;
+  }
+
+  .lab-kicker span:last-child {
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lab-feature h3 {
+    margin: 20px 0 0;
+    font-size: clamp(21px, 2vw, 30px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+  }
+
+  .lab-feature p {
+    display: -webkit-box;
+    margin: 12px 0 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    color: var(--mut);
+    font-size: 13.5px;
+    line-height: 1.58;
+  }
+
+  .lab-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 22px;
     color: var(--mut-2);
     font-family: var(--font-mono);
     font-size: 10.5px;
     letter-spacing: 0.14em;
-    text-align: right;
   }
 
-  .arrow {
-    color: var(--mut-2);
-    font-size: 18px;
-    text-align: right;
-    transition: transform 0.22s ease, color 0.2s ease;
+  .lab-open span,
+  .lab-arrow {
+    transition: transform 0.2s ease;
   }
 
-  .lab-row:hover .arrow {
+  .lab-feature:hover h3,
+  .lab-archive-row:hover strong,
+  .lab-feature:hover .lab-open,
+  .lab-archive-row:hover .lab-arrow {
     color: var(--accent);
+  }
+
+  .lab-feature:hover .lab-open span,
+  .lab-archive-row:hover .lab-arrow {
     transform: translateX(4px);
   }
 
-  .swatch {
-    width: 56px;
-    height: 56px;
-    border: 1px solid var(--hairline);
-    border-radius: 3px;
+  .lab-archive {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    margin-top: 22px;
+    border-top: 1px solid var(--hairline);
   }
 
-  .swatch.photo {
-    /* 3x2 sprite sheet — bottom-left RGB cell only */
-    background-image: var(--thumb);
-    background-size: 300% 200%;
-    background-position: 0% 100%;
+  .lab-archive-row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 20px;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline);
   }
 
-  .swatch.galacean {
-    background:
-      linear-gradient(90deg, rgba(44, 127, 143, 0.55), transparent 46%),
-      linear-gradient(135deg, #14161d 0%, #14161d 52%, #6f5cd1 52%, #6f5cd1 72%, #c9836b 72%);
+  .lab-thumb {
+    aspect-ratio: 16 / 9;
+    min-width: 0;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(242, 241, 237, 0.12);
+    border-radius: 4px;
   }
 
-  .swatch.galacean09 {
-    background: linear-gradient(145deg, #1f7e8d 0%, #1f7e8d 52%, #14161d 52%, #14161d 100%);
+  .lab-archive-main {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
   }
 
-  .swatch.liquidGlass {
-    background:
-      linear-gradient(135deg, rgba(126, 224, 138, 0.28), transparent 42%),
-      linear-gradient(225deg, rgba(139, 183, 255, 0.36), transparent 52%),
-      #0b0e14;
+  .lab-archive-main strong {
+    overflow: hidden;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+  }
+
+  .lab-archive-main > span:last-child {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: var(--mut);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .lab-arrow {
+    color: var(--mut-2);
+    font-size: 18px;
+    text-align: right;
   }
 
   .labs-all {
@@ -918,6 +1101,25 @@ const homeLabEntries = [
     h1 {
       font-size: clamp(56px, 10vw, 120px);
     }
+
+    .lab-feature-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .lab-feature:first-child {
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      grid-template-rows: minmax(260px, 1fr);
+    }
+
+    .lab-feature:first-child .lab-cover {
+      border-right: 1px solid var(--hairline);
+      border-bottom: 0;
+    }
+
+    .lab-archive {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   @media (max-width: 880px) {
@@ -975,17 +1177,23 @@ const homeLabEntries = [
       gap: 6px;
     }
 
-    .lab-row {
-      grid-template-columns: 44px minmax(0, 1fr) 28px;
+    .lab-feature:first-child {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 210px 1fr;
     }
 
-    .swatch {
-      width: 44px;
-      height: 44px;
+    .lab-feature:first-child .lab-cover {
+      border-right: 0;
+      border-bottom: 1px solid var(--hairline);
     }
 
-    .lab-tag {
-      display: none;
+    .lab-feature-body {
+      min-height: 174px;
+    }
+
+    .lab-archive-row {
+      grid-template-columns: 124px minmax(0, 1fr) 18px;
+      gap: 14px;
     }
   }
 
@@ -1010,6 +1218,32 @@ const homeLabEntries = [
 
     .lede {
       font-size: 15.5px;
+    }
+
+    .lab-feature-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lab-feature,
+    .lab-feature:first-child {
+      grid-template-rows: 176px 1fr;
+    }
+
+    .lab-feature-body {
+      min-height: 0;
+    }
+
+    .lab-archive-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .lab-thumb {
+      width: 100%;
+    }
+
+    .lab-arrow {
+      display: none;
     }
   }
 </style>
