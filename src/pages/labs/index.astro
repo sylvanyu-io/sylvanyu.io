@@ -15,10 +15,11 @@ import { labEntries } from '../../labs/catalog';
 
     <section class="intro">
       <p class="kicker">Labs</p>
-      <h1>Small demos, notes, and archive experiments.</h1>
+      <h1>Demos that run in your browser.</h1>
       <p>
-        A place for browser-native pieces and older tests. Not every entry is a finished project;
-        some are kept here for context.
+        Interactive experiments and archived engine tests — shaders, water, glass, and parallax
+        photos. Everything here runs live; the older pieces are kept close to their original
+        state as a record of how they were built.
       </p>
     </section>
 
@@ -28,7 +29,7 @@ import { labEntries } from '../../labs/catalog';
           <a class="main-link" href={lab.href}>
             <div class="media" aria-hidden="true">
               {lab.image ? (
-                <img src={lab.image} alt="" loading="lazy" />
+                <div class="photo-media" style={`--thumb: url("${lab.image}")`}></div>
               ) : (
                 <div class:list={['shader-thumb', lab.thumb]}>
                   <span class="water"></span>
@@ -157,12 +158,12 @@ import { labEntries } from '../../labs/catalog';
     border-bottom: 1px solid var(--line);
   }
 
-  .media img {
-    width: 100%;
+  .photo-media {
+    /* The thumb is a 3x2 sprite sheet; show only the bottom-left RGB cell. */
     height: 100%;
-    object-fit: cover;
-    object-position: 50% 54%;
-    display: block;
+    background-image: var(--thumb);
+    background-size: 300% 200%;
+    background-position: 0% 100%;
     filter: saturate(1.08) contrast(1.02);
   }
 
