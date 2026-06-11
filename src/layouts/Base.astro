@@ -6,8 +6,8 @@ interface Props {
   description?: string;
 }
 const {
-  title = 'sylvanyu.io',
-  description = '',
+  title = 'Sylvan Yu — Graphics & Engine Engineer',
+  description = 'Sylvan Yu (俞宇锋) is a graphics and engine engineer in Shanghai, working on real-time rendering engines, cross-platform graphics, and editor tooling.',
 } = Astro.props;
 ---
 
@@ -21,6 +21,7 @@ const {
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0a0b0f" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <slot name="head" />
   </head>
   <body>
     <slot />

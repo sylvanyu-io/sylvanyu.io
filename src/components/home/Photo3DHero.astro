@@ -1,0 +1,127 @@
+---
+import heroSpriteUrl from '../../labs/photo3d/textures/sprite2.png?url';
+---
+
+<div
+  class="hero-photo"
+  data-photo3d-root
+  data-local-sprite={heroSpriteUrl}
+  style="--photo3d-aspect: 472 / 1024;"
+>
+  <div class="frame" data-photo3d-wrap>
+    <div class="stage" data-photo3d-stage aria-label="Photo3D — interactive depth photo"></div>
+    <span class="badge" aria-hidden="true"><i></i>LIVE — WEBGL</span>
+    <p class="status" data-photo3d-status>LOADING…</p>
+  </div>
+</div>
+
+<script>
+  import shaderBody from '../../labs/photo3d/photo3d.fs?raw';
+  import { mountPhoto3D } from '../../labs/photo3d/runtime';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('[data-photo3d-root]').forEach((root) => {
+    mountPhoto3D(root, { shaderBody, interaction: 'hover', idleDrift: !reduceMotion });
+  });
+</script>
+
+<style>
+  .hero-photo {
+    min-width: 0;
+  }
+
+  .frame {
+    /* The sprite's lowest ~24% is a bright defocused foreground; crop it out of the window. */
+    --crop: 0.76;
+
+    position: relative;
+    height: var(--hero-photo-h, min(72vh, 720px));
+    overflow: hidden;
+    background: #030405;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 4px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.08) inset,
+      0 50px 140px rgba(0, 0, 0, 0.6),
+      0 0 120px rgba(125, 150, 255, 0.07);
+  }
+
+  .stage {
+    position: relative;
+    height: calc(var(--hero-photo-h, min(72vh, 720px)) / var(--crop));
+    aspect-ratio: var(--photo3d-aspect, 472 / 1024);
+    max-width: 100%;
+  }
+
+  .stage :global(canvas) {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .badge,
+  .status {
+    position: absolute;
+    z-index: 2;
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    line-height: 1;
+  }
+
+  .badge {
+    top: 14px;
+    left: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px 6px;
+    color: rgba(242, 241, 237, 0.85);
+    background: rgba(3, 4, 5, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 3px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .badge i {
+    width: 6px;
+    height: 6px;
+    background: var(--accent, #ff5440);
+    border-radius: 999px;
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(255, 84, 64, 0.9); }
+    50% { opacity: 0.45; box-shadow: 0 0 2px rgba(255, 84, 64, 0.4); }
+  }
+
+  .status {
+    left: 14px;
+    bottom: 12px;
+    padding: 7px 10px 6px;
+    color: rgba(242, 241, 237, 0.65);
+    background: rgba(3, 4, 5, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+  }
+
+  .status[hidden] {
+    display: none;
+  }
+
+  .status.err {
+    color: #f2bd74;
+    border-color: rgba(242, 189, 116, 0.4);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .badge i {
+      animation: none;
+    }
+  }
+</style>

@@ -1,5 +1,9 @@
 type Photo3DOptions = {
   shaderBody: string;
+  /** 'drag' (default): parallax only while dragging. 'hover': follow the pointer, ease back when it leaves. */
+  interaction?: 'drag' | 'hover';
+  /** Gentle autonomous orbit while no pointer is active (hover mode only). */
+  idleDrift?: boolean;
 };
 
 type Photo3DConfig = {
@@ -98,7 +102,10 @@ const createDisparityCanvas = (sourceCanvas: HTMLCanvasElement, remapR = false) 
   return output;
 };
 
-export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
+export const mountPhoto3D = (
+  root: Element,
+  { shaderBody, interaction = 'drag', idleDrift = false }: Photo3DOptions,
+) => {
   if (!(root instanceof HTMLElement) || root.dataset.mounted === 'true') return;
   root.dataset.mounted = 'true';
 
@@ -209,6 +216,9 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
   let transparentTextureRef: WebGLTexture | null = null;
   let animationFrame = 0;
   let dragging = false;
+  let pointerActive = false;
+  let smoothX = config.offsetX;
+  let smoothY = config.offsetY;
   let mx = 0;
   let my = 0;
   let fps = 0;
@@ -350,26 +360,48 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     my = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   };
 
-  canvas.addEventListener('pointermove', (event) => {
-    stopCanvasGesture(event);
-    updatePointer(event);
-  });
-  canvas.addEventListener('pointerdown', (event) => {
-    stopCanvasGesture(event);
-    dragging = true;
-    canvas.setPointerCapture(event.pointerId);
-    updatePointer(event);
-  });
-  const endPointerGesture = (event: PointerEvent) => {
-    stopCanvasGesture(event);
-    dragging = false;
-  };
-  canvas.addEventListener('pointerup', endPointerGesture);
-  canvas.addEventListener('pointercancel', endPointerGesture);
-  canvas.addEventListener('pointerleave', endPointerGesture);
-  canvas.addEventListener('wheel', stopCanvasGesture, { passive: false });
-  canvas.addEventListener('touchstart', stopCanvasGesture, { passive: false });
-  canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
+  if (interaction === 'hover') {
+    // Hover mode keeps the page scrollable: no gesture capture, no preventDefault.
+    canvas.style.touchAction = 'pan-y';
+    canvas.addEventListener('pointermove', (event) => {
+      updatePointer(event);
+      pointerActive = true;
+    });
+    canvas.addEventListener('pointerdown', (event) => {
+      updatePointer(event);
+      pointerActive = true;
+    });
+    canvas.addEventListener('pointerup', (event) => {
+      if (event.pointerType !== 'mouse') pointerActive = false;
+    });
+    canvas.addEventListener('pointercancel', () => {
+      pointerActive = false;
+    });
+    canvas.addEventListener('pointerleave', () => {
+      pointerActive = false;
+    });
+  } else {
+    canvas.addEventListener('pointermove', (event) => {
+      stopCanvasGesture(event);
+      updatePointer(event);
+    });
+    canvas.addEventListener('pointerdown', (event) => {
+      stopCanvasGesture(event);
+      dragging = true;
+      canvas.setPointerCapture(event.pointerId);
+      updatePointer(event);
+    });
+    const endPointerGesture = (event: PointerEvent) => {
+      stopCanvasGesture(event);
+      dragging = false;
+    };
+    canvas.addEventListener('pointerup', endPointerGesture);
+    canvas.addEventListener('pointercancel', endPointerGesture);
+    canvas.addEventListener('pointerleave', endPointerGesture);
+    canvas.addEventListener('wheel', stopCanvasGesture, { passive: false });
+    canvas.addEventListener('touchstart', stopCanvasGesture, { passive: false });
+    canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
+  }
 
   const frame = (time = performance.now()) => {
     frameCount += 1;
@@ -384,7 +416,24 @@ export const mountPhoto3D = (root: Element, { shaderBody }: Photo3DOptions) => {
     let oy = config.offsetY;
     const oz = config.offsetZ;
 
-    if (dragging) {
+    if (interaction === 'hover') {
+      let targetX = config.offsetX;
+      let targetY = config.offsetY;
+
+      if (pointerActive) {
+        targetX = mx * 0.045;
+        targetY = my * 0.045;
+      } else if (idleDrift) {
+        const seconds = time * 0.001;
+        targetX = config.offsetX + Math.sin(seconds * 0.5) * 0.016;
+        targetY = config.offsetY + Math.cos(seconds * 0.37) * 0.011;
+      }
+
+      smoothX += (targetX - smoothX) * 0.055;
+      smoothY += (targetY - smoothY) * 0.055;
+      ox = smoothX;
+      oy = smoothY;
+    } else if (dragging) {
       ox = mx * 0.05;
       oy = my * 0.05;
     }
