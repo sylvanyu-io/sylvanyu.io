@@ -1,5 +1,11 @@
-  /* The macOS page renders entirely inside one Three.js canvas; only the
-     shell around that canvas needs CSS. */
+  /* The macOS page renders the desktop inside one Three.js canvas; windows
+     are DOM islands layered above it. Only this shell needs CSS. */
+
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
 
   .mac-page {
     position: fixed;
@@ -9,6 +15,8 @@
     background: #0a1723;
     font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .mac-single-canvas {
@@ -18,7 +26,7 @@
     width: 100%;
     height: 100%;
     outline: none;
-    touch-action: pan-y;
+    touch-action: none;
   }
 
   .mac-dom-windows {
@@ -59,6 +67,23 @@
     -webkit-backdrop-filter: blur(12px) saturate(1.05);
   }
 
+  /* Fullscreen "app" sheets on mobile: no chrome, near-opaque background so
+     the costly fullscreen backdrop blur can be dropped (Safari-friendly). */
+  .mac-dom-window[data-mobile="true"] {
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background:
+      linear-gradient(150deg, rgba(238, 239, 222, .98), rgba(226, 224, 207, .97) 52%, rgba(204, 218, 180, .97));
+  }
+
+  .mac-dom-window[data-tone="dark"][data-mobile="true"] {
+    background: linear-gradient(150deg, rgba(18, 21, 28, .97), rgba(15, 18, 24, .96));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .mac-dom-window__titlebar {
     position: relative;
     display: grid;
@@ -69,6 +94,7 @@
     border-bottom: 1px solid rgba(22, 34, 46, .09);
     cursor: grab;
     user-select: none;
+    -webkit-user-select: none;
   }
 
   .mac-dom-window[data-tone="dark"] .mac-dom-window__titlebar {
@@ -78,6 +104,13 @@
 
   .mac-dom-window[data-dragging="true"] .mac-dom-window__titlebar {
     cursor: grabbing;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__titlebar {
+    box-sizing: border-box;
+    padding-top: var(--mac-safe-top, 0px);
+    cursor: default;
+    touch-action: none;
   }
 
   .mac-dom-window__close {
@@ -90,6 +123,35 @@
     background: rgba(255, 97, 89, .94);
     appearance: none;
     cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-window__close svg {
+    display: none;
+  }
+
+  /* iOS-style back chevron replaces the traffic light on mobile. */
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(23, 25, 28, .82);
+  }
+
+  .mac-dom-window[data-tone="dark"][data-mobile="true"] .mac-dom-window__close {
+    color: rgba(255, 255, 255, .88);
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__close svg {
+    display: block;
+    width: 24px;
+    height: 24px;
   }
 
   .mac-dom-window__title {
@@ -103,6 +165,14 @@
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .mac-dom-window[data-tone="dark"] .mac-dom-window__title {
+    color: rgba(255, 255, 255, .9);
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__title {
+    font-size: 13px;
   }
 
   .mac-dom-window__accessory {
@@ -124,6 +194,18 @@
     position: relative;
     height: calc(100% - var(--mac-window-title-h, 34px));
     overflow: hidden;
+  }
+
+  /* Mobile bodies scroll like app screens; contain keeps the rubber-band
+     from chaining into the page (no pull-to-refresh). */
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--readme,
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--worklog,
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--projects {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(24px + var(--mac-safe-bottom, 0px));
   }
 
   .mac-dom-window__body--readme {
@@ -189,6 +271,12 @@
     align-items: center;
   }
 
+  /* In the scrolling mobile sheet the actions flow with the content. */
+  .mac-dom-window[data-mobile="true"] .mac-readme__actions {
+    position: static;
+    margin-top: 28px;
+  }
+
   .mac-readme__actions a {
     display: inline-flex;
     align-items: center;
@@ -200,6 +288,7 @@
     font-weight: 700;
     line-height: 1;
     text-decoration: none;
+    touch-action: manipulation;
   }
 
   .mac-readme__email {
@@ -240,6 +329,11 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  /* The Photo3D stage pans with finger drags; keep the gesture for itself. */
+  .mac-dom-window[data-mobile="true"] .mac-photo__stage {
+    touch-action: none;
   }
 
   .mac-photo__status {
@@ -287,6 +381,10 @@
     line-height: 20px;
   }
 
+  .mac-dom-window[data-mobile="true"] .mac-photo__note {
+    padding-bottom: calc(13px + var(--mac-safe-bottom, 0px));
+  }
+
   .mac-dom-window__body--worklog {
     padding: 10px;
   }
@@ -300,6 +398,12 @@
     font-size: 11px;
     font-weight: 500;
     line-height: 20px;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-worklog__panel {
+    box-sizing: border-box;
+    height: auto;
+    min-height: 100%;
   }
 
   .mac-worklog__panel p {
@@ -365,6 +469,16 @@
     -webkit-line-clamp: 2;
   }
 
+  /* Mobile sheets have room for the full descriptions. */
+  .mac-dom-window[data-mobile="true"] .mac-project {
+    min-height: 0;
+    padding: 14px 0;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-project__body {
+    -webkit-line-clamp: 4;
+  }
+
   .mac-project__metric {
     display: flex;
     align-items: flex-start;
@@ -402,26 +516,4 @@
     color: rgba(255, 255, 255, .72);
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 12px;
-  }
-
-  @media (max-width: 700px) {
-    .mac-dom-window__body--readme {
-      padding: 32px 24px 18px;
-    }
-
-    .mac-readme__eyebrow {
-      margin-bottom: 30px;
-    }
-
-    .mac-readme__title {
-      margin-bottom: 0;
-      font-size: 24px;
-      line-height: 31px;
-    }
-
-    .mac-readme__copy,
-    .mac-readme__chips,
-    .mac-readme__actions {
-      display: none;
-    }
   }

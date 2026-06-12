@@ -14,8 +14,6 @@ import {
 export { MAC_WINDOW_IDS, PHOTO_APP_HUD_HEIGHT };
 export type { GlassPanel, Rect, WindowId, WindowLayout } from './windowTypes';
 
-// Window-area interactions (focus, drag, close) belong to the DOM windows,
-// which sit above the canvas; canvas hit targets only cover the desktop shell.
 export type HitTarget = Rect & {
   cursor: 'default' | 'pointer';
   action:
@@ -30,8 +28,11 @@ export type MacCanvasState = {
   windows: WindowStateMap;
 };
 
-type IconCell = {
-  id: WindowId;
+type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconLog' | 'iconProjects';
+
+export type IconCell = {
+  id: WindowId | 'lang';
+  labelKey?: IconLabelKey;
   x: number;
   y: number;
   w: number;
@@ -52,16 +53,23 @@ export type LangSwitchLayout = Rect & {
   segW: number;
 };
 
+export type SafeInsets = {
+  top: number;
+  bottom: number;
+};
+
 export type MacCanvasLayout = {
   width: number;
   height: number;
   mobile: boolean;
+  safeTop: number;
+  safeBottom: number;
   glassPanels: GlassPanel[];
   hitTargets: HitTarget[];
   windows: WindowLayout[];
   iconCells: IconCell[];
   dock: DockLayout;
-  langSwitch: LangSwitchLayout;
+  langSwitch: LangSwitchLayout | null;
   iconsRect: Rect;
   widgetsRect: Rect | null;
   dockRect: Rect;
@@ -71,12 +79,13 @@ export type MacCanvasLayout = {
 export type MacCanvasLayoutOptions = {
   photoAspect?: number;
   photoSourceText?: string;
+  safeInsets?: SafeInsets;
 };
 
 type IconDef = {
   id: WindowId;
   icon: string;
-  labelKey: 'iconReadme' | 'iconPhoto' | 'iconLog' | 'iconProjects';
+  labelKey: IconLabelKey;
 };
 
 export type MacUiAssets = {
@@ -95,6 +104,7 @@ const MAC_MENUBAR_TEXT_Y = 17;
 const MAC_MENUBAR_CONTROL_Y = 7;
 const MIN_PHOTO_STAGE_ASPECT = 0.72;
 const MAX_PHOTO_STAGE_ASPECT = 2.6;
+const MOBILE_TITLEBAR_HEIGHT = 48;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -147,10 +157,13 @@ export function bringWindowFront(state: MacCanvasState, id: WindowId) {
   state.windows[id].z = nextZ;
 }
 
-function placeWindow(state: MacCanvasState, windowLayout: WindowLayout) {
-  const saved = state.windows[windowLayout.id];
-  if (typeof saved.x === 'number') windowLayout.x = saved.x;
-  if (typeof saved.y === 'number') windowLayout.y = saved.y;
+function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: boolean) {
+  if (!mobile) {
+    const saved = state.windows[windowLayout.id];
+    if (typeof saved.x === 'number') windowLayout.x = saved.x;
+    if (typeof saved.y === 'number') windowLayout.y = saved.y;
+  }
+
   if (windowLayout.id === 'photo') {
     const stageH = windowLayout.stage?.h ?? Math.max(1, windowLayout.h - windowLayout.titleH - (windowLayout.note?.h ?? 76));
     windowLayout.stage = {
@@ -180,6 +193,68 @@ function boundsOf(rects: Rect[]): Rect {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
+// iOS-style home screen grid: app icons in 4 columns plus a language tile.
+function buildMobileIconCells(width: number, safeTop: number): IconCell[] {
+  const sidePad = 20;
+  const columns = 4;
+  const cellW = Math.floor((width - sidePad * 2) / columns);
+  const top = 34 + safeTop;
+  const itemH = 92;
+  const rowGap = 14;
+  const imgSize = 56;
+
+  const cellAt = (index: number): Omit<IconCell, 'id' | 'labelKey'> => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const x = sidePad + col * cellW;
+    const y = top + row * (itemH + rowGap);
+    return {
+      x,
+      y,
+      w: cellW,
+      h: itemH,
+      imgX: x + Math.round((cellW - imgSize) * 0.5),
+      imgY: y,
+      imgSize,
+      labelX: x + Math.round(cellW * 0.5),
+      labelY: y + imgSize + 9,
+    };
+  };
+
+  const cells: IconCell[] = icons.map((icon, index) => ({
+    id: icon.id,
+    labelKey: icon.labelKey,
+    ...cellAt(index),
+  }));
+  cells.push({ id: 'lang', ...cellAt(icons.length) });
+  return cells;
+}
+
+function buildDesktopIconCells(): IconCell[] {
+  const iconX = 18;
+  const iconTop = 56;
+  const iconGap = 18;
+  const itemH = 76;
+
+  return icons.map((icon, index) => {
+    const y = iconTop + index * (itemH + iconGap);
+    const imgY = y + 4;
+    return {
+      id: icon.id,
+      labelKey: icon.labelKey,
+      x: iconX,
+      y,
+      w: 86,
+      h: itemH,
+      imgX: iconX + 16,
+      imgY,
+      imgSize: 54,
+      labelX: iconX + 45,
+      labelY: imgY + 54 + 8,
+    };
+  });
+}
+
 export function buildMacCanvasLayout(
   width: number,
   height: number,
@@ -187,6 +262,8 @@ export function buildMacCanvasLayout(
   options: MacCanvasLayoutOptions = {},
 ): MacCanvasLayout {
   const mobile = width <= 700 || height > width * 1.18;
+  const safeTop = mobile ? options.safeInsets?.top ?? 0 : 0;
+  const safeBottom = mobile ? options.safeInsets?.bottom ?? 0 : 0;
   const widgetGlassPanels: GlassPanel[] = [];
   const hitTargets: HitTarget[] = [];
   const windows: WindowLayout[] = [];
@@ -195,45 +272,21 @@ export function buildMacCanvasLayout(
     Math.min(MAX_PHOTO_STAGE_ASPECT, options.photoAspect ?? 0.75),
   );
 
-  const langSegW = mobile ? 36 : 30;
-  const langSwitch: LangSwitchLayout = {
-    x: mobile ? width - 96 : width - 198,
-    y: MAC_MENUBAR_CONTROL_Y,
-    w: langSegW * 2,
-    h: 20,
-    segW: langSegW,
-  };
-  hitTargets.push({
-    x: langSwitch.x,
-    y: langSwitch.y,
-    w: langSwitch.w,
-    h: langSwitch.h,
-    cursor: 'pointer',
-    action: { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' },
-  });
+  const langSwitch: LangSwitchLayout | null = mobile
+    ? null
+    : { x: width - 198, y: MAC_MENUBAR_CONTROL_Y, w: 60, h: 20, segW: 30 };
+  if (langSwitch) {
+    hitTargets.push({
+      x: langSwitch.x,
+      y: langSwitch.y,
+      w: langSwitch.w,
+      h: langSwitch.h,
+      cursor: 'pointer',
+      action: { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' },
+    });
+  }
 
-  const iconX = mobile ? 28 : 18;
-  const iconTop = 56;
-  const iconGap = mobile ? 22 : 18;
-  const iconItemH = mobile ? 82 : 76;
-  const iconItemW = mobile ? 90 : 86;
-  const iconImgSize = mobile ? 56 : 54;
-  const iconCells: IconCell[] = icons.map((icon, index) => {
-    const y = iconTop + index * (iconItemH + iconGap);
-    const imgY = y + 4;
-    return {
-      id: icon.id,
-      x: iconX,
-      y,
-      w: iconItemW,
-      h: iconItemH,
-      imgX: iconX + (mobile ? 17 : 16),
-      imgY,
-      imgSize: iconImgSize,
-      labelX: iconX + 45,
-      labelY: imgY + iconImgSize + 8,
-    };
-  });
+  const iconCells = mobile ? buildMobileIconCells(width, safeTop) : buildDesktopIconCells();
   iconCells.forEach((cell) => {
     hitTargets.push({
       x: cell.x,
@@ -241,7 +294,9 @@ export function buildMacCanvasLayout(
       w: cell.w,
       h: cell.h,
       cursor: 'pointer',
-      action: { type: 'open', id: cell.id, origin: 'desktop' },
+      action: cell.id === 'lang'
+        ? { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' }
+        : { type: 'open', id: cell.id, origin: 'desktop' },
     });
   });
 
@@ -252,53 +307,64 @@ export function buildMacCanvasLayout(
     );
   }
 
-  const titleH = mobile ? 36 : 34;
-  const photoNoteH = mobile ? 74 : 76;
-  const basePhotoW = mobile ? Math.min(266, Math.max(220, width - 152)) : 320;
-  const photoMaxWindowH = mobile ? Math.max(320, height - 160) : Math.max(360, height - 116);
-  const photoMaxStageH = Math.max(160, photoMaxWindowH - titleH - photoNoteH);
-  const photoW = Math.round(Math.min(basePhotoW, photoMaxStageH * photoAspect));
-  const photoStageH = Math.round(photoW / photoAspect);
-  const photoH = titleH + photoStageH + photoNoteH;
-  const photoX = mobile ? Math.max(112, width - photoW - 16) : 600;
-  const photoY = mobile ? Math.max(96, Math.min(340, height - 106 - photoH)) : 58;
-  const readmeW = mobile ? Math.min(300, Math.max(250, width - 120)) : 430;
-  const readmeH = mobile ? Math.min(320, Math.max(238, photoY - 34)) : 500;
+  // Mobile windows behave like iOS apps: fullscreen sheets with a back chevron
+  // in the titlebar, so all desktop float-positioning only applies off-mobile.
+  const titleH = mobile ? MOBILE_TITLEBAR_HEIGHT + safeTop : 34;
+  const photoNoteH = mobile ? 88 + safeBottom : 76;
+  const fullscreen: Rect = { x: 0, y: 0, w: width, h: height };
+
+  let photo: WindowLayout;
+  if (mobile) {
+    const stageH = Math.max(120, height - titleH - photoNoteH);
+    photo = {
+      id: 'photo',
+      title: 'Photo3D.app',
+      ...fullscreen,
+      r: 0,
+      z: state.windows.photo.z,
+      titleH,
+      stage: { x: 0, y: titleH, w: width, h: stageH },
+      note: { x: 0, y: titleH + stageH, w: width, h: photoNoteH },
+      sourceText: options.photoSourceText,
+    };
+  } else {
+    const basePhotoW = 320;
+    const photoMaxWindowH = Math.max(360, height - 116);
+    const photoMaxStageH = Math.max(160, photoMaxWindowH - titleH - photoNoteH);
+    const photoW = Math.round(Math.min(basePhotoW, photoMaxStageH * photoAspect));
+    const photoStageH = Math.round(photoW / photoAspect);
+    const photoX = 600;
+    const photoY = 58;
+    photo = {
+      id: 'photo',
+      title: 'Photo3D.app',
+      x: photoX,
+      y: photoY,
+      w: photoW,
+      h: titleH + photoStageH + photoNoteH,
+      r: 18,
+      z: state.windows.photo.z,
+      titleH,
+      stage: { x: photoX, y: photoY + titleH, w: photoW, h: photoStageH },
+      note: { x: photoX, y: photoY + titleH + photoStageH, w: photoW, h: photoNoteH },
+      sourceText: options.photoSourceText,
+    };
+  }
+
   const readme: WindowLayout = {
     id: 'readme',
     title: 'README.md',
-    x: mobile ? Math.max(70, width - readmeW - 16) : 130,
-    y: mobile ? 76 : 64,
-    w: readmeW,
-    h: readmeH,
-    r: 18,
+    ...(mobile ? fullscreen : { x: 130, y: 64, w: 430, h: 500 }),
+    r: mobile ? 0 : 18,
     z: state.windows.readme.z,
     titleH,
-  };
-
-  const photo: WindowLayout = {
-    id: 'photo',
-    title: 'Photo3D.app',
-    x: photoX,
-    y: photoY,
-    w: photoW,
-    h: photoH,
-    r: 18,
-    z: state.windows.photo.z,
-    titleH,
-    stage: { x: photoX, y: photoY + titleH, w: photoW, h: photoStageH },
-    note: { x: photoX, y: photoY + titleH + photoStageH, w: photoW, h: photoNoteH },
-    sourceText: options.photoSourceText,
   };
 
   const worklog: WindowLayout = {
     id: 'worklog',
     title: 'sylvan@os - tail -f work.log',
-    x: mobile ? 80 : 240,
-    y: 130,
-    w: mobile ? Math.min(520, width - 110) : 560,
-    h: mobile ? Math.min(420, height - 190) : 408,
-    r: 18,
+    ...(mobile ? fullscreen : { x: 240, y: 130, w: 560, h: 408 }),
+    r: mobile ? 0 : 18,
     z: state.windows.worklog.z,
     titleH,
   };
@@ -306,11 +372,8 @@ export function buildMacCanvasLayout(
   const projects: WindowLayout = {
     id: 'projects',
     title: '~/projects',
-    x: mobile ? 64 : 180,
-    y: mobile ? 112 : 90,
-    w: mobile ? Math.min(560, width - 90) : 600,
-    h: mobile ? Math.min(460, height - 170) : 452,
-    r: 18,
+    ...(mobile ? fullscreen : { x: 180, y: 90, w: 600, h: 452 }),
+    r: mobile ? 0 : 18,
     z: state.windows.projects.z,
     titleH,
   };
@@ -322,7 +385,7 @@ export function buildMacCanvasLayout(
   const dockW = icons.length * dockIcon + (icons.length - 1) * dockGap + dockPadX * 2;
   const dockH = dockIcon + dockPadY * 2 + 6;
   const dockX = Math.round((width - dockW) * 0.5);
-  const dockY = Math.round(height - dockH - (mobile ? 18 : 14));
+  const dockY = Math.round(height - dockH - (mobile ? 14 + safeBottom : 14));
   const dock: DockLayout = {
     panel: { x: dockX, y: dockY, w: dockW, h: dockH, r: mobile ? 24 : 22, z: 220 },
     slots: icons.map((icon, index) => ({
@@ -345,7 +408,7 @@ export function buildMacCanvasLayout(
 
   [readme, photo, worklog, projects].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
-    placeWindow(state, windowLayout);
+    placeWindow(state, windowLayout, mobile);
     windows.push(windowLayout);
   });
 
@@ -353,6 +416,8 @@ export function buildMacCanvasLayout(
     width,
     height,
     mobile,
+    safeTop,
+    safeBottom,
     glassPanels: [...widgetGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
     hitTargets,
     windows: [...windows].sort((a, b) => a.z - b.z),
@@ -362,7 +427,7 @@ export function buildMacCanvasLayout(
     iconsRect: padRect(boundsOf(iconCells), 16),
     widgetsRect: mobile ? null : padRect(boundsOf(widgetGlassPanels), 14),
     dockRect: padRect(dock.panel, 24),
-    menubarRect: { x: 0, y: 0, w: width, h: MAC_MENUBAR_HEIGHT + 10 },
+    menubarRect: mobile ? { x: 0, y: 0, w: 0, h: 0 } : { x: 0, y: 0, w: width, h: MAC_MENUBAR_HEIGHT + 10 },
   };
 }
 
@@ -384,6 +449,9 @@ function drawMenubar(
   now: Date,
   langAnim: number,
 ) {
+  const lang = layout.langSwitch;
+  if (!lang) return;
+
   const copy = desktopCopy[state.lang];
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -400,12 +468,10 @@ function drawMenubar(
 
   ctx.font = `500 12px ${mono}`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.74)';
-  const role = layout.mobile ? 'graphics / engine eng...' : copy.role;
-  ctx.fillText(role, layout.mobile ? 168 : 154, MAC_MENUBAR_TEXT_Y);
+  ctx.fillText(copy.role, 154, MAC_MENUBAR_TEXT_Y);
 
   // The pill and sliding thumb are liquid-glass panels rendered by the GPU
   // pass underneath; the layer only draws the crossfading labels.
-  const lang = layout.langSwitch;
   ctx.font = `600 10px ${mono}`;
   ctx.textAlign = 'center';
   ([['EN', 1 - langAnim], ['ZH', langAnim]] as const).forEach(([label, selected], index) => {
@@ -422,18 +488,63 @@ function drawMenubar(
   ctx.restore();
 }
 
+// Procedural "translate" tile so the language toggle reads as one more app
+// icon on the mobile home screen.
+function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
+  const { imgX, imgY, imgSize } = cell;
+  const radius = imgSize * 0.235;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.34)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 5;
+
+  ctx.beginPath();
+  ctx.moveTo(imgX + radius, imgY);
+  ctx.arcTo(imgX + imgSize, imgY, imgX + imgSize, imgY + imgSize, radius);
+  ctx.arcTo(imgX + imgSize, imgY + imgSize, imgX, imgY + imgSize, radius);
+  ctx.arcTo(imgX, imgY + imgSize, imgX, imgY, radius);
+  ctx.arcTo(imgX, imgY, imgX + imgSize, imgY, radius);
+  ctx.closePath();
+
+  const fill = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgSize);
+  fill.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
+  fill.addColorStop(1, 'rgba(255, 255, 255, 0.14)');
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+  ctx.font = `700 ${Math.round(imgSize * 0.4)}px ${sans}`;
+  ctx.fillText('A', imgX + imgSize * 0.36, imgY + imgSize * 0.4);
+  ctx.font = `600 ${Math.round(imgSize * 0.34)}px ${sans}`;
+  ctx.fillText('文', imgX + imgSize * 0.64, imgY + imgSize * 0.66);
+  ctx.restore();
+}
+
 function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
   const copy = desktopCopy[state.lang];
 
-  icons.forEach((icon, index) => {
-    const cell = layout.iconCells[index];
+  layout.iconCells.forEach((cell) => {
+    if (cell.id === 'lang') {
+      drawLangIcon(ctx, cell);
+    } else {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.34)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 5;
+      ctx.drawImage(assets.icons[cell.id], cell.imgX, cell.imgY, cell.imgSize, cell.imgSize);
+      ctx.restore();
+    }
 
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.34)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 5;
-    ctx.drawImage(assets.icons[cell.id], cell.imgX, cell.imgY, cell.imgSize, cell.imgSize);
-    ctx.restore();
+    const label = cell.id === 'lang'
+      ? (state.lang === 'en' ? '中文' : 'English')
+      : copy[cell.labelKey as IconLabelKey];
 
     ctx.save();
     ctx.font = `500 11px ${mono}`;
@@ -443,7 +554,7 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
     ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = 'rgba(255,255,255,.94)';
-    ctx.fillText(copy[icon.labelKey], cell.labelX, cell.labelY);
+    ctx.fillText(label, cell.labelX, cell.labelY);
     ctx.restore();
   });
 }

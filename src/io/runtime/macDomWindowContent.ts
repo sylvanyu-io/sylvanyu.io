@@ -129,7 +129,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   try {
     mountPhoto3D(root, {
       shaderBody: await loadPhoto3DShader(SHADER_URL),
-      interaction: 'hover',
+      interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: true,
       fit: 'cover',
     });

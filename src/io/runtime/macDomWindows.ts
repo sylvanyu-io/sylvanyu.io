@@ -35,6 +35,10 @@ const MINIMIZE_DURATION = 240;
 const RESTORE_DURATION = 260;
 const WINDOW_EASING = 'cubic-bezier(.2,.8,.2,1)';
 
+const BACK_CHEVRON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+  + '<path d="M15 4.8 L7.6 12 L15 19.2" fill="none" stroke="currentColor" stroke-width="2.4" '
+  + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function rectTransform(rect: Rect) {
   return `translate3d(${Math.round(rect.x)}px, ${Math.round(rect.y)}px, 0)`;
 }
@@ -103,7 +107,8 @@ function createWindowElement(id: WindowId, root: HTMLElement, actions: MacDomWin
   const titlebar = div('mac-dom-window__titlebar');
   titlebar.dataset.windowDrag = id;
 
-  const close = button('mac-dom-window__close', `Minimize ${id}`);
+  const close = button('mac-dom-window__close', 'Close window');
+  close.innerHTML = BACK_CHEVRON_SVG;
   const title = div('mac-dom-window__title');
   const accessory = div('mac-dom-window__accessory');
   const body = div(contentClass(id));
@@ -127,54 +132,37 @@ function createWindowElement(id: WindowId, root: HTMLElement, actions: MacDomWin
     actions.bringFront(id);
   });
 
-  const startDrag = (clientX: number, clientY: number, pointerId: number) => {
+  titlebar.addEventListener('pointerdown', (event) => {
+    if (event.target === close || close.contains(event.target as Node)) return;
+
     const layout = currentLayout(root);
     const win = layout ? windowById(layout, id) : null;
-    if (!win) return;
+    if (!layout || layout.mobile || !win) return;
 
     const rect = root.getBoundingClientRect();
-    const point = {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    };
     actions.bringFront(id);
     dragState = {
       id,
-      pointerId,
-      offsetX: point.x - win.x,
-      offsetY: point.y - win.y,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left - win.x,
+      offsetY: event.clientY - rect.top - win.y,
     };
     element.dataset.dragging = 'true';
-  };
-
-  const updateDrag = (clientX: number, clientY: number) => {
-    if (!dragState) return;
-    const rect = root.getBoundingClientRect();
-    actions.moveWindow(id, clientX - rect.left - dragState.offsetX, clientY - rect.top - dragState.offsetY);
-  };
-
-  const endDrag = () => {
-    if (!dragState) return;
-    dragState = null;
-    element.dataset.dragging = 'false';
-  };
-
-  titlebar.addEventListener('pointerdown', (event) => {
-    if (event.target === close) return;
-    startDrag(event.clientX, event.clientY, event.pointerId);
     titlebar.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
 
   listen('pointermove', (event) => {
     if (!dragState || dragState.pointerId !== event.pointerId) return;
-    updateDrag(event.clientX, event.clientY);
+    const rect = root.getBoundingClientRect();
+    actions.moveWindow(id, event.clientX - rect.left - dragState.offsetX, event.clientY - rect.top - dragState.offsetY);
     event.preventDefault();
   });
 
   const endPointerDrag = (event: PointerEvent) => {
     if (!dragState || dragState.pointerId !== event.pointerId) return;
-    endDrag();
+    dragState = null;
+    element.dataset.dragging = 'false';
     if (titlebar.hasPointerCapture(event.pointerId)) titlebar.releasePointerCapture(event.pointerId);
     event.preventDefault();
   };
@@ -189,7 +177,7 @@ function currentLayout(root: HTMLElement): MacCanvasLayout | null {
   return (root as HTMLElement & { __macCanvasLayout?: MacCanvasLayout }).__macCanvasLayout ?? null;
 }
 
-function windowSignature(win: WindowLayout) {
+function windowSignature(win: WindowLayout, layout: MacCanvasLayout) {
   return [
     Math.round(win.x),
     Math.round(win.y),
@@ -198,28 +186,35 @@ function windowSignature(win: WindowLayout) {
     win.r,
     win.z,
     win.titleH,
+    layout.mobile ? 1 : 0,
+    layout.safeTop,
+    layout.safeBottom,
     win.stage ? Math.round(win.stage.h) : 0,
     win.note ? Math.round(win.note.h) : 0,
   ].join(':');
 }
 
-function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout) {
+function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layout: MacCanvasLayout) {
   const { element } = record;
   element.hidden = false;
 
   // Style writes invalidate layout even when values are unchanged, and sync
   // runs every frame — only touch the DOM when the geometry actually moved.
-  const signature = windowSignature(win);
+  const signature = windowSignature(win, layout);
   if (record.appliedSig === signature) return;
   record.appliedSig = signature;
 
   element.dataset.tone = win.id === 'worklog' ? 'dark' : 'light';
+  element.dataset.mobile = layout.mobile ? 'true' : 'false';
   element.style.width = `${Math.round(win.w)}px`;
   element.style.height = `${Math.round(win.h)}px`;
   element.style.borderRadius = `${win.r}px`;
   element.style.transform = rectTransform(win);
   element.style.zIndex = String(1000 + win.z);
   element.style.setProperty('--mac-window-title-h', `${win.titleH}px`);
+  element.style.setProperty('--mac-safe-top', `${layout.mobile ? layout.safeTop : 0}px`);
+  element.style.setProperty('--mac-safe-bottom', `${layout.mobile ? layout.safeBottom : 0}px`);
+  record.close.setAttribute('aria-label', layout.mobile ? 'Back' : 'Minimize window');
 
   if (win.id === 'photo' && win.stage && win.note) {
     element.style.setProperty('--mac-photo-stage-h', `${Math.max(1, win.stage.h)}px`);
@@ -293,7 +288,10 @@ export function createMacDomWindows(
     cancelAnimation(id);
     actions.bringFront(id);
 
-    const target = dockTarget(layout, id);
+    // On mobile "back" returns the app to wherever it was launched from.
+    const target = layout.mobile
+      ? restoreTarget(layout, id, restoreOrigins.get(id) ?? 'dock')
+      : dockTarget(layout, id);
     if (!record.element.animate) {
       actions.setOpen(id, false);
       closing.delete(id);
@@ -340,7 +338,7 @@ export function createMacDomWindows(
         return;
       }
 
-      updateWindowLayout(record, win as WindowLayout);
+      updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);
       ensureWindowContentMounted(record);
 

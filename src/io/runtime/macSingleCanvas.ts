@@ -16,13 +16,14 @@ import {
   drawMacWidgetOverlay,
   hitTest,
   loadMacUiAssets,
-  MAC_WINDOW_IDS,
   MAC_MENUBAR_HEIGHT,
+  MAC_WINDOW_IDS,
   type HitTarget,
   type MacCanvasLayout,
   type MacCanvasState,
   type MacUiAssets,
   type Rect,
+  type SafeInsets,
   type WindowId,
 } from './macCanvas/ui';
 import {
@@ -51,7 +52,6 @@ import {
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
-const WINDOW_IDS = MAC_WINDOW_IDS;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
@@ -85,12 +85,13 @@ const LANG_THUMB_GLASS: Partial<GlassParams> = {
 const LANG_THUMB_INSET = 2;
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
-  const dots = WINDOW_IDS.map((id) => (state.windows[id].open ? '1' : '0')).join('');
+  const dots = MAC_WINDOW_IDS.map((id) => (state.windows[id].open ? '1' : '0')).join('');
   return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${dots}`;
 }
 
-export function mountMacSingleCanvas(root: Element) {
-  if (!(root instanceof HTMLElement) || root.dataset.macSingleCanvasMounted === 'true') return;
+export function mountMacSingleCanvas(rootInput: Element) {
+  if (!(rootInput instanceof HTMLElement) || rootInput.dataset.macSingleCanvasMounted === 'true') return;
+  const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
@@ -104,17 +105,38 @@ export function mountMacSingleCanvas(root: Element) {
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
   let photoMeta: SpriteFrameMeta | null = null;
+  let initialModeApplied = false;
 
-  function photoLayoutOptions() {
-    return photoMeta
-      ? {
-        photoAspect: photoMeta.aspect,
-        photoSourceText: `SRC ${photoMeta.frameWidth}x${photoMeta.frameHeight}`,
-      }
-      : {};
+  // env(safe-area-inset-*) is only readable through CSS, so a hidden probe
+  // exposes the insets to the canvas layout.
+  const safeAreaProbe = document.createElement('div');
+  safeAreaProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+    + 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
+  root.append(safeAreaProbe);
+
+  function readSafeInsets(): SafeInsets {
+    const style = getComputedStyle(safeAreaProbe);
+    return {
+      top: Number.parseFloat(style.paddingTop) || 0,
+      bottom: Number.parseFloat(style.paddingBottom) || 0,
+    };
   }
 
-  let layout = buildMacCanvasLayout(1, 1, state, photoLayoutOptions());
+  let safeInsets = readSafeInsets();
+
+  function layoutOptions() {
+    return {
+      safeInsets,
+      ...(photoMeta
+        ? {
+          photoAspect: photoMeta.aspect,
+          photoSourceText: `SRC ${photoMeta.frameWidth}x${photoMeta.frameHeight}`,
+        }
+        : {}),
+    };
+  }
+
+  let layout = buildMacCanvasLayout(1, 1, state, layoutOptions());
   let layoutDirty = true;
   let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
@@ -180,12 +202,7 @@ export function mountMacSingleCanvas(root: Element) {
   const widgetLayer = makeCanvasLayer();
   const dockLayer = makeCanvasLayer();
   const menubarLayer = makeCanvasLayer();
-  const allLayers = [
-    iconsLayer,
-    widgetLayer,
-    dockLayer,
-    menubarLayer,
-  ];
+  const allLayers = [iconsLayer, widgetLayer, dockLayer, menubarLayer];
   if (allLayers.some((layer) => !layer)) return;
 
   function clampWindowPosition(id: WindowId, x: number, y: number) {
@@ -237,14 +254,28 @@ export function mountMacSingleCanvas(root: Element) {
   }
 
   function rebuildLayout() {
-    layout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
+    layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     layoutDirty = false;
+    root.dataset.macMobile = layout.mobile ? 'true' : 'false';
+
+    // The phone variant boots onto the "home screen": apps start closed and
+    // open fullscreen from their icons instead of floating pre-opened.
+    if (!initialModeApplied) {
+      initialModeApplied = true;
+      if (layout.mobile) {
+        MAC_WINDOW_IDS.forEach((id) => {
+          state.windows[id].open = false;
+        });
+        layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
+      }
+    }
   }
 
   function resize() {
     const bounds = root.getBoundingClientRect();
     cssWidth = Math.max(1, Math.round(bounds.width));
     cssHeight = Math.max(1, Math.round(bounds.height));
+    safeInsets = readSafeInsets();
     const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
     pixelRatio = desiredPixelRatio;
     backgroundPixelRatio = Math.min(
@@ -268,10 +299,7 @@ export function mountMacSingleCanvas(root: Element) {
 
     state.bufferText = `BUF ${renderWidth}x${renderHeight}`;
 
-    disposeTarget(wallpaperSourceTarget);
-    disposeTarget(wallpaperTarget);
-    disposeTarget(glassSourceTarget);
-    disposeTarget(baseTarget);
+    disposeTargets();
 
     const sourceAspect = wallpaperPass?.aspect ?? (1024 / 640);
     const sourceH = Math.min(
@@ -302,14 +330,14 @@ export function mountMacSingleCanvas(root: Element) {
     renderPass(renderer, scene, camera, passMesh, coverMaterial, target);
   }
 
-  function renderWallpaper(time: number) {
+  function renderWallpaper(time: number, parallaxActive: boolean) {
     if (!wallpaperSourceTarget || !wallpaperTarget) return;
 
     if (wallpaperPass) {
       wallpaperPass.render(renderer, wallpaperSourceTarget, {
         time,
         pointer,
-        pointerActive,
+        pointerActive: parallaxActive,
         strength: 0.045,
         maxOffset: 0.018,
         idleDrift: true,
@@ -363,7 +391,7 @@ export function mountMacSingleCanvas(root: Element) {
     drawRectLayer(
       iconsLayer as CanvasLayer,
       layout.iconsRect,
-      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}`,
+      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assets ? 1 : 0}`,
       (context) => drawMacDesktopIcons(context, layout, assets, state),
       baseTarget,
     );
@@ -373,6 +401,8 @@ export function mountMacSingleCanvas(root: Element) {
 
   function langGlassPanels(): GlassPanelInput[] {
     const lang = layout.langSwitch;
+    if (!lang) return [];
+
     const thumbH = lang.h - LANG_THUMB_INSET * 2;
     return [
       { x: lang.x, y: lang.y, w: lang.w, h: lang.h, r: lang.h * 0.5, params: LANG_PILL_GLASS },
@@ -413,7 +443,7 @@ export function mountMacSingleCanvas(root: Element) {
     if (Math.abs(langTarget - langAnim) < 0.001) langAnim = langTarget;
 
     const now = new Date();
-    renderWallpaper(time);
+    renderWallpaper(time, pointerActive);
     renderBase();
 
     if (baseTarget && glassSourceTarget) {
@@ -444,7 +474,7 @@ export function mountMacSingleCanvas(root: Element) {
       drawRectLayer(
         menubarLayer as CanvasLayer,
         layout.menubarRect,
-        `menubar:${layout.width}:${layout.mobile ? 1 : 0}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
+        `menubar:${layout.width}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
         (context) => drawMacMenubarOverlay(context, layout, state, now, langAnim),
         null,
       );
@@ -540,8 +570,16 @@ export function mountMacSingleCanvas(root: Element) {
     pointerActive = false;
   };
 
+  // Touch pointers vanish after the gesture; release the wallpaper back to
+  // idle drift instead of freezing on the last tap position.
+  const onRootPointerEnd = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') pointerActive = false;
+  };
+
   root.addEventListener('pointermove', onRootPointerMove);
   root.addEventListener('pointerleave', onRootPointerLeave);
+  root.addEventListener('pointerup', onRootPointerEnd);
+  root.addEventListener('pointercancel', onRootPointerEnd);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
@@ -577,10 +615,13 @@ export function mountMacSingleCanvas(root: Element) {
       resizeObserver.disconnect();
       root.removeEventListener('pointermove', onRootPointerMove);
       root.removeEventListener('pointerleave', onRootPointerLeave);
+      root.removeEventListener('pointerup', onRootPointerEnd);
+      root.removeEventListener('pointercancel', onRootPointerEnd);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      safeAreaProbe.remove();
       disposeTargets();
       domWindows.destroy();
       glassPipeline.dispose();
