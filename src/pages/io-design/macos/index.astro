@@ -13,7 +13,7 @@ import '../../../styles/io/macos.css';
     />
   </Fragment>
 
-  <div class="mac-page mac-page--single-canvas" data-mac-single-canvas-root>
+  <div class="mac-page" data-mac-single-canvas-root>
     <canvas
       class="mac-single-canvas"
       data-mac-single-canvas
@@ -25,7 +25,7 @@ import '../../../styles/io/macos.css';
   </div>
 
   <script>
-    import { mountMacSingleCanvases } from '../../../io/runtime/macSingleCanvas?single-canvas-v10';
+    import { mountMacSingleCanvases } from '../../../io/runtime/macSingleCanvas';
 
     mountMacSingleCanvases();
   </script>
