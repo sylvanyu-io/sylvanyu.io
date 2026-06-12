@@ -122,11 +122,17 @@ uniform sampler2D uBlurredScene;
 uniform vec2 uResolution;
 uniform vec4 uPanel;
 uniform float uRadius;
-uniform float uStrength;
+uniform float uScale;
+uniform float uDepth;
+uniform float uCurvature;
+uniform float uSplay;
 uniform float uChroma;
 uniform float uBlur;
 uniform float uFrost;
 uniform float uTint;
+uniform float uGlow;
+uniform float uEdge;
+uniform float uSpecularAngle;
 
 varying vec2 vUv;
 
@@ -139,6 +145,16 @@ float roundedBoxSdf(vec2 point, vec2 halfSize, float radius) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
+float domeGradient(float position, float halfSize, float depth) {
+  float safeDepth = clamp(depth, 0.01, max(0.02, halfSize - 1.0));
+  float radius = (halfSize * halfSize + safeDepth * safeDepth) / (2.0 * safeDepth);
+  float edgePosition = min(halfSize, radius * 0.999);
+  float positionClamped = min(abs(position), radius * 0.999);
+  float edgeSlope = edgePosition / max(sqrt(max(radius * radius - edgePosition * edgePosition, 0.0001)), 0.0001);
+  float slope = positionClamped / max(sqrt(max(radius * radius - positionClamped * positionClamped, 0.0001)), 0.0001);
+  return slope / max(edgeSlope, 0.001);
+}
+
 vec3 sampleScene(vec2 uv) {
   return texture2D(uScene, clamp(uv, 0.001, 0.999)).rgb;
 }
@@ -149,7 +165,6 @@ vec3 sampleBlurredScene(vec2 uv) {
 
 void main() {
   vec2 uv = vUv;
-  vec3 base = sampleScene(uv);
   vec2 screenPx = vec2(uv.x * uResolution.x, (1.0 - uv.y) * uResolution.y);
   vec2 panelLocal = (screenPx - uPanel.xy) / max(uPanel.zw, vec2(1.0));
 
@@ -170,21 +185,47 @@ void main() {
   float blurLevel = smoothstep(0.0, 6.0, uBlur);
   float frost = clamp(uFrost, 0.0, 1.0);
   float tint = clamp(uTint, 0.0, 1.0);
-  float strength = clamp(uStrength, 0.0, 1.0);
+  float scale = clamp(uScale, 0.0, 1.0);
+  float curvature = clamp(uCurvature / 80.0, 0.0, 1.0);
+  float splay = clamp(uSplay, 0.0, 1.0);
   float chroma = clamp(uChroma, 0.0, 1.0);
+  float glow = clamp(uGlow, 0.0, 1.0);
+  float edgeAmount = clamp(uEdge, 0.0, 1.0);
 
   vec2 local = pointPx / halfPx;
-  float edgeWidthPx = max(10.0, min(halfPx.x, halfPx.y) * 0.56);
-  float edge = smoothstep(-edgeWidthPx, -1.0, sdfPx) * mask;
-  float shell = (1.0 - smoothstep(0.0, 10.0, abs(sdfPx))) * mask;
-  float pressure = pow(clamp(length(local), 0.0, 1.55), 1.45);
-  vec2 normal = normalize(local + vec2(0.0001));
-  vec2 displacement = normal * (0.20 * pressure + 0.9 * edge + 0.34 * shell) * mask;
-  float curveEnergy = clamp(edge * 0.9 + shell * 0.38 + pressure * 0.16, 0.0, 1.0) * mask;
-  float specular = pow(max(dot(normalize(vec2(-0.55, 0.83)), normalize(local + vec2(0.001))), 0.0), 5.0) * (edge + shell * 0.6);
-  vec2 offsetPx = -displacement * uPanel.zw * strength * mix(1.0, 0.62, blurLevel);
+  float safeDepth = min(max(uDepth, 0.0), min(halfPx.x, halfPx.y) - 1.0);
+  float innerW = max(0.0, halfPx.x - safeDepth);
+  float innerH = max(0.0, halfPx.y - safeDepth);
+  float innerRadius = min(radiusPx, min(innerW, innerH));
+  float innerSdf = roundedBoxSdf(pointPx, vec2(innerW, innerH), innerRadius);
+  float edgeFalloff = smoothstep(-safeDepth * 0.9, safeDepth * 0.9, innerSdf) * mask;
+
+  vec2 dome = vec2(
+    sign(pointPx.x) * domeGradient(pointPx.x, halfPx.x, max(uCurvature, 0.01)),
+    sign(pointPx.y) * domeGradient(pointPx.y, halfPx.y, max(uCurvature, 0.01))
+  );
+  vec2 linearDome = clamp(local, vec2(-1.0), vec2(1.0));
+  vec2 lensVector = mix(linearDome, dome, curvature);
+
+  float halfMin = max(0.5 * min(halfPx.x, halfPx.y), 1.0);
+  vec2 splayAmount = max(vec2(0.0), 1.0 - (halfPx - abs(pointPx)) / halfMin) * (1.0 - splay);
+  float originalLength = length(lensVector);
+  lensVector *= vec2(1.0 - splayAmount.y, 1.0 - splayAmount.x);
+  float adjustedLength = length(lensVector);
+  if (adjustedLength > 0.001) {
+    lensVector *= originalLength / adjustedLength;
+  }
+
+  float edgeLine = (sdfPx < 0.0) ? max(0.0, 1.0 + sdfPx / 3.0) : 0.0;
+  float angle = radians(uSpecularAngle);
+  vec2 lightDirection = normalize(vec2(cos(angle), sin(angle)));
+  float directional = abs(dot(clamp(local, vec2(-1.0), vec2(1.0)), lightDirection));
+  float specular = glow * pow(clamp(directional * 0.7071, 0.0, 1.0), 0.5) * edgeFalloff;
+  specular += edgeAmount * edgeLine * pow(clamp(directional, 0.0, 1.0), 1.5);
+
+  vec2 offsetPx = -lensVector * edgeFalloff * uPanel.zw * scale * mix(1.0, 0.82, blurLevel);
   vec2 offset = vec2(offsetPx.x / max(uResolution.x, 1.0), -offsetPx.y / max(uResolution.y, 1.0));
-  float chromaSpread = mix(0.16, 0.055, blurLevel) * chroma;
+  float chromaSpread = 0.18 * chroma;
 
   vec3 sharp = vec3(
     sampleScene(uv + offset * (1.0 + chromaSpread)).r,
@@ -196,15 +237,16 @@ void main() {
     sampleBlurredScene(uv + offset).g,
     sampleBlurredScene(uv + offset * (1.0 - chromaSpread * 1.28)).b
   );
-  vec3 glass = mix(sharp, soft, clamp(0.7 + blurLevel * 0.18 + frost * 0.16, 0.0, 0.94));
+  vec3 glass = mix(sharp, soft, clamp(0.64 + blurLevel * 0.22 + frost * 0.12, 0.0, 0.92));
 
   float glassLum = lumaOf(glass);
   glass = mix(glass, vec3(glassLum), frost * 0.14);
-  glass = mix(glass, vec3(0.82, 0.93, 0.70), (0.1 + frost * 0.12 + tint * 0.36) * mask);
-  glass = (glass - 0.5) * (1.02 + 0.12 * tint - 0.06 * frost) + 0.5;
-  glass += vec3(0.36, 0.9, 0.58) * curveEnergy * (0.14 + tint * 0.08);
-  glass += vec3(1.0, 0.94, 0.72) * specular * (0.38 + strength * 0.48);
-  glass -= vec3(0.08, 0.1, 0.09) * curveEnergy * 0.06;
+  float tintEase = pow(tint, 1.15);
+  glass = glass * (1.0 + 0.28 * tintEase) - 0.06 * tintEase;
+  glass = mix(glass, vec3(0.965, 0.973, 0.956), 0.72 * tintEase * mask);
+  glass += vec3(0.42, 0.92, 0.60) * edgeLine * (0.05 + tintEase * 0.08);
+  glass += vec3(1.0, 0.94, 0.78) * specular * (0.52 + glow * 0.62);
+  glass -= vec3(0.06, 0.04, 0.12) * edgeFalloff * edgeAmount * 0.035;
 
   gl_FragColor = vec4(clamp(glass, 0.0, 1.0), mask);
 }

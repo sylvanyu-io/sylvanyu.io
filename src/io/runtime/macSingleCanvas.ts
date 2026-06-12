@@ -44,11 +44,17 @@ const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
 const GLASS_STATE = {
-  strength: 0.14,
-  chroma: 0.24,
-  blur: 2.8,
-  frost: 0.24,
-  tint: 0.08,
+  scale: 0.1,
+  depth: 10,
+  curvature: 40,
+  splay: 1,
+  chroma: 0.2,
+  blur: 1,
+  frost: 0.08,
+  tint: 0.05,
+  glow: 0.1,
+  edge: 0.25,
+  specularAngle: 45,
 };
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
 const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
@@ -157,11 +163,17 @@ export function mountMacSingleCanvas(root: Element) {
     uResolution: { value: new THREE.Vector2(1, 1) },
     uPanel: { value: new THREE.Vector4(0, 0, 1, 1) },
     uRadius: { value: 1 },
-    uStrength: { value: GLASS_STATE.strength },
+    uScale: { value: GLASS_STATE.scale },
+    uDepth: { value: GLASS_STATE.depth },
+    uCurvature: { value: GLASS_STATE.curvature },
+    uSplay: { value: GLASS_STATE.splay },
     uChroma: { value: GLASS_STATE.chroma },
     uBlur: { value: GLASS_STATE.blur },
     uFrost: { value: GLASS_STATE.frost },
     uTint: { value: GLASS_STATE.tint },
+    uGlow: { value: GLASS_STATE.glow },
+    uEdge: { value: GLASS_STATE.edge },
+    uSpecularAngle: { value: GLASS_STATE.specularAngle },
   };
   const photoRectUniforms = {
     uPhoto: { value: placeholder as THREE.Texture },
