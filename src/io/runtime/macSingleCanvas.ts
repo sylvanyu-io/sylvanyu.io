@@ -584,6 +584,7 @@ export function mountMacSingleCanvas(root: Element) {
 
     if (action.type === 'lang') {
       state.lang = action.lang;
+      layoutDirty = true;
       return;
     }
 

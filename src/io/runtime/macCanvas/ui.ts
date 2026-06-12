@@ -218,10 +218,14 @@ export function buildMacCanvasLayout(
     h: 20,
     segW: langSegW,
   };
-  hitTargets.push(
-    { x: langSwitch.x, y: langSwitch.y, w: langSegW, h: langSwitch.h, cursor: 'pointer', action: { type: 'lang', lang: 'en' } },
-    { x: langSwitch.x + langSegW, y: langSwitch.y, w: langSegW, h: langSwitch.h, cursor: 'pointer', action: { type: 'lang', lang: 'zh' } },
-  );
+  hitTargets.push({
+    x: langSwitch.x,
+    y: langSwitch.y,
+    w: langSwitch.w,
+    h: langSwitch.h,
+    cursor: 'pointer',
+    action: { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' },
+  });
 
   const iconX = mobile ? 28 : 18;
   const iconTop = 56;
