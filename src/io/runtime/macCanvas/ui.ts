@@ -1,28 +1,19 @@
-import { desktopCopy, desktopProjects, logLines, profile } from '../../data';
+import { desktopCopy } from '../../data';
 import type { Lang } from '../../content/common';
+import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
+import {
+  MAC_WINDOW_IDS,
+  PHOTO_APP_HUD_HEIGHT,
+  type GlassPanel,
+  type Rect,
+  type WindowId,
+  type WindowLayout,
+  type WindowStateMap,
+} from './windowTypes';
 
-export type WindowId = 'readme' | 'photo' | 'worklog' | 'projects';
-
-export type Rect = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-export type GlassPanel = Rect & {
-  r: number;
-  z: number;
-};
-
-export type WindowLayout = GlassPanel & {
-  id: WindowId;
-  title: string;
-  titleH: number;
-  stage?: Rect;
-  note?: Rect;
-  sourceText?: string;
-};
+export { MAC_WINDOW_IDS, PHOTO_APP_HUD_HEIGHT };
+export { drawMacPhotoHud, drawMacWindowDetails, drawMacWindowSurface } from './windowContent';
+export type { GlassPanel, Rect, WindowId, WindowLayout } from './windowTypes';
 
 export type HitTarget = Rect & {
   cursor: 'default' | 'pointer' | 'grab';
@@ -38,7 +29,7 @@ export type MacCanvasState = {
   lang: Lang;
   fps: number;
   bufferText: string;
-  windows: Record<WindowId, { open: boolean; z: number; x?: number; y?: number }>;
+  windows: WindowStateMap;
 };
 
 type IconCell = {
@@ -102,10 +93,7 @@ const icons: IconDef[] = [
   { id: 'projects', icon: 'icon-projects.svg', labelKey: 'iconProjects' },
 ];
 
-const sans = '"Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif';
-const mono = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 export const MAC_MENUBAR_HEIGHT = 34;
-export const PHOTO_APP_HUD_HEIGHT = 25;
 const MAC_MENUBAR_TEXT_Y = 17;
 const MAC_MENUBAR_CONTROL_Y = 7;
 const MIN_PHOTO_STAGE_ASPECT = 0.72;
@@ -407,77 +395,12 @@ export function buildMacCanvasLayout(
   };
 }
 
-function pathRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  const radius = Math.max(0, Math.min(r, w * 0.5, h * 0.5));
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-function fillRoundRect(ctx: CanvasRenderingContext2D, rect: Rect, radius: number, fill: string) {
-  ctx.save();
-  pathRoundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.restore();
-}
-
-function strokeRoundRect(ctx: CanvasRenderingContext2D, rect: Rect, radius: number, stroke: string, lineWidth = 1) {
-  ctx.save();
-  pathRoundRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = lineWidth;
-  ctx.stroke();
-  ctx.restore();
-}
-
 function mixRgba(from: [number, number, number, number], to: [number, number, number, number], t: number) {
   const r = Math.round(from[0] + (to[0] - from[0]) * t);
   const g = Math.round(from[1] + (to[1] - from[1]) * t);
   const b = Math.round(from[2] + (to[2] - from[2]) * t);
   const a = from[3] + (to[3] - from[3]) * t;
   return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
-}
-
-function drawTextLine(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines = 3,
-) {
-  const words = text.split(/\s+/);
-  let line = '';
-  let lines = 0;
-
-  for (const word of words) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > maxWidth && line) {
-      ctx.fillText(line, x, y + lines * lineHeight);
-      lines += 1;
-      line = word;
-      if (lines >= maxLines) return lines;
-    } else {
-      line = next;
-    }
-  }
-
-  if (line && lines < maxLines) {
-    ctx.fillText(line, x, y + lines * lineHeight);
-    lines += 1;
-  }
-
-  return lines;
 }
 
 const LANG_LABEL_IDLE: [number, number, number, number] = [255, 255, 255, 0.85];
@@ -609,247 +532,6 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.restore();
 }
 
-function drawWindowFrame(ctx: CanvasRenderingContext2D, win: WindowLayout, dark = false) {
-  ctx.save();
-  strokeRoundRect(
-    ctx,
-    { x: win.x + 0.5, y: win.y + 0.5, w: win.w - 1, h: win.h - 1 },
-    win.r,
-    dark ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.22)',
-    1,
-  );
-  ctx.shadowColor = dark ? 'rgba(0,0,0,.28)' : 'rgba(30,46,28,.12)';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 6;
-  pathRoundRect(ctx, win.x, win.y, win.w, win.h, win.r);
-  ctx.strokeStyle = 'rgba(255,255,255,.01)';
-  ctx.stroke();
-  ctx.restore();
-}
-
-function clipWindow(ctx: CanvasRenderingContext2D, win: WindowLayout) {
-  pathRoundRect(ctx, win.x, win.y, win.w, win.h, win.r);
-  ctx.clip();
-}
-
-function drawWindowSurface(ctx: CanvasRenderingContext2D, win: WindowLayout) {
-  const dark = win.id === 'worklog';
-  ctx.save();
-  ctx.shadowColor = dark ? 'rgba(0,0,0,.42)' : 'rgba(20,28,24,.26)';
-  ctx.shadowBlur = dark ? 34 : 30;
-  ctx.shadowOffsetY = 18;
-  pathRoundRect(ctx, win.x, win.y, win.w, win.h, win.r);
-  const fill = ctx.createLinearGradient(win.x, win.y, win.x + win.w, win.y + win.h);
-  if (dark) {
-    fill.addColorStop(0, 'rgba(18,21,28,.82)');
-    fill.addColorStop(1, 'rgba(15,18,24,.76)');
-  } else {
-    fill.addColorStop(0, 'rgba(238,239,222,.93)');
-    fill.addColorStop(0.52, 'rgba(226,224,207,.91)');
-    fill.addColorStop(1, 'rgba(199,215,173,.88)');
-  }
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = dark ? 'rgba(255,255,255,.24)' : 'rgba(255,255,255,.78)';
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  clipWindow(ctx, win);
-  ctx.fillStyle = dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.38)';
-  ctx.fillRect(win.x, win.y, win.w, win.titleH);
-  ctx.strokeStyle = dark ? 'rgba(255,255,255,.10)' : 'rgba(22,34,46,.09)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(win.x, win.y + win.titleH + 0.5);
-  ctx.lineTo(win.x + win.w, win.y + win.titleH + 0.5);
-  ctx.stroke();
-
-  if (win.id === 'photo' && win.stage && win.note) {
-    ctx.fillStyle = '#101112';
-    ctx.fillRect(win.stage.x, win.stage.y, win.stage.w, win.stage.h);
-    ctx.fillStyle = 'rgba(232,234,208,.93)';
-    ctx.fillRect(win.note.x, win.note.y, win.note.w, win.note.h);
-  }
-  ctx.restore();
-}
-
-function drawWindowChrome(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  ctx.save();
-  drawWindowFrame(ctx, win, win.id === 'worklog');
-
-  ctx.fillStyle = 'rgba(255, 97, 89, .94)';
-  ctx.beginPath();
-  ctx.arc(win.x + 19, win.y + win.titleH * 0.5, 6.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(90, 64, 54, .22)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.font = `600 12px ${mono}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(72, 72, 78, .76)';
-  ctx.fillText(win.title, win.x + win.w * 0.5, win.y + win.titleH * 0.5);
-
-  if (win.id === 'photo') {
-    ctx.textAlign = 'right';
-    ctx.font = `700 9px ${mono}`;
-    ctx.fillStyle = '#2f6fd0';
-    ctx.fillText('LIVE', win.x + win.w - 14, win.y + win.titleH * 0.5);
-  }
-
-  if (win.id === 'projects') {
-    ctx.textAlign = 'right';
-    ctx.font = `700 9px ${mono}`;
-    ctx.fillStyle = 'rgba(80,80,86,.56)';
-    ctx.fillText(`${desktopProjects[state.lang].length} ITEMS`, win.x + win.w - 14, win.y + win.titleH * 0.5);
-  }
-
-  ctx.restore();
-}
-
-function drawReadme(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  const copy = desktopCopy[state.lang];
-  const x = win.x + 24;
-  let y = win.y + win.titleH + 34;
-  const maxW = win.w - 48;
-
-  ctx.save();
-  clipWindow(ctx, win);
-  drawWindowChrome(ctx, win, state);
-  ctx.font = `600 11px ${mono}`;
-  ctx.fillStyle = 'rgba(86, 88, 98, .58)';
-  ctx.fillText('SYLVAN YU', x, y);
-  y += 38;
-
-  ctx.font = `700 ${win.w < 370 ? 24 : 28}px ${sans}`;
-  ctx.fillStyle = '#17191c';
-  drawTextLine(ctx, copy.readmeTitle, x, y, maxW, 34, 3);
-  y += win.w < 370 ? 96 : 72;
-
-  ctx.font = `500 13px ${sans}`;
-  ctx.fillStyle = 'rgba(60, 62, 68, .82)';
-  const bodyLines = drawTextLine(ctx, copy.readmeBody, x, y, maxW, 22, win.w < 370 ? 5 : 6);
-  y += bodyLines * 22 + 20;
-
-  ctx.font = `600 10px ${mono}`;
-  let chipX = x;
-  copy.chips.slice(0, 3).forEach((chip) => {
-    const chipW = Math.min(maxW, ctx.measureText(chip).width + 22);
-    if (chipX > x && chipX + chipW > x + maxW) {
-      chipX = x;
-      y += 31;
-    }
-    fillRoundRect(ctx, { x: chipX, y, w: chipW, h: 25 }, 12, 'rgba(255,255,255,.16)');
-    strokeRoundRect(ctx, { x: chipX, y, w: chipW, h: 25 }, 12, 'rgba(255,255,255,.82)');
-    ctx.fillStyle = 'rgba(62,64,70,.82)';
-    ctx.fillText(chip, chipX + 11, y + 16);
-    chipX += chipW + 8;
-  });
-
-  ctx.font = `700 11px ${mono}`;
-  const buttonY = win.y + win.h - 64;
-  const emailW = Math.min(150, maxW);
-  fillRoundRect(ctx, { x, y: buttonY, w: emailW, h: 38 }, 9, '#17191c');
-  ctx.fillStyle = '#fff';
-  ctx.fillText(profile.email, x + 14, buttonY + 24);
-  if (win.w >= 390) {
-    const githubX = x + emailW + 10;
-    strokeRoundRect(ctx, { x: githubX, y: buttonY, w: 96, h: 38 }, 9, 'rgba(255,255,255,.82)');
-    ctx.fillStyle = '#17191c';
-    ctx.fillText('GitHub ↗', githubX + 18, buttonY + 24);
-  }
-  ctx.restore();
-}
-
-function drawPhotoWindow(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  if (!win.stage || !win.note) return;
-
-  const copy = desktopCopy[state.lang];
-  const note = win.note;
-  ctx.save();
-  clipWindow(ctx, win);
-  drawWindowChrome(ctx, win, state);
-
-  ctx.font = `500 11px ${mono}`;
-  ctx.fillStyle = 'rgba(68, 70, 72, .78)';
-  drawTextLine(ctx, copy.photoNote, note.x + 14, note.y + 23, note.w - 28, 21, 3);
-  ctx.restore();
-}
-
-export function drawMacPhotoHud(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  if (!win.stage) return;
-
-  const stage = win.stage;
-  const hudY = stage.y + stage.h - PHOTO_APP_HUD_HEIGHT;
-  ctx.save();
-  clipWindow(ctx, win);
-  ctx.fillStyle = 'rgba(10, 12, 13, .88)';
-  ctx.fillRect(stage.x, hudY, stage.w, PHOTO_APP_HUD_HEIGHT);
-  ctx.font = `500 10px ${mono}`;
-  ctx.fillStyle = 'rgba(255,255,255,.72)';
-  ctx.fillText(`FPS ${Math.round(state.fps).toString().padStart(3, ' ')}`, stage.x + 12, hudY + 16);
-  ctx.fillText(state.bufferText, stage.x + 78, hudY + 16);
-  ctx.fillText(`${win.sourceText ?? 'SRC --'}  LDI 2L`, stage.x + 180, hudY + 16);
-  ctx.restore();
-}
-
-function drawWorklog(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  const lines = logLines[state.lang];
-  ctx.save();
-  clipWindow(ctx, win);
-  drawWindowChrome(ctx, win, state);
-  fillRoundRect(
-    ctx,
-    { x: win.x + 10, y: win.y + win.titleH + 10, w: win.w - 20, h: win.h - win.titleH - 20 },
-    10,
-    'rgba(12,14,18,.48)',
-  );
-  ctx.font = `500 11px ${mono}`;
-  let y = win.y + win.titleH + 34;
-  lines.slice(0, 10).forEach((line) => {
-    ctx.fillStyle = line.tone === 'accent' ? '#c8f063' : line.tone === 'dim' ? 'rgba(255,255,255,.42)' : 'rgba(255,255,255,.86)';
-    ctx.fillText(line.text, win.x + 24, y);
-    y += 20;
-  });
-  ctx.restore();
-}
-
-function drawProjects(ctx: CanvasRenderingContext2D, win: WindowLayout, state: MacCanvasState) {
-  const projects = desktopProjects[state.lang];
-  ctx.save();
-  clipWindow(ctx, win);
-  drawWindowChrome(ctx, win, state);
-  let y = win.y + win.titleH + 28;
-  ctx.font = `700 14px ${sans}`;
-
-  projects.slice(0, 5).forEach((project) => {
-    ctx.fillStyle = '#17191c';
-    ctx.fillText(project.title, win.x + 22, y);
-    ctx.font = `600 9px ${mono}`;
-    ctx.fillStyle = 'rgba(86,88,96,.62)';
-    ctx.fillText(project.meta, win.x + 22, y + 16);
-    ctx.font = `500 12px ${sans}`;
-    ctx.fillStyle = 'rgba(72,74,82,.78)';
-    drawTextLine(ctx, project.body, win.x + 22, y + 36, win.w - 130, 18, 2);
-    ctx.font = `700 18px ${mono}`;
-    ctx.fillStyle = '#2f6fd0';
-    ctx.textAlign = 'right';
-    ctx.fillText(project.metric, win.x + win.w - 26, y + 8);
-    ctx.font = `600 9px ${mono}`;
-    ctx.fillStyle = 'rgba(86,88,96,.62)';
-    ctx.fillText(project.metricLabel, win.x + win.w - 26, y + 26);
-    ctx.textAlign = 'left';
-    y += 78;
-    ctx.font = `700 14px ${sans}`;
-  });
-
-  ctx.restore();
-}
-
 function drawDock(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
   layout.dock.slots.forEach((slot) => {
     ctx.save();
@@ -886,24 +568,6 @@ export function drawMacWidgetOverlay(
   now: Date,
 ) {
   drawWidgets(ctx, layout, state, now);
-}
-
-export function drawMacWindowSurface(
-  ctx: CanvasRenderingContext2D,
-  win: WindowLayout,
-) {
-  drawWindowSurface(ctx, win);
-}
-
-export function drawMacWindowDetails(
-  ctx: CanvasRenderingContext2D,
-  win: WindowLayout,
-  state: MacCanvasState,
-) {
-  if (win.id === 'readme') drawReadme(ctx, win, state);
-  if (win.id === 'photo') drawPhotoWindow(ctx, win, state);
-  if (win.id === 'worklog') drawWorklog(ctx, win, state);
-  if (win.id === 'projects') drawProjects(ctx, win, state);
 }
 
 export function drawMacDockOverlay(

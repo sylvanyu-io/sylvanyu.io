@@ -13,6 +13,7 @@ import {
   drawMacWindowSurface,
   hitTest,
   loadMacUiAssets,
+  MAC_WINDOW_IDS,
   MAC_MENUBAR_HEIGHT,
   PHOTO_APP_HUD_HEIGHT,
   type HitTarget,
@@ -51,7 +52,7 @@ import {
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
-const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
+const WINDOW_IDS = MAC_WINDOW_IDS;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const PHOTO_APP_OVERSCAN = 1.12;
