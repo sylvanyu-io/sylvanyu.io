@@ -12,6 +12,7 @@ import {
   drawMacWindowSurface,
   hitTest,
   loadMacUiAssets,
+  MAC_MENUBAR_HEIGHT,
   type GlassPanel,
   type MacCanvasLayout,
   type MacCanvasState,
@@ -760,7 +761,7 @@ export function mountMacSingleCanvas(root: Element) {
     const winW = win?.w ?? 320;
     const minX = Math.min(0, 80 - winW);
     const maxX = Math.max(0, cssWidth - 80);
-    const minY = 38;
+    const minY = MAC_MENUBAR_HEIGHT;
     const maxY = Math.max(minY, cssHeight - 60);
 
     return {

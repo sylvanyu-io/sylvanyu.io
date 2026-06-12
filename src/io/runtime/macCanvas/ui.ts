@@ -81,6 +81,9 @@ const icons: IconDef[] = [
 
 const sans = '"Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif';
 const mono = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+export const MAC_MENUBAR_HEIGHT = 34;
+const MAC_MENUBAR_TEXT_Y = 17;
+const MAC_MENUBAR_CONTROL_Y = 7;
 const MIN_PHOTO_STAGE_ASPECT = 0.72;
 const MAX_PHOTO_STAGE_ASPECT = 2.6;
 
@@ -175,8 +178,8 @@ export function buildMacCanvasLayout(
   const langButtonW = mobile ? 36 : 30;
   const langX = mobile ? width - 96 : width - 198;
   hitTargets.push(
-    { x: langX, y: 7, w: langButtonW, h: 20, cursor: 'pointer', action: { type: 'lang', lang: 'en' } },
-    { x: langX + langButtonW, y: 7, w: langButtonW, h: 20, cursor: 'pointer', action: { type: 'lang', lang: 'zh' } },
+    { x: langX, y: MAC_MENUBAR_CONTROL_Y, w: langButtonW, h: 20, cursor: 'pointer', action: { type: 'lang', lang: 'en' } },
+    { x: langX + langButtonW, y: MAC_MENUBAR_CONTROL_Y, w: langButtonW, h: 20, cursor: 'pointer', action: { type: 'lang', lang: 'zh' } },
   );
 
   const iconX = mobile ? 28 : 18;
@@ -413,51 +416,39 @@ function drawMenubar(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
   ctx.save();
-  const bg = ctx.createLinearGradient(0, 0, 0, 34);
-  bg.addColorStop(0, 'rgba(36,48,30,.68)');
-  bg.addColorStop(1, 'rgba(18,24,20,.44)');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, layout.width, 34);
-  ctx.strokeStyle = 'rgba(255,255,255,.20)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, 33.5);
-  ctx.lineTo(layout.width, 33.5);
-  ctx.stroke();
-
   ctx.font = `600 12px ${mono}`;
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
   ctx.shadowBlur = 4;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
   ctx.beginPath();
-  ctx.arc(22, 17, 4.5, 0, Math.PI * 2);
+  ctx.arc(22, MAC_MENUBAR_TEXT_Y, 4.5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillText('SYLVAN OS', 40, 17);
+  ctx.fillText('SYLVAN OS', 40, MAC_MENUBAR_TEXT_Y);
 
   ctx.font = `500 12px ${mono}`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.74)';
   const role = layout.mobile ? 'graphics / engine eng...' : copy.role;
-  ctx.fillText(role, layout.mobile ? 168 : 154, 17);
+  ctx.fillText(role, layout.mobile ? 168 : 154, MAC_MENUBAR_TEXT_Y);
 
   const langX = layout.mobile ? layout.width - 96 : layout.width - 198;
-  fillRoundRect(ctx, { x: langX, y: 7, w: layout.mobile ? 72 : 60, h: 20 }, 4, 'rgba(255, 255, 255, 0.18)');
+  fillRoundRect(ctx, { x: langX, y: MAC_MENUBAR_CONTROL_Y, w: layout.mobile ? 72 : 60, h: 20 }, 4, 'rgba(255, 255, 255, 0.18)');
   fillRoundRect(
     ctx,
-    { x: langX + (state.lang === 'zh' ? (layout.mobile ? 36 : 30) : 0), y: 7, w: layout.mobile ? 36 : 30, h: 20 },
+    { x: langX + (state.lang === 'zh' ? (layout.mobile ? 36 : 30) : 0), y: MAC_MENUBAR_CONTROL_Y, w: layout.mobile ? 36 : 30, h: 20 },
     4,
     'rgba(255, 255, 255, 0.88)',
   );
   ctx.shadowBlur = 0;
   ctx.font = `600 10px ${mono}`;
   ctx.fillStyle = state.lang === 'en' ? '#17324a' : 'rgba(255,255,255,.85)';
-  ctx.fillText('EN', langX + 9, 17);
+  ctx.fillText('EN', langX + 9, MAC_MENUBAR_TEXT_Y);
   ctx.fillStyle = state.lang === 'zh' ? '#17324a' : 'rgba(255,255,255,.85)';
-  ctx.fillText('ZH', langX + (layout.mobile ? 44 : 38), 17);
+  ctx.fillText('ZH', langX + (layout.mobile ? 44 : 38), MAC_MENUBAR_TEXT_Y);
 
   ctx.font = `500 12px ${mono}`;
   ctx.fillStyle = 'rgba(255,255,255,.74)';
-  ctx.fillText(time, layout.width - 64, 17);
+  ctx.fillText(time, layout.width - 64, MAC_MENUBAR_TEXT_Y);
   ctx.restore();
 }
 
