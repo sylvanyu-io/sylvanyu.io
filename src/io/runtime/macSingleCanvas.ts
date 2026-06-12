@@ -44,7 +44,7 @@ const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
 const MAX_DEVICE_PIXEL_RATIO = 2;
-const MAX_RENDER_EDGE = 2048;
+const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const PHOTO_APP_OVERSCAN = 1.12;
 const GLASS_STATE = {
   scale: 0.1,
@@ -129,10 +129,13 @@ export function mountMacSingleCanvas(root: Element) {
 
   let layout = buildMacCanvasLayout(1, 1, state, photoLayoutOptions());
   let pixelRatio = 1;
+  let backgroundPixelRatio = 1;
   let cssWidth = 1;
   let cssHeight = 1;
   let renderWidth = 1;
   let renderHeight = 1;
+  let backgroundWidth = 1;
+  let backgroundHeight = 1;
   let photoStageKey = 'empty';
 
   const renderer = new THREE.WebGLRenderer({
@@ -267,6 +270,7 @@ export function mountMacSingleCanvas(root: Element) {
 
   let wallpaperSourceTarget: THREE.WebGLRenderTarget | null = null;
   let wallpaperTarget: THREE.WebGLRenderTarget | null = null;
+  let glassSourceTarget: THREE.WebGLRenderTarget | null = null;
   let baseTarget: THREE.WebGLRenderTarget | null = null;
   let compositeTarget: THREE.WebGLRenderTarget | null = null;
   let downTarget: THREE.WebGLRenderTarget | null = null;
@@ -282,6 +286,7 @@ export function mountMacSingleCanvas(root: Element) {
   function disposeTargets() {
     disposeTarget(wallpaperSourceTarget);
     disposeTarget(wallpaperTarget);
+    disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
     disposeTarget(compositeTarget);
     disposeTarget(downTarget);
@@ -295,6 +300,7 @@ export function mountMacSingleCanvas(root: Element) {
     disposeTarget(photoAppTarget);
     wallpaperSourceTarget = null;
     wallpaperTarget = null;
+    glassSourceTarget = null;
     baseTarget = null;
     compositeTarget = null;
     downTarget = null;
@@ -339,13 +345,16 @@ export function mountMacSingleCanvas(root: Element) {
     cssWidth = Math.max(1, Math.round(bounds.width));
     cssHeight = Math.max(1, Math.round(bounds.height));
     const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
-    pixelRatio = Math.min(
+    pixelRatio = desiredPixelRatio;
+    backgroundPixelRatio = Math.min(
       desiredPixelRatio,
-      MAX_RENDER_EDGE / cssWidth,
-      MAX_RENDER_EDGE / cssHeight,
+      MAX_BACKGROUND_RENDER_EDGE / cssWidth,
+      MAX_BACKGROUND_RENDER_EDGE / cssHeight,
     );
     renderWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
     renderHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
+    backgroundWidth = Math.max(1, Math.round(cssWidth * backgroundPixelRatio));
+    backgroundHeight = Math.max(1, Math.round(cssHeight * backgroundPixelRatio));
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
@@ -364,6 +373,7 @@ export function mountMacSingleCanvas(root: Element) {
 
     disposeTarget(wallpaperSourceTarget);
     disposeTarget(wallpaperTarget);
+    disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
     disposeTarget(compositeTarget);
     disposeTarget(downTarget);
@@ -378,15 +388,16 @@ export function mountMacSingleCanvas(root: Element) {
     const sourceAspect = wallpaperPass?.aspect ?? (1024 / 640);
     const sourceH = Math.min(
       WALLPAPER_SOURCE_MAX_HEIGHT,
-      Math.max(WALLPAPER_SOURCE_MIN_HEIGHT, Math.round(renderHeight * 0.72)),
+      Math.max(WALLPAPER_SOURCE_MIN_HEIGHT, Math.round(backgroundHeight * 0.72)),
     );
     const sourceW = Math.max(1, Math.round(sourceH * sourceAspect));
     wallpaperSourceTarget = makeRenderTarget(sourceW, sourceH);
-    wallpaperTarget = makeRenderTarget(renderWidth, renderHeight);
+    wallpaperTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
+    glassSourceTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
     baseTarget = makeRenderTarget(renderWidth, renderHeight);
     compositeTarget = makeRenderTarget(renderWidth, renderHeight);
-    const halfWidth = Math.max(2, Math.round(renderWidth * 0.5));
-    const halfHeight = Math.max(2, Math.round(renderHeight * 0.5));
+    const halfWidth = Math.max(2, Math.round(backgroundWidth * 0.5));
+    const halfHeight = Math.max(2, Math.round(backgroundHeight * 0.5));
     const quarterWidth = Math.max(2, Math.round(halfWidth * 0.5));
     const quarterHeight = Math.max(2, Math.round(halfHeight * 0.5));
     const eighthWidth = Math.max(2, Math.round(quarterWidth * 0.5));
@@ -517,6 +528,7 @@ export function mountMacSingleCanvas(root: Element) {
       coverUniforms.uOverscan.value = 1.08;
     }
 
+    coverUniforms.uResolution.value.set(backgroundWidth, backgroundHeight);
     renderPass(renderer, scene, camera, passMesh, coverMaterial, wallpaperTarget);
   }
 
@@ -567,7 +579,7 @@ export function mountMacSingleCanvas(root: Element) {
   }
 
   function renderBase() {
-    if (!wallpaperTarget || !baseTarget) return;
+    if (!wallpaperTarget || !baseTarget || !glassSourceTarget) return;
 
     renderer.setRenderTarget(baseTarget);
     renderer.clear();
@@ -585,13 +597,19 @@ export function mountMacSingleCanvas(root: Element) {
       baseTarget,
     );
 
-    glassUniforms.uScene.value = baseTarget.texture;
-    glassUniforms.uBlurredScene.value = blurTarget?.texture ?? baseTarget.texture;
+    presentTexture(baseTarget.texture, glassSourceTarget, backgroundWidth, backgroundHeight);
+    glassUniforms.uScene.value = glassSourceTarget.texture;
+    glassUniforms.uBlurredScene.value = blurTarget?.texture ?? glassSourceTarget.texture;
   }
 
-  function presentTexture(texture: THREE.Texture, target: THREE.WebGLRenderTarget | null) {
+  function presentTexture(
+    texture: THREE.Texture,
+    target: THREE.WebGLRenderTarget | null,
+    targetWidth = renderWidth,
+    targetHeight = renderHeight,
+  ) {
     coverUniforms.uScene.value = texture;
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
+    coverUniforms.uResolution.value.set(targetWidth, targetHeight);
     coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
     coverUniforms.uOverscan.value = 1.0;
     renderPass(renderer, scene, camera, passMesh, coverMaterial, target);
@@ -661,13 +679,13 @@ export function mountMacSingleCanvas(root: Element) {
     renderWallpaper(time);
     renderBase();
 
-    if (baseTarget && compositeTarget) {
+    if (baseTarget && compositeTarget && glassSourceTarget) {
       renderer.setRenderTarget(compositeTarget);
       renderer.clear();
       presentTexture(baseTarget.texture, compositeTarget);
 
-      renderBlur(baseTarget);
-      renderGlassPanels(baseTarget, compositeTarget, layout.glassPanels);
+      renderBlur(glassSourceTarget);
+      renderGlassPanels(glassSourceTarget, compositeTarget, layout.glassPanels);
 
       drawCachedUiLayer(
         widgetLayer as CanvasLayer,
