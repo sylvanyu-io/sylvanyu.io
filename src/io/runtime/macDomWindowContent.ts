@@ -13,6 +13,7 @@ export type MacDomWindowRecord = {
   close: HTMLButtonElement;
   body: HTMLElement;
   cleanup: (() => void)[];
+  appliedSig?: string;
   photoHud?: HTMLElement;
   photoNote?: HTMLElement;
 };

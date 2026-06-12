@@ -182,24 +182,6 @@ function createWindowElement(id: WindowId, root: HTMLElement, actions: MacDomWin
   listen('pointerup', endPointerDrag);
   listen('pointercancel', endPointerDrag);
 
-  titlebar.addEventListener('mousedown', (event) => {
-    if (event.target === close || dragState) return;
-    startDrag(event.clientX, event.clientY, -1);
-    event.preventDefault();
-  });
-
-  listen('mousemove', (event) => {
-    if (!dragState || dragState.pointerId !== -1) return;
-    updateDrag(event.clientX, event.clientY);
-    event.preventDefault();
-  });
-
-  listen('mouseup', (event) => {
-    if (!dragState || dragState.pointerId !== -1) return;
-    endDrag();
-    event.preventDefault();
-  });
-
   return record;
 }
 
@@ -207,9 +189,30 @@ function currentLayout(root: HTMLElement): MacCanvasLayout | null {
   return (root as HTMLElement & { __macCanvasLayout?: MacCanvasLayout }).__macCanvasLayout ?? null;
 }
 
+function windowSignature(win: WindowLayout) {
+  return [
+    Math.round(win.x),
+    Math.round(win.y),
+    Math.round(win.w),
+    Math.round(win.h),
+    win.r,
+    win.z,
+    win.titleH,
+    win.stage ? Math.round(win.stage.h) : 0,
+    win.note ? Math.round(win.note.h) : 0,
+  ].join(':');
+}
+
 function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout) {
   const { element } = record;
   element.hidden = false;
+
+  // Style writes invalidate layout even when values are unchanged, and sync
+  // runs every frame — only touch the DOM when the geometry actually moved.
+  const signature = windowSignature(win);
+  if (record.appliedSig === signature) return;
+  record.appliedSig = signature;
+
   element.dataset.tone = win.id === 'worklog' ? 'dark' : 'light';
   element.style.width = `${Math.round(win.w)}px`;
   element.style.height = `${Math.round(win.h)}px`;
