@@ -4,6 +4,7 @@ interface Props {
   fit?: 'cover' | 'contain';
   track?: 'self' | 'window';
   strength?: string;
+  maxOffset?: string;
   idleDrift?: boolean;
   stats?: boolean;
   class?: string;
@@ -14,6 +15,7 @@ const {
   fit = 'cover',
   track = 'self',
   strength = '0.045',
+  maxOffset,
   idleDrift = false,
   stats = false,
   class: className,
@@ -29,6 +31,7 @@ const assetBase = '/io-design/assets';
   data-fit={fit}
   data-track={track}
   data-strength={strength}
+  data-max-offset={maxOffset}
   data-idle-drift={idleDrift ? 'true' : 'false'}
   data-stats={stats ? 'true' : 'false'}
 >
