@@ -12,17 +12,15 @@ import {
 } from './windowTypes';
 
 export { MAC_WINDOW_IDS, PHOTO_APP_HUD_HEIGHT };
-export { drawMacPhotoHud, drawMacWindowDetails, drawMacWindowSurface } from './windowContent';
 export type { GlassPanel, Rect, WindowId, WindowLayout } from './windowTypes';
 
+// Window-area interactions (focus, drag, close) belong to the DOM windows,
+// which sit above the canvas; canvas hit targets only cover the desktop shell.
 export type HitTarget = Rect & {
-  cursor: 'default' | 'pointer' | 'grab';
+  cursor: 'default' | 'pointer';
   action:
     | { type: 'lang'; lang: Lang }
-    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' }
-    | { type: 'close'; id: WindowId }
-    | { type: 'front'; id: WindowId }
-    | { type: 'drag'; id: WindowId };
+    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' };
 };
 
 export type MacCanvasState = {
@@ -60,7 +58,6 @@ export type MacCanvasLayout = {
   mobile: boolean;
   glassPanels: GlassPanel[];
   hitTargets: HitTarget[];
-  photoStage: Rect | null;
   windows: WindowLayout[];
   iconCells: IconCell[];
   dock: DockLayout;
@@ -348,33 +345,8 @@ export function buildMacCanvasLayout(
 
   [readme, photo, worklog, projects].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
-
     placeWindow(state, windowLayout);
     windows.push(windowLayout);
-    hitTargets.push({
-      x: windowLayout.x,
-      y: windowLayout.y,
-      w: windowLayout.w,
-      h: windowLayout.h,
-      cursor: 'default',
-      action: { type: 'front', id: windowLayout.id },
-    });
-    hitTargets.push({
-      x: windowLayout.x,
-      y: windowLayout.y,
-      w: windowLayout.w,
-      h: windowLayout.titleH,
-      cursor: 'grab',
-      action: { type: 'drag', id: windowLayout.id },
-    });
-    hitTargets.push({
-      x: windowLayout.x + 10,
-      y: windowLayout.y + 8,
-      w: 24,
-      h: 24,
-      cursor: 'pointer',
-      action: { type: 'close', id: windowLayout.id },
-    });
   });
 
   return {
@@ -383,7 +355,6 @@ export function buildMacCanvasLayout(
     mobile,
     glassPanels: [...widgetGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
     hitTargets,
-    photoStage: state.windows.photo.open ? photo.stage ?? null : null,
     windows: [...windows].sort((a, b) => a.z - b.z),
     iconCells,
     dock,

@@ -393,16 +393,6 @@ export function mountMacSingleCanvas(root: Element) {
   let lastFpsTime = performance.now();
   let lastFrameMs = performance.now();
   const startTime = performance.now();
-  let dragState: {
-    id: WindowId;
-    pointerId: number;
-    offsetX: number;
-    offsetY: number;
-    startX: number;
-    startY: number;
-    moved: boolean;
-  } | null = null;
-  let suppressNextClick = false;
 
   function frame(nowMs: number) {
     const time = (nowMs - startTime) / 1000;
@@ -487,20 +477,14 @@ export function mountMacSingleCanvas(root: Element) {
       return;
     }
 
-    if (action.type === 'open') {
-      if (action.origin === 'dock' && state.windows[action.id].open) {
-        domWindows.minimize(action.id);
-        return;
-      }
-      domWindows.setRestoreOrigin(action.id, action.origin);
-      state.windows[action.id].open = true;
-      bringWindowFront(state, action.id);
-    } else if (action.type === 'close') {
-      state.windows[action.id].open = false;
-    } else if (action.type === 'front' || action.type === 'drag') {
-      bringWindowFront(state, action.id);
+    if (action.origin === 'dock' && state.windows[action.id].open) {
+      domWindows.minimize(action.id);
+      return;
     }
 
+    domWindows.setRestoreOrigin(action.id, action.origin);
+    state.windows[action.id].open = true;
+    bringWindowFront(state, action.id);
     layoutDirty = true;
   }
 
@@ -524,91 +508,21 @@ export function mountMacSingleCanvas(root: Element) {
     pointerActive = true;
   }
 
-  function startWindowDrag(id: WindowId, point: ReturnType<typeof eventPoint>, pointerId: number) {
-    const win = layout.windows.find((windowLayout) => windowLayout.id === id);
-    if (!win) return;
-
-    bringWindowFront(state, id);
-    layoutDirty = true;
-    dragState = {
-      id,
-      pointerId,
-      offsetX: point.x - win.x,
-      offsetY: point.y - win.y,
-      startX: point.x,
-      startY: point.y,
-      moved: false,
-    };
-    canvas.setPointerCapture(pointerId);
-    canvas.style.cursor = 'grabbing';
-  }
-
   const onPointerMove = (event: PointerEvent) => {
     const point = eventPoint(event);
     updatePointer(point);
-
-    if (dragState) {
-      const distanceX = point.x - dragState.startX;
-      const distanceY = point.y - dragState.startY;
-      dragState.moved = dragState.moved || Math.hypot(distanceX, distanceY) > 3;
-
-      const next = clampWindowPosition(dragState.id, point.x - dragState.offsetX, point.y - dragState.offsetY);
-      state.windows[dragState.id].x = next.x;
-      state.windows[dragState.id].y = next.y;
-      layoutDirty = true;
-      event.preventDefault();
-      return;
-    }
-
-    const hit = hitTest(layout, point.x, point.y);
-    canvas.style.cursor = hit?.cursor ?? 'default';
-  };
-
-  const onPointerDown = (event: PointerEvent) => {
-    const point = eventPoint(event);
-    updatePointer(point);
-    const hit = hitTest(layout, point.x, point.y);
-    const action = hit?.action;
-
-    if (action?.type === 'drag') {
-      startWindowDrag(action.id, point, event.pointerId);
-      event.preventDefault();
-      return;
-    }
-
-    if (action?.type === 'front') {
-      bringWindowFront(state, action.id);
-      layoutDirty = true;
-    }
-
-    canvas.style.cursor = hit?.cursor ?? 'default';
-  };
-
-  const onPointerUp = (event: PointerEvent) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-
-    suppressNextClick = dragState.moved;
-    canvas.releasePointerCapture(event.pointerId);
-    dragState = null;
-    const point = eventPoint(event);
     const hit = hitTest(layout, point.x, point.y);
     canvas.style.cursor = hit?.cursor ?? 'default';
   };
 
   const onPointerLeave = () => {
-    if (dragState) return;
     pointerActive = false;
     canvas.style.cursor = 'default';
   };
 
   const onClick = (event: MouseEvent) => {
-    if (suppressNextClick) {
-      suppressNextClick = false;
-      event.preventDefault();
-      return;
-    }
-
     const point = eventPoint(event);
+    updatePointer(point);
     const hit = hitTest(layout, point.x, point.y);
     applyHitAction(hit?.action);
   };
@@ -623,16 +537,12 @@ export function mountMacSingleCanvas(root: Element) {
   };
 
   const onRootPointerLeave = () => {
-    if (dragState) return;
     pointerActive = false;
   };
 
   root.addEventListener('pointermove', onRootPointerMove);
   root.addEventListener('pointerleave', onRootPointerLeave);
   canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
@@ -668,9 +578,6 @@ export function mountMacSingleCanvas(root: Element) {
       root.removeEventListener('pointermove', onRootPointerMove);
       root.removeEventListener('pointerleave', onRootPointerLeave);
       canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('visibilitychange', onVisibilityChange);
