@@ -567,6 +567,9 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
 
   ctx.save();
   ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0, 10, 6, 0.68)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 1.2;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
   ctx.font = `600 34px ${mono}`;
   ctx.fillText(time, textX, topPanel.y + 38);
