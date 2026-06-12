@@ -194,7 +194,7 @@ void main() {
   vec2 pointPx = (panelLocal - vec2(0.5)) * uPanel.zw;
   float radiusPx = min(uRadius, min(halfPx.x, halfPx.y));
   float sdfPx = roundedBoxSdf(pointPx, halfPx, radiusPx);
-  float mask = 1.0 - smoothstep(-1.25, 1.25, sdfPx);
+  float mask = 1.0 - smoothstep(-0.55, 0.55, sdfPx);
 
   if (mask <= 0.001) {
     discard;
@@ -234,14 +234,16 @@ void main() {
     lensVector *= originalLength / adjustedLength;
   }
 
-  float edgeLine = (sdfPx < 0.0) ? max(0.0, 1.0 + sdfPx / 3.0) : 0.0;
+  float edgeLine = (sdfPx < 0.0) ? 1.0 - smoothstep(0.0, 1.25, -sdfPx) : 0.0;
+  float rimLine = (1.0 - smoothstep(0.0, 1.0, abs(sdfPx))) * mask;
   float angle = radians(uSpecularAngle);
   vec2 lightDirection = normalize(vec2(cos(angle), sin(angle)));
   float directional = abs(dot(clamp(local, vec2(-1.0), vec2(1.0)), lightDirection));
   float specular = glow * pow(clamp(directional * 0.7071, 0.0, 1.0), 0.5) * edgeFalloff;
-  specular += edgeAmount * edgeLine * pow(clamp(directional, 0.0, 1.0), 1.5);
+  specular += edgeAmount * (edgeLine + rimLine * 0.65) * pow(clamp(directional, 0.0, 1.0), 1.5);
 
-  vec2 offsetPx = -lensVector * edgeFalloff * uPanel.zw * scale * mix(1.0, 0.82, blurLevel);
+  float refractionSizePx = max(min(uPanel.z, uPanel.w), 1.0);
+  vec2 offsetPx = -lensVector * edgeFalloff * refractionSizePx * scale * mix(1.0, 0.82, blurLevel);
   vec2 offset = vec2(offsetPx.x / max(uResolution.x, 1.0), -offsetPx.y / max(uResolution.y, 1.0));
   float chromaSpread = 0.18 * chroma;
 
@@ -262,7 +264,8 @@ void main() {
   float tintEase = pow(tint, 1.15);
   glass = glass * (1.0 + 0.28 * tintEase) - 0.06 * tintEase;
   glass = mix(glass, vec3(0.965, 0.973, 0.956), 0.72 * tintEase * mask);
-  glass += vec3(0.42, 0.92, 0.60) * edgeLine * (0.05 + tintEase * 0.08);
+  glass += vec3(0.42, 0.92, 0.60) * edgeLine * (0.07 + tintEase * 0.1);
+  glass += vec3(1.0, 0.98, 0.86) * rimLine * (0.2 + edgeAmount * 0.18);
   glass += vec3(1.0, 0.94, 0.78) * specular * (0.52 + glow * 0.62);
   glass -= vec3(0.06, 0.04, 0.12) * edgeFalloff * edgeAmount * 0.035;
 
