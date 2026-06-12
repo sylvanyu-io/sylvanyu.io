@@ -115,16 +115,28 @@ function renderProjects(record: MacDomWindowRecord, lang: Lang) {
 
 async function mountPhotoIsland(record: MacDomWindowRecord) {
   const root = record.body.querySelector('[data-photo3d-root]');
-  if (!(root instanceof HTMLElement) || root.dataset.mounted === 'true') return;
+  if (
+    !(root instanceof HTMLElement)
+    || root.dataset.mounted === 'true'
+    || root.dataset.mounting === 'true'
+  ) {
+    return;
+  }
 
-  const response = await fetch(SHADER_URL);
-  if (!response.ok) throw new Error(`Failed to load Photo3D shader: ${response.status}`);
+  root.dataset.mounting = 'true';
+  try {
+    const response = await fetch(SHADER_URL);
+    if (!response.ok) throw new Error(`Failed to load Photo3D shader: ${response.status}`);
 
-  mountPhoto3D(root, {
-    shaderBody: await response.text(),
-    interaction: 'hover',
-    idleDrift: true,
-  });
+    mountPhoto3D(root, {
+      shaderBody: await response.text(),
+      interaction: 'hover',
+      idleDrift: true,
+      fit: 'cover',
+    });
+  } finally {
+    delete root.dataset.mounting;
+  }
 }
 
 function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
@@ -163,9 +175,6 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   record.photoNote = note;
 
   record.body.append(stage, note);
-  mountPhotoIsland(record).catch((error) => {
-    console.warn('mac Photo3D window:', error);
-  });
 }
 
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
@@ -190,6 +199,14 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   }
 
   setText(record.accessory, '');
+}
+
+export function ensureWindowContentMounted(record: MacDomWindowRecord) {
+  if (record.id !== 'photo') return;
+
+  mountPhotoIsland(record).catch((error) => {
+    console.warn('mac Photo3D window:', error);
+  });
 }
 
 export { PHOTO_APP_HUD_HEIGHT };

@@ -2,6 +2,7 @@ import type { Lang } from '../content/common';
 import type { MacCanvasLayout, MacCanvasState, Rect, WindowId, WindowLayout } from './macCanvas/ui';
 import { MAC_WINDOW_IDS } from './macCanvas/ui';
 import {
+  ensureWindowContentMounted,
   PHOTO_APP_HUD_HEIGHT,
   type MacDomWindowRecord,
   renderWindowContent,
@@ -15,9 +16,13 @@ type MacDomWindowActions = {
 };
 
 type MacDomWindowController = {
+  minimize: (id: WindowId) => void;
+  setRestoreOrigin: (id: WindowId, origin: RestoreOrigin) => void;
   sync: (layout: MacCanvasLayout, state: MacCanvasState) => void;
   destroy: () => void;
 };
+
+type RestoreOrigin = 'desktop' | 'dock';
 
 type DragState = {
   id: WindowId;
@@ -66,6 +71,19 @@ function dockTarget(layout: MacCanvasLayout, id: WindowId): Rect {
   }
 
   return { x: layout.width * 0.5, y: layout.height - 48, w: 48, h: 48 };
+}
+
+function desktopTarget(layout: MacCanvasLayout, id: WindowId): Rect {
+  const icon = layout.iconCells.find((item) => item.id === id);
+  if (icon) {
+    return { x: icon.imgX, y: icon.imgY, w: icon.imgSize, h: icon.imgSize };
+  }
+
+  return dockTarget(layout, id);
+}
+
+function restoreTarget(layout: MacCanvasLayout, id: WindowId, origin: RestoreOrigin): Rect {
+  return origin === 'desktop' ? desktopTarget(layout, id) : dockTarget(layout, id);
 }
 
 function windowById(layout: MacCanvasLayout, id: WindowId) {
@@ -220,6 +238,7 @@ export function createMacDomWindows(
   const visible = new Map<WindowId, boolean>();
   const closing = new Set<WindowId>();
   const animations = new Map<WindowId, Animation>();
+  const restoreOrigins = new Map<WindowId, RestoreOrigin>();
   let lastLang: Lang | null = null;
   let latestLayout: MacCanvasLayout | null = null;
 
@@ -243,10 +262,10 @@ export function createMacDomWindows(
     }
   }
 
-  function playRestore(record: WindowRecord, win: WindowLayout, layout: MacCanvasLayout) {
+  function playRestore(record: MacDomWindowRecord, win: WindowLayout, layout: MacCanvasLayout) {
     if (!record.element.animate) return;
     cancelAnimation(record.id);
-    const target = dockTarget(layout, record.id);
+    const target = restoreTarget(layout, record.id, restoreOrigins.get(record.id) ?? 'dock');
     const animation = record.element.animate(
       [
         { transform: targetTransform(win, target), opacity: 0.18 },
@@ -320,6 +339,7 @@ export function createMacDomWindows(
 
       updateWindowLayout(record, win as WindowLayout);
       updateWindowTexts(record, win as WindowLayout, state);
+      ensureWindowContentMounted(record);
 
       if (!wasVisible && !closing.has(id)) {
         playRestore(record, win as WindowLayout, layout);
@@ -330,6 +350,10 @@ export function createMacDomWindows(
   }
 
   return {
+    minimize,
+    setRestoreOrigin(id, origin) {
+      restoreOrigins.set(id, origin);
+    },
     sync,
     destroy() {
       animations.forEach((animation) => animation.cancel());

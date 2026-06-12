@@ -4,6 +4,8 @@ type Photo3DOptions = {
   interaction?: 'drag' | 'hover';
   /** Gentle autonomous orbit while no pointer is active (hover mode only). */
   idleDrift?: boolean;
+  /** Keep the WebGL viewport at the sprite aspect inside a free-sized host. */
+  fit?: 'stretch' | 'contain' | 'cover';
 };
 
 type Photo3DConfig = {
@@ -104,7 +106,7 @@ const createDisparityCanvas = (sourceCanvas: HTMLCanvasElement, remapR = false) 
 
 export const mountPhoto3D = (
   root: Element,
-  { shaderBody, interaction = 'drag', idleDrift = false }: Photo3DOptions,
+  { shaderBody, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
 ) => {
   if (!(root instanceof HTMLElement) || root.dataset.mounted === 'true') return;
   root.dataset.mounted = 'true';
@@ -274,10 +276,53 @@ export const mountPhoto3D = (
     return texture;
   };
 
-  const resize = () => {
+  const layoutStage = () => {
+    if (fit === 'stretch') return true;
+
+    const wrapWidth = wrap.clientWidth;
+    const wrapHeight = wrap.clientHeight;
+    if (wrapWidth <= 0 || wrapHeight <= 0 || config.W <= 0 || config.H <= 0) return false;
+
+    const aspect = config.W / config.H;
+    let width = wrapWidth;
+    let height = width / aspect;
+    const needsHeightConstraint = fit === 'contain' ? height > wrapHeight : height < wrapHeight;
+    if (needsHeightConstraint) {
+      height = wrapHeight;
+      width = height * aspect;
+    }
+
+    stage.style.position = 'absolute';
+    stage.style.left = `${Math.round((wrapWidth - width) * 0.5)}px`;
+    stage.style.top = `${Math.round((wrapHeight - height) * 0.5)}px`;
+    stage.style.right = 'auto';
+    stage.style.bottom = 'auto';
+    stage.style.width = `${Math.max(1, Math.round(width))}px`;
+    stage.style.height = `${Math.max(1, Math.round(height))}px`;
+    stage.style.aspectRatio = `${config.W} / ${config.H}`;
+    return true;
+  };
+
+  const stageSize = () => {
+    if (!layoutStage()) return null;
+
+    const width = stage.clientWidth;
+    const height = stage.clientHeight;
+    if (width > 0 && height > 0) return { width, height };
+
     const rect = stage.getBoundingClientRect();
-    const width = Math.max(1, rect.width);
-    const height = Math.max(1, rect.height);
+    const rectWidth = Math.round(rect.width);
+    const rectHeight = Math.round(rect.height);
+    if (rectWidth > 0 && rectHeight > 0) return { width: rectWidth, height: rectHeight };
+
+    return null;
+  };
+
+  const resize = () => {
+    const size = stageSize();
+    if (!size) return;
+
+    const { width, height } = size;
     const pixelRatio = window.devicePixelRatio || 1;
     const backingScale = Math.min(
       pixelRatio,
@@ -297,9 +342,11 @@ export const mountPhoto3D = (
   };
 
   function updateStats() {
-    const rect = stage.getBoundingClientRect();
+    const size = stageSize();
+    const width = size?.width ?? canvas.width;
+    const height = size?.height ?? canvas.height;
     setStat('fps', fps > 0 ? `${Math.round(fps)}` : '--');
-    setStat('view', `${Math.round(rect.width)} x ${Math.round(rect.height)}`);
+    setStat('view', `${width} x ${height}`);
     setStat('buffer', `${canvas.width} x ${canvas.height}`);
     setStat('image', `${config.W} x ${config.H}`);
     setStat('dpr', `${(window.devicePixelRatio || 1).toFixed(2)}x`);
@@ -324,6 +371,7 @@ export const mountPhoto3D = (
     config.H = frames[3].height;
     spriteUrl = url;
     root.style.setProperty('--photo3d-aspect', `${config.W} / ${config.H}`);
+    layoutStage();
 
     gl.useProgram(program);
     const units = {

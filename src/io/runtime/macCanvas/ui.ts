@@ -19,7 +19,7 @@ export type HitTarget = Rect & {
   cursor: 'default' | 'pointer' | 'grab';
   action:
     | { type: 'lang'; lang: Lang }
-    | { type: 'open'; id: WindowId }
+    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' }
     | { type: 'close'; id: WindowId }
     | { type: 'front'; id: WindowId }
     | { type: 'drag'; id: WindowId };
@@ -244,7 +244,7 @@ export function buildMacCanvasLayout(
       w: cell.w,
       h: cell.h,
       cursor: 'pointer',
-      action: { type: 'open', id: cell.id },
+      action: { type: 'open', id: cell.id, origin: 'desktop' },
     });
   });
 
@@ -342,7 +342,7 @@ export function buildMacCanvasLayout(
       w: slot.size,
       h: slot.size + 10,
       cursor: 'pointer',
-      action: { type: 'open', id: slot.id },
+      action: { type: 'open', id: slot.id, origin: 'dock' },
     });
   });
 

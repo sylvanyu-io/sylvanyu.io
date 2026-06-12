@@ -483,6 +483,11 @@ export function mountMacSingleCanvas(root: Element) {
     }
 
     if (action.type === 'open') {
+      if (action.origin === 'dock' && state.windows[action.id].open) {
+        domWindows.minimize(action.id);
+        return;
+      }
+      domWindows.setRestoreOrigin(action.id, action.origin);
       state.windows[action.id].open = true;
       bringWindowFront(state, action.id);
     } else if (action.type === 'close') {
