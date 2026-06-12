@@ -18,6 +18,7 @@ export type WindowLayout = GlassPanel & {
   titleH: number;
   stage?: Rect;
   note?: Rect;
+  sourceText?: string;
 };
 
 type Rect = {
@@ -56,6 +57,11 @@ export type MacCanvasLayout = {
   windows: WindowLayout[];
 };
 
+export type MacCanvasLayoutOptions = {
+  photoAspect?: number;
+  photoSourceText?: string;
+};
+
 type IconDef = {
   id: WindowId;
   icon: string;
@@ -75,6 +81,8 @@ const icons: IconDef[] = [
 
 const sans = '"Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif';
 const mono = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+const MIN_PHOTO_STAGE_ASPECT = 0.72;
+const MAX_PHOTO_STAGE_ASPECT = 2.6;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -132,27 +140,37 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout) {
   if (typeof saved.x === 'number') windowLayout.x = saved.x;
   if (typeof saved.y === 'number') windowLayout.y = saved.y;
   if (windowLayout.id === 'photo') {
+    const stageH = windowLayout.stage?.h ?? Math.max(1, windowLayout.h - windowLayout.titleH - (windowLayout.note?.h ?? 76));
     windowLayout.stage = {
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH,
       w: windowLayout.w,
-      h: windowLayout.stage?.h ?? Math.round(windowLayout.w * 1.333),
+      h: stageH,
     };
     windowLayout.note = {
       x: windowLayout.x,
-      y: windowLayout.y + windowLayout.titleH + (windowLayout.stage?.h ?? Math.round(windowLayout.w * 1.333)),
+      y: windowLayout.y + windowLayout.titleH + stageH,
       w: windowLayout.w,
       h: windowLayout.note?.h ?? 76,
     };
   }
 }
 
-export function buildMacCanvasLayout(width: number, height: number, state: MacCanvasState): MacCanvasLayout {
+export function buildMacCanvasLayout(
+  width: number,
+  height: number,
+  state: MacCanvasState,
+  options: MacCanvasLayoutOptions = {},
+): MacCanvasLayout {
   const mobile = width <= 700 || height > width * 1.18;
   const widgetGlassPanels: GlassPanel[] = [];
   const dockGlassPanels: GlassPanel[] = [];
   const hitTargets: HitTarget[] = [];
   const windows: WindowLayout[] = [];
+  const photoAspect = Math.max(
+    MIN_PHOTO_STAGE_ASPECT,
+    Math.min(MAX_PHOTO_STAGE_ASPECT, options.photoAspect ?? 0.75),
+  );
 
   const langButtonW = mobile ? 36 : 30;
   const langX = mobile ? width - 96 : width - 198;
@@ -184,12 +202,15 @@ export function buildMacCanvasLayout(width: number, height: number, state: MacCa
   }
 
   const titleH = mobile ? 36 : 34;
-  const photoW = mobile ? Math.min(266, Math.max(220, width - 152)) : 320;
-  const photoStageH = Math.round(photoW * 1.333);
   const photoNoteH = mobile ? 74 : 76;
+  const basePhotoW = mobile ? Math.min(266, Math.max(220, width - 152)) : 320;
+  const photoMaxWindowH = mobile ? Math.max(320, height - 160) : Math.max(360, height - 116);
+  const photoMaxStageH = Math.max(160, photoMaxWindowH - titleH - photoNoteH);
+  const photoW = Math.round(Math.min(basePhotoW, photoMaxStageH * photoAspect));
+  const photoStageH = Math.round(photoW / photoAspect);
   const photoH = titleH + photoStageH + photoNoteH;
   const photoX = mobile ? Math.max(112, width - photoW - 16) : 600;
-  const photoY = mobile ? Math.max(286, Math.min(340, height - 106 - photoH)) : 58;
+  const photoY = mobile ? Math.max(96, Math.min(340, height - 106 - photoH)) : 58;
   const readmeW = mobile ? Math.min(300, Math.max(250, width - 120)) : 430;
   const readmeH = mobile ? Math.min(320, Math.max(238, photoY - 34)) : 500;
   const readme: WindowLayout = mobile
@@ -228,6 +249,7 @@ export function buildMacCanvasLayout(width: number, height: number, state: MacCa
     titleH,
     stage: { x: photoX, y: photoY + titleH, w: photoW, h: photoStageH },
     note: { x: photoX, y: photoY + titleH + photoStageH, w: photoW, h: photoNoteH },
+    sourceText: options.photoSourceText,
   };
 
   const worklog: WindowLayout = {
@@ -704,7 +726,7 @@ function drawPhotoWindow(ctx: CanvasRenderingContext2D, win: WindowLayout, state
   ctx.fillStyle = 'rgba(255,255,255,.72)';
   ctx.fillText(`FPS ${Math.round(state.fps).toString().padStart(3, ' ')}`, stage.x + 12, stage.y + stage.h - 9);
   ctx.fillText(state.bufferText, stage.x + 78, stage.y + stage.h - 9);
-  ctx.fillText('SRC 472x1024  LDI 2L', stage.x + 180, stage.y + stage.h - 9);
+  ctx.fillText(`${win.sourceText ?? 'SRC --'}  LDI 2L`, stage.x + 180, stage.y + stage.h - 9);
 
   ctx.font = `500 11px ${mono}`;
   ctx.fillStyle = 'rgba(68, 70, 72, .78)';

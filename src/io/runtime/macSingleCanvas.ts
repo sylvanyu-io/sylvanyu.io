@@ -45,6 +45,7 @@ const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_RENDER_EDGE = 2048;
+const PHOTO_APP_OVERSCAN = 1.12;
 const GLASS_STATE = {
   scale: 0.1,
   depth: 10,
@@ -64,7 +65,7 @@ const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 function windowVisualKey(layout: MacCanvasLayout, state: MacCanvasState, id: WindowId, includeStats = false) {
   const win = layout.windows.find((windowLayout) => windowLayout.id === id);
   const base = win
-    ? `${id}:${Math.round(win.x)}:${Math.round(win.y)}:${Math.round(win.w)}:${Math.round(win.h)}:${layout.mobile ? 1 : 0}:${state.lang}`
+    ? `${id}:${Math.round(win.x)}:${Math.round(win.y)}:${Math.round(win.w)}:${Math.round(win.h)}:${layout.mobile ? 1 : 0}:${state.lang}:${win.sourceText ?? ''}`
     : `${id}:closed`;
   return includeStats ? `${base}:${Math.round(state.fps)}:${state.bufferText}` : base;
 }
@@ -117,7 +118,16 @@ export function mountMacSingleCanvas(root: Element) {
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
   let photoAppPass: Photo3DPass | null = null;
-  let layout = buildMacCanvasLayout(1, 1, state);
+  function photoLayoutOptions() {
+    return photoAppPass
+      ? {
+        photoAspect: photoAppPass.aspect,
+        photoSourceText: `SRC ${photoAppPass.sourceWidth}x${photoAppPass.sourceHeight}`,
+      }
+      : {};
+  }
+
+  let layout = buildMacCanvasLayout(1, 1, state, photoLayoutOptions());
   let pixelRatio = 1;
   let cssWidth = 1;
   let cssHeight = 1;
@@ -181,6 +191,8 @@ export function mountMacSingleCanvas(root: Element) {
     uPhoto: { value: placeholder as THREE.Texture },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uPhotoAspect: { value: 1 },
+    uPhotoOverscan: { value: PHOTO_APP_OVERSCAN },
   };
 
   const baseLayer = makeCanvasLayer();
@@ -303,8 +315,20 @@ export function mountMacSingleCanvas(root: Element) {
 
     if (!layout.photoStage || !photoAppPass) return;
 
-    const width = Math.max(1, Math.round(layout.photoStage.w * pixelRatio));
-    const height = Math.max(1, Math.round(layout.photoStage.h * pixelRatio));
+    const stageWidth = Math.max(1, layout.photoStage.w * pixelRatio);
+    const stageHeight = Math.max(1, layout.photoStage.h * pixelRatio);
+    const sourceAspect = Math.max(photoAppPass.aspect, 0.001);
+    let width = stageWidth;
+    let height = width / sourceAspect;
+
+    if (height < stageHeight) {
+      height = stageHeight;
+      width = height * sourceAspect;
+    }
+
+    width *= PHOTO_APP_OVERSCAN;
+    height *= PHOTO_APP_OVERSCAN;
+
     const maxEdge = 1200;
     const scale = Math.min(1, maxEdge / Math.max(width, height));
     photoAppTarget = makeRenderTarget(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
@@ -335,7 +359,7 @@ export function mountMacSingleCanvas(root: Element) {
       layer.dirty = true;
     });
 
-    layout = buildMacCanvasLayout(cssWidth, cssHeight, state);
+    layout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
     state.bufferText = `BUF ${Math.round(layout.width * pixelRatio)}x${Math.round(layout.height * pixelRatio)}`;
 
     disposeTarget(wallpaperSourceTarget);
@@ -516,6 +540,8 @@ export function mountMacSingleCanvas(root: Element) {
     });
 
     photoRectUniforms.uPhoto.value = photoAppTarget.texture;
+    photoRectUniforms.uPhotoAspect.value = photoAppPass.aspect;
+    photoRectUniforms.uPhotoOverscan.value = PHOTO_APP_OVERSCAN;
     photoRectUniforms.uRect.value.set(layout.photoStage.x, layout.photoStage.y, layout.photoStage.w, layout.photoStage.h);
     renderPass(renderer, scene, camera, passMesh, photoRectMaterial, target);
   }
@@ -626,7 +652,7 @@ export function mountMacSingleCanvas(root: Element) {
       lastFpsTime = nowMs;
     }
 
-    const nextLayout = buildMacCanvasLayout(cssWidth, cssHeight, state);
+    const nextLayout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
     const layoutChanged = rectKey(nextLayout.photoStage) !== rectKey(layout.photoStage);
     layout = nextLayout;
     if (layoutChanged) resizePhotoTarget();
@@ -833,7 +859,7 @@ export function mountMacSingleCanvas(root: Element) {
     }),
     createPhoto3DPass(SHADER_URL, PHOTO_APP_SPRITE, 2).then((pass) => {
       photoAppPass = pass;
-      resizePhotoTarget();
+      resize();
     }),
   ]).catch((error) => {
     console.warn('mac single canvas:', error);

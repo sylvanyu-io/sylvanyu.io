@@ -55,8 +55,23 @@ precision highp float;
 uniform sampler2D uPhoto;
 uniform vec2 uResolution;
 uniform vec4 uRect;
+uniform float uPhotoAspect;
+uniform float uPhotoOverscan;
 
 varying vec2 vUv;
+
+vec2 coverUv(vec2 uv, float rectAspect, float imageAspect, float overscan) {
+  vec2 scale = vec2(1.0);
+
+  if (rectAspect > imageAspect) {
+    scale.y = imageAspect / rectAspect;
+  } else {
+    scale.x = rectAspect / imageAspect;
+  }
+
+  scale /= max(overscan, 1.0);
+  return 0.5 + (uv - 0.5) * scale;
+}
 
 void main() {
   vec2 screenPx = vec2(vUv.x * uResolution.x, (1.0 - vUv.y) * uResolution.y);
@@ -66,7 +81,10 @@ void main() {
     discard;
   }
 
-  gl_FragColor = texture2D(uPhoto, vec2(local.x, 1.0 - local.y));
+  float rectAspect = uRect.z / max(uRect.w, 1.0);
+  vec2 photoUv = coverUv(local, rectAspect, max(uPhotoAspect, 0.001), uPhotoOverscan);
+  photoUv = clamp(photoUv, vec2(0.001), vec2(0.999));
+  gl_FragColor = texture2D(uPhoto, vec2(photoUv.x, 1.0 - photoUv.y));
 }
 `;
 
