@@ -58,6 +58,10 @@
     return c;
   }
 
+  function clamp(v, min, max) {
+    return Math.min(max, Math.max(min, v));
+  }
+
   function splitSprite(image) {
     var cols = 3, rows = 2;
     var w = Math.floor(image.width / cols);
@@ -147,6 +151,7 @@
       this._idleDrift = this._flag('idle-drift');
       this._fit = this._attr('fit') || 'contain';
       this._track = this._attr('track') || 'self';
+      this._maxOffset = parseFloat(this._attr('max-offset') || (this._track === 'window' ? '0.032' : '0.06'));
       this._mx = 0; this._my = 0;
       this._smoothX = this._cfg.offsetX; this._smoothY = this._cfg.offsetY;
       this._pointerActive = false;
@@ -217,8 +222,8 @@
 
     _updatePointer(e) {
       var rect = (this._track === 'window' ? document.documentElement : this).getBoundingClientRect();
-      this._mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      this._my = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+      this._mx = clamp(((e.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1, -1, 1);
+      this._my = clamp(-(((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2 - 1), -1, 1);
     }
 
     _layout() {
@@ -230,7 +235,7 @@
         w = cw; h = w / a;
         if (h < ch) { h = ch; w = h * a; }
         // slight overscan so parallax never reveals edges
-        w *= 1.06; h *= 1.06;
+        w *= 1.12; h *= 1.12;
       } else {
         w = cw; h = w / a;
         if (h > ch) { h = ch; w = h * a; }
@@ -350,12 +355,12 @@
 
       var targetX = cfg.offsetX, targetY = cfg.offsetY;
       if (this._pointerActive) {
-        targetX = this._mx * this._strength;
-        targetY = this._my * this._strength;
+        targetX = clamp(this._mx * this._strength, -this._maxOffset, this._maxOffset);
+        targetY = clamp(this._my * this._strength, -this._maxOffset, this._maxOffset);
       } else if (this._idleDrift) {
         var s = time * 0.001;
-        targetX = cfg.offsetX + Math.sin(s * 0.5) * 0.016;
-        targetY = cfg.offsetY + Math.cos(s * 0.37) * 0.011;
+        targetX = clamp(cfg.offsetX + Math.sin(s * 0.5) * 0.016, -this._maxOffset, this._maxOffset);
+        targetY = clamp(cfg.offsetY + Math.cos(s * 0.37) * 0.011, -this._maxOffset, this._maxOffset);
       }
       this._smoothX += (targetX - this._smoothX) * 0.055;
       this._smoothY += (targetY - this._smoothY) * 0.055;
