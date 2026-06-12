@@ -1,0 +1,213 @@
+---
+import Photo3DView from '../../../components/io/Photo3DView.astro';
+import SectionHead from '../../../components/io/SectionHead.astro';
+import Base from '../../../layouts/Base.astro';
+import { archives, experience, heroCopy, metrics, navCopy, profile, projects } from '../../../io/data';
+import '../../../styles/io/spec.css';
+
+const langs = ['en', 'zh'] as const;
+---
+
+<Base
+  title="IO Design A · Spec Sheet"
+  description="A conventional portfolio version for sylvanyu.io, rebuilt as an Astro page with live WebGL demos."
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="/io-design/assets/photo3d-view.js" defer></script>
+  </Fragment>
+
+  <div class="spec-page" data-io-lang-root data-lang="en">
+    <header class="spec-topbar">
+      <a href="/io-design/" class="spec-brand">SYLVANYU.IO</a>
+      <nav>
+        {langs.map((lang) => (
+          <Fragment>
+            <a data-locale={lang} href="#work">{navCopy[lang].work}</a>
+            <a data-locale={lang} href="#demos">{navCopy[lang].demos}</a>
+            <a data-locale={lang} href="#experience">{navCopy[lang].experience}</a>
+            <a data-locale={lang} href="#contact">{navCopy[lang].contact}</a>
+          </Fragment>
+        ))}
+      </nav>
+      <div class="lang-toggle" aria-label="Language">
+        <button type="button" data-lang-toggle="en">EN</button>
+        <button type="button" data-lang-toggle="zh">中</button>
+      </div>
+    </header>
+
+    <main id="top" class="spec-main">
+      <section class="spec-hero">
+        <div class="hero-copy">
+          {langs.map((lang) => (
+            <div data-locale={lang}>
+              <p class="kicker">{heroCopy[lang].kicker}</p>
+              <h1>{heroCopy[lang].title}</h1>
+              <p class="lede">{heroCopy[lang].body}</p>
+              <div class="hero-actions">
+                <a class="primary-link" href={`mailto:${profile.email}`}>{profile.email}</a>
+                <a class="secondary-link" href={profile.github} rel="noreferrer">GitHub ↗</a>
+              </div>
+              <div class="chips">
+                {heroCopy[lang].chips.map((chip) => <span>{chip}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <figure class="hero-photo">
+          <div class="photo-frame">
+            <Photo3DView
+              sprite="sprite2"
+              fit="cover"
+              track="self"
+              strength="0.052"
+              idleDrift
+              stats
+              class="photo3d-fill"
+            />
+            <div class="live-badges" aria-hidden="true">
+              <span>LIVE WEBGL</span>
+              <span>LDI PARALLAX</span>
+            </div>
+          </div>
+          {langs.map((lang) => (
+            <figcaption data-locale={lang}>
+              <span>FIG.00 · PHOTO3D</span>
+              <span>{heroCopy[lang].photoFig}</span>
+            </figcaption>
+          ))}
+        </figure>
+      </section>
+
+      <section class="metric-strip" aria-label="Impact metrics">
+        {langs.map((lang) => (
+          <Fragment>
+            {metrics[lang].map((metric) => (
+              <div data-locale={lang} class="metric-cell">
+                <strong>{metric.value}</strong>
+                <span>{metric.label}</span>
+              </div>
+            ))}
+          </Fragment>
+        ))}
+      </section>
+
+      <section id="work" class="spec-section">
+        <SectionHead no="01" titleEn="Selected work" titleZh="核心项目" />
+        {langs.map((lang) => (
+          <div data-locale={lang} class="project-list">
+            {projects[lang].map((project) => (
+              <article class="project-row">
+                <span class="project-index">{project.idx}</span>
+                <div class="project-title">
+                  <h3>{project.title}</h3>
+                  <span>{project.meta}</span>
+                  <em>{project.tags}</em>
+                </div>
+                <p>{project.body}</p>
+                <div class="project-metric">
+                  <strong>{project.metric}</strong>
+                  <span>{project.metricLabel}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        ))}
+      </section>
+
+      <section id="demos" class="spec-section">
+        <SectionHead no="02" titleEn="Demos, running here" titleZh="演示，就在本页运行" />
+        <div class="demo-grid">
+          <figure class="demo-card">
+            <div class="demo-stage">
+              <Photo3DView sprite="sprite1" fit="cover" track="self" idleDrift stats class="photo3d-fill" />
+            </div>
+            <figcaption>
+              <div>
+                <strong>Photo3D · 2.5D parallax</strong>
+                <span data-locale="en">One photo -> layered RGBD -> ray-marched parallax</span>
+                <span data-locale="zh">单张照片 -> 分层 RGBD -> 光线步进视差</span>
+              </div>
+              <span>WEBGL · LDI</span>
+            </figcaption>
+          </figure>
+
+          <figure class="demo-card">
+            <div class="lens-stage">
+              <div class="liquid-lens">
+                <span data-locale="en">DRAG ME</span>
+                <span data-locale="zh">拖我</span>
+              </div>
+            </div>
+            <figcaption>
+              <div>
+                <strong>Liquid Glass</strong>
+                <span data-locale="en">Backdrop refraction study</span>
+                <span data-locale="zh">背景折射研究</span>
+              </div>
+              <span>CSS · SVG · THREE</span>
+            </figcaption>
+          </figure>
+
+          {langs.map((lang) => (
+            <Fragment>
+              {archives[lang].map((archive) => (
+                <figure data-locale={lang} class="archive-card">
+                  <a href={archive.href}>
+                    <span class="archive-slot">{archive.slot}</span>
+                    <span class="archive-badge">{archive.badge}</span>
+                  </a>
+                  <figcaption>
+                    <div>
+                      <strong>{archive.title}</strong>
+                      <span>{archive.note}</span>
+                    </div>
+                    <a href={archive.href}>{archive.linkLabel} ↗</a>
+                  </figcaption>
+                </figure>
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      </section>
+
+      <section id="experience" class="spec-section">
+        <SectionHead no="03" titleEn="Experience" titleZh="经历" />
+        {langs.map((lang) => (
+          <div data-locale={lang} class="experience-list">
+            {experience[lang].map((item) => (
+              <article>
+                <span>{item.period}</span>
+                <div>
+                  <strong>{item.org}</strong>
+                  <em>{item.role}</em>
+                  <p>{item.note}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ))}
+      </section>
+
+      <section id="contact" class="spec-section contact-section">
+        <SectionHead no="04" titleEn="Say hi" titleZh="联系我" />
+        <a class="contact-mail" href={`mailto:${profile.email}`}>{profile.email}</a>
+        <a class="contact-github" href={profile.github} rel="noreferrer">github.com/sylvanyu-io ↗</a>
+        <span data-locale="en">{profile.location.en}</span>
+        <span data-locale="zh">{profile.location.zh}</span>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    import { mountLanguageRoots } from '../../../io/runtime/language';
+
+    mountLanguageRoots();
+  </script>
+</Base>

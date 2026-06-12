@@ -1,0 +1,160 @@
+---
+import DesktopWindow from '../../../components/io/DesktopWindow.astro';
+import Photo3DView from '../../../components/io/Photo3DView.astro';
+import Base from '../../../layouts/Base.astro';
+import { profile, y2kDesktopCopy, y2kLogLines, y2kProjects } from '../../../io/data';
+import '../../../styles/io/y2k.css';
+
+const langs = ['en', 'zh'] as const;
+const taskbarWindows = [
+  { id: 'readme', label: 'README.TXT' },
+  { id: 'photo', label: 'PHOTO3D.EXE' },
+  { id: 'worklog', label: 'WORK.LOG' },
+  { id: 'projects', label: 'C:\\PROJECTS' },
+] as const;
+const iconDefs = [
+  { id: 'readme', glyph: 'TXT', key: 'iconReadme', color: '#41e8dc' },
+  { id: 'photo', glyph: '3D', key: 'iconPhoto', color: '#ff5ad1' },
+  { id: 'worklog', glyph: '>_', key: 'iconLog', color: '#7cff6b' },
+  { id: 'projects', glyph: 'C:\\', key: 'iconProjects', color: '#ffe95c' },
+] as const;
+const fireflies = Array.from({ length: 18 }, (_, index) => ({
+  left: [8, 16, 27, 34, 43, 52, 58, 64, 71, 77, 84, 90, 38, 70, 22, 95, 12, 48][index],
+  top: [22, 64, 38, 78, 18, 55, 30, 72, 12, 48, 66, 26, 92, 88, 86, 50, 44, 9][index],
+  size: index % 3 === 0 ? 5 : 3,
+  animation: `ff${index % 4}`,
+  duration: 7 + (index % 5) * 2.3,
+  delay: index * 0.7,
+}));
+---
+
+<Base title="IO Design C · Y2K Desktop" description="Y2K desktop personal site page inspired by Animal Well-like neon pixel scenes.">
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <script src="/io-design/assets/photo3d-view.js" defer></script>
+  </Fragment>
+
+  <div class="y2k-page" data-io-lang-root data-desktop-root data-desktop-style="y2k" data-lang="en">
+    <Photo3DView
+      sprite="sprite1"
+      fit="cover"
+      track="window"
+      strength="0.07"
+      idleDrift
+      class="y2k-wallpaper-photo3d"
+    />
+    <div class="y2k-wallpaper" aria-hidden="true"></div>
+
+    <div class="firefly-layer" aria-hidden="true">
+      {fireflies.map((fly) => (
+        <i
+          style={`left:${fly.left}%;top:${fly.top}%;width:${fly.size}px;height:${fly.size}px;animation: ${fly.animation} ${fly.duration}s ease-in-out ${fly.delay}s infinite alternate, ffGlow ${2.2 + (fly.delay % 4) * .4}s ease-in-out ${fly.delay * .4}s infinite;`}
+        ></i>
+      ))}
+    </div>
+
+    <nav class="y2k-icons" aria-label="Desktop shortcuts">
+      {iconDefs.map((icon) => (
+        <button type="button" data-open-window={icon.id} style={`--neon: ${icon.color};`}>
+          <span>{icon.glyph}</span>
+          {langs.map((lang) => (
+            <em data-locale={lang}>{y2kDesktopCopy[lang][icon.key]}</em>
+          ))}
+        </button>
+      ))}
+      <a href={`mailto:${profile.email}`} style="--neon: #cfc8ff;">
+        <span>@</span>
+        {langs.map((lang) => (
+          <em data-locale={lang}>{y2kDesktopCopy[lang].iconMail}</em>
+        ))}
+      </a>
+    </nav>
+
+    <DesktopWindow id="readme" title="README.TXT" left={150} top={60} z={11}>
+      <div class="y2k-readme">
+        <p>★ SYLVAN YU 俞宇锋 ★</p>
+        {langs.map((lang) => (
+          <div data-locale={lang}>
+            <h1>{y2kDesktopCopy[lang].readmeTitle}</h1>
+            <p>{y2kDesktopCopy[lang].readmeBody}</p>
+            <div>
+              <a href={`mailto:${profile.email}`}>{profile.email}</a>
+              <a href={profile.github} rel="noreferrer">GITHUB</a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </DesktopWindow>
+
+    <DesktopWindow id="photo" title="PHOTO3D.EXE ▸ LIVE" left={620} top={50} z={12}>
+      <div class="y2k-photo-stage">
+        <Photo3DView sprite="sprite2" fit="cover" track="self" idleDrift stats class="y2k-photo3d" />
+      </div>
+      {langs.map((lang) => (
+        <p data-locale={lang} class="y2k-note">{y2kDesktopCopy[lang].photoNote}</p>
+      ))}
+    </DesktopWindow>
+
+    <DesktopWindow id="worklog" title="WORK.LOG" left={250} top={150} z={10} open={false}>
+      {langs.map((lang) => (
+        <div data-locale={lang} class="y2k-terminal">
+          {y2kLogLines[lang].map((line) => <p style={`--line-color: ${line.y2kColor};`}>{line.text}</p>)}
+          <i aria-hidden="true"></i>
+        </div>
+      ))}
+    </DesktopWindow>
+
+    <DesktopWindow id="projects" title="C:\\PROJECTS\\" left={190} top={100} z={13} open={false}>
+      {langs.map((lang) => (
+        <div data-locale={lang} class="y2k-projects">
+          {y2kProjects[lang].map((project) => (
+            <article>
+              <div>
+                <h2>{project.title}</h2>
+                <span>{project.meta}</span>
+                <p>{project.body}</p>
+              </div>
+              <div class="y2k-score">
+                <strong>{project.metric}</strong>
+                <span>{project.metricLabel}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ))}
+    </DesktopWindow>
+
+    <footer class="y2k-taskbar">
+      <button type="button" data-open-all-windows>
+        <span></span>
+        SYLVAN
+      </button>
+      <i aria-hidden="true"></i>
+      {taskbarWindows.map((item) => (
+        <button type="button" data-window-task={item.id}>{item.label}</button>
+      ))}
+      <div></div>
+      <strong aria-hidden="true">♥♥♥</strong>
+      <button type="button" data-lang-toggle="en">EN</button>
+      <button type="button" data-lang-toggle="zh">中文</button>
+      <time data-clock="hm">--:--</time>
+    </footer>
+
+    <div class="crt grille" aria-hidden="true"></div>
+    <div class="crt scanlines" aria-hidden="true"></div>
+    <div class="crt vignette" aria-hidden="true"></div>
+  </div>
+
+  <script>
+    import { mountDesktop } from '../../../io/runtime/desktop';
+    import { mountLanguageRoots } from '../../../io/runtime/language';
+
+    mountLanguageRoots();
+    document.querySelectorAll('[data-desktop-root]').forEach(mountDesktop);
+  </script>
+</Base>

@@ -1,0 +1,40 @@
+---
+interface Props {
+  id: string;
+  title: string;
+  class?: string;
+  open?: boolean;
+  z?: number;
+  left: number;
+  top: number;
+  glass?: boolean;
+}
+
+const {
+  id,
+  title,
+  class: className,
+  open = true,
+  z = 12,
+  left,
+  top,
+  glass = false,
+} = Astro.props;
+---
+
+<section
+  class:list={['desktop-window', className]}
+  data-window={id}
+  data-open={String(open)}
+  data-glass-panel={glass ? '' : undefined}
+  style={`left: ${left}px; top: ${top}px; z-index: ${z};`}
+>
+  <header class="window-titlebar" data-drag-window={id}>
+    <button type="button" class="window-close" data-close-window={id} aria-label={`Close ${title}`}></button>
+    <span>{title}</span>
+    <slot name="status" />
+  </header>
+  <div class="window-body">
+    <slot />
+  </div>
+</section>

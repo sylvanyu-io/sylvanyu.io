@@ -1,0 +1,168 @@
+---
+import { designVariants } from '../../io/data';
+
+interface Props {
+  active?: string;
+  tone?: 'dark' | 'glass' | 'neon';
+}
+
+const { active = '', tone = 'dark' } = Astro.props;
+---
+
+<nav class:list={['design-switcher', `tone-${tone}`]} aria-label="IO design variants">
+  <a class="portal-link" href="/io-design/">IO DESIGN</a>
+  <div class="variant-links">
+    {designVariants.map((variant) => (
+      <a class:list={{ active: variant.key === active }} href={variant.href}>
+        <span>{variant.label}</span>
+        <strong>{variant.title}</strong>
+      </a>
+    ))}
+  </div>
+</nav>
+
+<style>
+  .design-switcher {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    max-width: calc(100vw - 24px);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .design-switcher a {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 34px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portal-link,
+  .variant-links {
+    border: 1px solid var(--switcher-line);
+    background: var(--switcher-bg);
+    box-shadow: var(--switcher-shadow);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+
+  .portal-link {
+    padding: 0 12px;
+    color: var(--switcher-strong);
+    letter-spacing: .12em;
+    white-space: nowrap;
+  }
+
+  .variant-links {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .variant-links a {
+    gap: 7px;
+    padding: 0 10px;
+    color: var(--switcher-muted);
+    border-left: 1px solid var(--switcher-line);
+  }
+
+  .variant-links a:first-child {
+    border-left: 0;
+  }
+
+  .variant-links span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--switcher-badge-fg);
+    background: var(--switcher-badge-bg);
+    border-radius: 4px;
+    font-weight: 700;
+  }
+
+  .variant-links strong {
+    overflow: hidden;
+    max-width: 92px;
+    font-size: 10px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .variant-links a.active {
+    color: var(--switcher-active);
+    background: var(--switcher-active-bg);
+  }
+
+  .tone-dark {
+    --switcher-bg: rgba(11, 12, 13, .76);
+    --switcher-line: rgba(232, 234, 236, .14);
+    --switcher-strong: #e8eaec;
+    --switcher-muted: #93979c;
+    --switcher-active: #c8f063;
+    --switcher-active-bg: rgba(200, 240, 99, .08);
+    --switcher-badge-bg: #c8f063;
+    --switcher-badge-fg: #101203;
+    --switcher-shadow: 0 10px 26px rgba(0, 0, 0, .24);
+  }
+
+  .tone-glass {
+    --switcher-bg: rgba(255, 255, 255, .18);
+    --switcher-line: rgba(255, 255, 255, .38);
+    --switcher-strong: #fff;
+    --switcher-muted: rgba(255, 255, 255, .74);
+    --switcher-active: #fff;
+    --switcher-active-bg: rgba(255, 255, 255, .18);
+    --switcher-badge-bg: rgba(255, 255, 255, .84);
+    --switcher-badge-fg: #17324a;
+    --switcher-shadow: 0 14px 34px rgba(0, 0, 0, .22);
+  }
+
+  .tone-neon {
+    --switcher-bg: rgba(14, 10, 34, .84);
+    --switcher-line: #2a2160;
+    --switcher-strong: #ffe95c;
+    --switcher-muted: #cfc8ff;
+    --switcher-active: #41e8dc;
+    --switcher-active-bg: rgba(65, 232, 220, .12);
+    --switcher-badge-bg: #ff5ad1;
+    --switcher-badge-fg: #0e0a22;
+    --switcher-shadow: 0 0 18px rgba(255, 90, 209, .18);
+  }
+
+  @media (max-width: 760px) {
+    .design-switcher {
+      right: 10px;
+      left: 10px;
+      font-size: 10px;
+    }
+
+    .portal-link {
+      padding: 0 9px;
+    }
+
+    .variant-links {
+      flex: 1;
+    }
+
+    .variant-links a {
+      flex: 1 1 0;
+      justify-content: center;
+      padding: 0 7px;
+    }
+
+    .variant-links strong {
+      display: none;
+    }
+  }
+</style>

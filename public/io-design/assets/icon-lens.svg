@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9be4f7"></stop><stop offset="1" stop-color="#2e9bc4"></stop>
+    </linearGradient>
+    <radialGradient id="lens" cx="0.35" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"></stop>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.18"></stop>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"></stop>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"></stop><stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
+    </linearGradient>
+    <clipPath id="r"><rect width="120" height="120" rx="27"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="120" height="120" fill="url(#bg)"></rect>
+    <circle cx="60" cy="62" r="27" fill="url(#lens)"></circle>
+    <circle cx="60" cy="62" r="27" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-opacity="0.9"></circle>
+    <path d="M44 50 q7 -9 17 -8" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-opacity="0.95"></path>
+    <rect width="120" height="42" fill="url(#gloss)" opacity="0.5"></rect>
+  </g>
+</svg>

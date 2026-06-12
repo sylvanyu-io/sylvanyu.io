@@ -1,0 +1,617 @@
+  .mac-page {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    color: #fff;
+    background: #0a1723;
+    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    user-select: none;
+  }
+
+  .mac-page[data-lang="en"] [data-locale="zh"],
+  .mac-page[data-lang="zh"] [data-locale="en"] {
+    display: none !important;
+  }
+
+  .mac-wallpaper-photo3d,
+  .mac-glass-canvas,
+  .wallpaper-shade {
+    position: absolute;
+    inset: 0;
+  }
+
+  .mac-wallpaper-photo3d {
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .mac-glass-canvas {
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .wallpaper-shade {
+    z-index: 1;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(0, 0, 0, .16), rgba(0, 0, 0, 0) 16%),
+      radial-gradient(circle at 25% 80%, rgba(0, 0, 0, .2), transparent 38%);
+  }
+
+  .mac-menubar,
+  .desktop-icons,
+  .mac-widgets,
+  .desktop-window,
+  .mac-dock {
+    position: absolute;
+    z-index: 3;
+  }
+
+  .mac-menubar {
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 34px;
+    padding: 0 14px;
+    background: linear-gradient(rgba(255, 255, 255, .26), rgba(255, 255, 255, .10));
+    backdrop-filter: blur(34px) saturate(190%);
+    -webkit-backdrop-filter: blur(34px) saturate(190%);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  }
+
+  .mac-menubar > div,
+  .mac-menubar > nav {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .mac-menubar strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: .08em;
+    white-space: nowrap;
+  }
+
+  .mac-menubar strong::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 255, 255, .7);
+  }
+
+  .mac-menubar span {
+    overflow: hidden;
+    color: rgba(255, 255, 255, .76);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mac-menubar a,
+  .mac-lang-switch button {
+    color: rgba(255, 255, 255, .86);
+    text-decoration: none;
+  }
+
+  .mac-lang-switch {
+    display: flex;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .4);
+    border-radius: 4px;
+  }
+
+  .mac-lang-switch button {
+    height: 20px;
+    padding: 0 7px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+  }
+
+  .mac-lang-switch button[aria-pressed="true"] {
+    color: #17324a;
+    background: rgba(255, 255, 255, .88);
+  }
+
+  .desktop-icons {
+    top: 56px;
+    left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .desktop-icons button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    width: 86px;
+    margin: 0;
+    padding: 8px 4px;
+    color: #fff;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .65);
+  }
+
+  .desktop-icons button:hover {
+    background: rgba(255, 255, 255, .12);
+  }
+
+  .desktop-icons img {
+    width: 54px;
+    height: 54px;
+    filter: drop-shadow(0 5px 10px rgba(0, 0, 0, .32));
+    pointer-events: none;
+  }
+
+  .mac-widgets {
+    top: 56px;
+    right: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 230px;
+  }
+
+  .mac-widgets section {
+    padding: 15px 18px;
+    color: #16222e;
+    background: linear-gradient(165deg, rgba(255, 255, 255, .6), rgba(255, 255, 255, .36));
+    border: 1px solid rgba(255, 255, 255, .75);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, .9), 0 10px 28px rgba(0, 0, 0, .28);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .mac-widgets section > strong {
+    display: block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 34px;
+    line-height: 1;
+  }
+
+  .mac-widgets section > span,
+  .mac-widgets p,
+  .mac-widgets dd {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .mac-widgets p {
+    margin: 0 0 6px;
+    color: rgba(22, 34, 46, .6);
+  }
+
+  .mac-widgets div > strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .mac-widgets div > span {
+    display: block;
+    margin-top: 6px;
+    color: #2f6fd0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+  }
+
+  .mac-widgets dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    margin: 12px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid rgba(22, 34, 46, .15);
+  }
+
+  .mac-widgets dt {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .mac-widgets dd {
+    margin: 0;
+    color: rgba(22, 34, 46, .58);
+  }
+
+  .desktop-window {
+    width: 430px;
+    max-width: calc(100vw - 40px);
+    overflow: hidden;
+    color: #17191c;
+    background: linear-gradient(160deg, rgba(255, 255, 255, .6), rgba(255, 255, 255, .42));
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
+    backdrop-filter: blur(44px) saturate(180%);
+    -webkit-backdrop-filter: blur(44px) saturate(180%);
+  }
+
+  .desktop-window[data-open="false"] {
+    display: none;
+  }
+
+  .window-titlebar {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    padding: 8px 12px;
+    cursor: grab;
+    background: rgba(255, 255, 255, .25);
+    border-bottom: 1px solid rgba(22, 34, 46, .08);
+    touch-action: none;
+  }
+
+  .window-titlebar.is-dragging {
+    cursor: grabbing;
+  }
+
+  .window-titlebar span {
+    overflow: hidden;
+    color: #686b70;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .window-close {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    padding: 0;
+    background: #ff6159;
+    border: 1px solid rgba(0, 0, 0, .2);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .window-body {
+    background: rgba(255, 255, 255, .08);
+  }
+
+  .readme-copy {
+    padding: 20px 22px 22px;
+  }
+
+  .readme-copy > p {
+    margin: 0 0 12px;
+    color: #8b8e94;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: .18em;
+  }
+
+  .readme-copy h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+  }
+
+  .readme-copy div p {
+    margin: 12px 0 0;
+    color: #55585e;
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+
+  .readme-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 4px;
+  }
+
+  .readme-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 14px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+  }
+
+  .readme-chips span {
+    padding: 4px 10px;
+    color: #55585e;
+    border: 1px solid #e3e5e9;
+    border-radius: 999px;
+  }
+
+  .readme-actions a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 16px;
+    color: #fff;
+    background: #17191c;
+    border-radius: 9px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .readme-actions a + a {
+    color: #17191c;
+    background: rgba(255, 255, 255, .2);
+    border: 1px solid rgba(23, 25, 28, .12);
+  }
+
+  .desktop-window[data-window="photo"] {
+    width: 320px;
+  }
+
+  .window-live {
+    color: #2f6fd0 !important;
+    font-size: 9px !important;
+    text-align: right !important;
+  }
+
+  .window-count {
+    color: #b3b5ba !important;
+    font-size: 9px !important;
+    text-align: right !important;
+  }
+
+  .photo-window-stage {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    background: #0c0e0c;
+  }
+
+  .desktop-photo3d {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .window-note {
+    margin: 0;
+    padding: 10px 14px;
+    color: #5f646c;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    line-height: 1.6;
+  }
+
+  .desktop-window[data-window="worklog"] {
+    width: 560px;
+    max-width: calc(100vw - 40px);
+    color: #fff;
+    background: rgba(22, 24, 30, .55);
+    border-color: rgba(255, 255, 255, .22);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .4);
+    backdrop-filter: blur(36px) saturate(160%);
+    -webkit-backdrop-filter: blur(36px) saturate(160%);
+  }
+
+  .desktop-window[data-window="worklog"] .window-titlebar {
+    background: rgba(255, 255, 255, .07);
+    border-bottom-color: rgba(255, 255, 255, .1);
+  }
+
+  .desktop-window[data-window="worklog"] .window-titlebar span {
+    color: rgba(255, 255, 255, .9);
+  }
+
+  .desktop-window[data-window="projects"] {
+    width: 600px;
+    max-width: calc(100vw - 40px);
+  }
+
+  .terminal-lines {
+    max-height: 330px;
+    overflow-y: auto;
+    padding: 16px 18px 18px;
+    color: rgba(255, 255, 255, .86);
+    background: rgba(16, 18, 24, .52);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.85;
+    user-select: text;
+  }
+
+  .terminal-lines p {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .terminal-lines [data-tone="accent"] { color: #c8f063; }
+  .terminal-lines [data-tone="dim"] { color: rgba(255, 255, 255, .42); }
+
+  .terminal-lines i {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    margin-left: 2px;
+    background: rgba(255, 255, 255, .86);
+    vertical-align: text-bottom;
+  }
+
+  .project-window-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 350px;
+    overflow-y: auto;
+    padding: 8px 10px 12px;
+  }
+
+  .project-window-list article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 14px;
+    align-items: start;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .project-window-list article:hover {
+    background: rgba(255, 255, 255, .2);
+  }
+
+  .project-window-list h2 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+  }
+
+  .project-window-list span {
+    display: block;
+    margin-top: 3px;
+    color: #8f939a;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .08em;
+  }
+
+  .project-window-list p {
+    margin: 5px 0 0;
+    color: #55585e;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .project-score {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: right;
+  }
+
+  .project-score strong {
+    color: #2f6fd0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 17px;
+    text-align: right;
+  }
+
+  .project-score span {
+    color: #9a9da3;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .mac-dock {
+    bottom: 14px;
+    left: 50%;
+    z-index: 220;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 9px 13px;
+    background: linear-gradient(rgba(255, 255, 255, .22), rgba(255, 255, 255, .10));
+    border: 1px solid rgba(255, 255, 255, .4);
+    border-radius: 22px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, .42), 0 14px 36px rgba(0, 0, 0, .4);
+    transform: translateX(-50%);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+  }
+
+  .mac-dock button {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: transform .15s ease;
+  }
+
+  .mac-dock button:hover {
+    transform: translateY(-7px) scale(1.1);
+  }
+
+  .mac-dock img {
+    width: 48px;
+    height: 48px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .3));
+    pointer-events: none;
+  }
+
+  .mac-dock span {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+
+  .mac-dock span[data-on="true"] {
+    opacity: 1;
+  }
+
+  @media (max-width: 900px) {
+    .mac-menubar {
+      padding-left: 12px;
+      height: 34px;
+      align-items: flex-start;
+    }
+
+    .mac-menubar nav a {
+      display: none;
+    }
+
+    .mac-widgets {
+      display: none;
+    }
+
+    .desktop-icons {
+      top: 56px;
+    }
+
+    .desktop-window[data-window="photo"] {
+      left: auto !important;
+      right: 14px;
+      width: min(320px, calc(100vw - 124px));
+    }
+
+    .mac-dock {
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
+    }
+  }

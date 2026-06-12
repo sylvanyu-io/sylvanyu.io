@@ -1,0 +1,46 @@
+---
+import DesignSwitcher from '../../components/io/DesignSwitcher.astro';
+import Base from '../../layouts/Base.astro';
+import { designVariants } from '../../io/data';
+import '../../styles/io/portal.css';
+---
+
+<Base
+  title="IO Design Portal"
+  description="Entry point for the three sylvanyu.io design directions rebuilt in Astro."
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </Fragment>
+
+  <DesignSwitcher active="" tone="dark" />
+
+  <main class="portal-page">
+    <section class="portal-hero">
+      <p>SYLVANYU.IO · DESIGN ROUTER</p>
+      <h1>Three directions, one Astro project.</h1>
+      <span>
+        The exported design pages have been converted into real routes with shared content,
+        reusable components, and client runtimes for WebGL, desktop windows, and canvas glass.
+      </span>
+    </section>
+
+    <section class="variant-grid" aria-label="Design variants">
+      {designVariants.map((variant) => (
+        <a class={`variant-card variant-${variant.key}`} href={variant.href}>
+          <span>{variant.label}</span>
+          <div>
+            <h2>{variant.title}</h2>
+            <p>{variant.summary}</p>
+          </div>
+          <strong>OPEN ↗</strong>
+        </a>
+      ))}
+    </section>
+  </main>
+</Base>

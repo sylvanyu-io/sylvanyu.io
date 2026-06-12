@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0f3f8"></stop><stop offset="1" stop-color="#ccd5e3"></stop>
+    </linearGradient>
+    <linearGradient id="folder" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8cc1f7"></stop><stop offset="1" stop-color="#4a90e2"></stop>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"></stop><stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
+    </linearGradient>
+    <clipPath id="r"><rect width="120" height="120" rx="27"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="120" height="120" fill="url(#bg)"></rect>
+    <path d="M30 44 q0 -7 7 -7 h17 l8 8 h21 q7 0 7 7 v4 H30 Z" fill="#3a7bc8"></path>
+    <rect x="30" y="50" width="60" height="36" rx="7" fill="url(#folder)"></rect>
+    <rect x="30" y="50" width="60" height="11" rx="5.5" fill="#ffffff" opacity="0.22"></rect>
+    <rect width="120" height="44" fill="url(#gloss)" opacity="0.45"></rect>
+  </g>
+</svg>

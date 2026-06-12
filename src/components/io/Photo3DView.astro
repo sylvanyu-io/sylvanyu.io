@@ -1,0 +1,35 @@
+---
+interface Props {
+  sprite?: 'sprite1' | 'sprite2';
+  fit?: 'cover' | 'contain';
+  track?: 'self' | 'window';
+  strength?: string;
+  idleDrift?: boolean;
+  stats?: boolean;
+  class?: string;
+}
+
+const {
+  sprite = 'sprite1',
+  fit = 'cover',
+  track = 'self',
+  strength = '0.045',
+  idleDrift = false,
+  stats = false,
+  class: className,
+} = Astro.props;
+
+const assetBase = '/io-design/assets';
+---
+
+<photo3d-view
+  class={className}
+  data-src={`${assetBase}/${sprite}.png`}
+  data-shader-src={`${assetBase}/photo3d.fs`}
+  data-fit={fit}
+  data-track={track}
+  data-strength={strength}
+  data-idle-drift={idleDrift ? 'true' : 'false'}
+  data-stats={stats ? 'true' : 'false'}
+>
+</photo3d-view>

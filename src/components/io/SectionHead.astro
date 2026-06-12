@@ -1,0 +1,15 @@
+---
+interface Props {
+  no: string;
+  titleEn: string;
+  titleZh: string;
+}
+
+const { no, titleEn, titleZh } = Astro.props;
+---
+
+<header class="section-head">
+  <span>{no}</span>
+  <h2 data-locale="en">{titleEn}</h2>
+  <h2 data-locale="zh">{titleZh}</h2>
+</header>
