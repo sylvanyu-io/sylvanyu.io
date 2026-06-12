@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { createMacDomWindows } from './macDomWindows';
-import { createPhoto3DPass, type Photo3DPass } from './macCanvas/photo3d';
+import {
+  createPhoto3DPass,
+  loadSpriteFrameMeta,
+  type Photo3DPass,
+  type SpriteFrameMeta,
+} from './macCanvas/photo3d';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -98,13 +103,13 @@ export function mountMacSingleCanvas(root: Element) {
   let pointerActive = false;
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
-  let photoAppPass: Photo3DPass | null = null;
+  let photoMeta: SpriteFrameMeta | null = null;
 
   function photoLayoutOptions() {
-    return photoAppPass
+    return photoMeta
       ? {
-        photoAspect: photoAppPass.aspect,
-        photoSourceText: `SRC ${photoAppPass.sourceWidth}x${photoAppPass.sourceHeight}`,
+        photoAspect: photoMeta.aspect,
+        photoSourceText: `SRC ${photoMeta.frameWidth}x${photoMeta.frameHeight}`,
       }
       : {};
   }
@@ -645,9 +650,9 @@ export function mountMacSingleCanvas(root: Element) {
       wallpaperPass = pass;
       resize();
     }),
-    createPhoto3DPass(SHADER_URL, PHOTO_APP_SPRITE, 2).then((pass) => {
-      photoAppPass = pass;
-      resize();
+    loadSpriteFrameMeta(PHOTO_APP_SPRITE).then((meta) => {
+      photoMeta = meta;
+      layoutDirty = true;
     }),
   ]).catch((error) => {
     console.warn('mac single canvas:', error);
@@ -673,7 +678,6 @@ export function mountMacSingleCanvas(root: Element) {
       domWindows.destroy();
       glassPipeline.dispose();
       wallpaperPass?.dispose();
-      photoAppPass?.dispose();
       placeholder.dispose();
       allLayers.forEach((layer) => layer?.texture.dispose());
       geometry.dispose();

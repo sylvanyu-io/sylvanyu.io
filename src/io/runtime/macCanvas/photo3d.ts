@@ -242,11 +242,39 @@ export class Photo3DPass {
   }
 }
 
-export async function createPhoto3DPass(shaderUrl: string, spriteUrl: string, layers = 2) {
-  const [shaderResponse, image] = await Promise.all([fetch(shaderUrl), loadImage(spriteUrl)]);
-  if (!shaderResponse.ok) {
-    throw new Error(`Failed to load Photo3D shader: ${shaderResponse.status}`);
-  }
+// The same shader source feeds the wallpaper pass and every Photo3D DOM
+// island, so fetch it once per URL.
+const shaderCache = new Map<string, Promise<string>>();
 
-  return new Photo3DPass(await shaderResponse.text(), image, layers);
+export function loadPhoto3DShader(shaderUrl: string) {
+  let cached = shaderCache.get(shaderUrl);
+  if (!cached) {
+    cached = fetch(shaderUrl).then((response) => {
+      if (!response.ok) throw new Error(`Failed to load Photo3D shader: ${response.status}`);
+      return response.text();
+    });
+    cached.catch(() => shaderCache.delete(shaderUrl));
+    shaderCache.set(shaderUrl, cached);
+  }
+  return cached;
+}
+
+export type SpriteFrameMeta = {
+  frameWidth: number;
+  frameHeight: number;
+  aspect: number;
+};
+
+// Frame dimensions of a 3x2 Photo3D sprite without building any GPU resources
+// (the layout only needs the aspect and the "SRC WxH" caption).
+export async function loadSpriteFrameMeta(spriteUrl: string): Promise<SpriteFrameMeta> {
+  const image = await loadImage(spriteUrl);
+  const frameWidth = Math.max(1, Math.floor(image.width / 3));
+  const frameHeight = Math.max(1, Math.floor(image.height / 2));
+  return { frameWidth, frameHeight, aspect: frameWidth / frameHeight };
+}
+
+export async function createPhoto3DPass(shaderUrl: string, spriteUrl: string, layers = 2) {
+  const [shaderBody, image] = await Promise.all([loadPhoto3DShader(shaderUrl), loadImage(spriteUrl)]);
+  return new Photo3DPass(shaderBody, image, layers);
 }

@@ -1,6 +1,7 @@
 import { desktopCopy, desktopProjects, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
 import { mountPhoto3D } from '../../labs/photo3d/runtime';
+import { loadPhoto3DShader } from './macCanvas/photo3d';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 
@@ -125,11 +126,8 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
 
   root.dataset.mounting = 'true';
   try {
-    const response = await fetch(SHADER_URL);
-    if (!response.ok) throw new Error(`Failed to load Photo3D shader: ${response.status}`);
-
     mountPhoto3D(root, {
-      shaderBody: await response.text(),
+      shaderBody: await loadPhoto3DShader(SHADER_URL),
       interaction: 'hover',
       idleDrift: true,
       fit: 'cover',
