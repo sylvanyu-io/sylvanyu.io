@@ -559,26 +559,30 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
 
   const copy = desktopCopy[state.lang];
   const x = layout.width - 252;
+  const topPanel = { x, y: 56, w: 230, h: 92 };
+  const statusPanel = { x, y: 160, w: 230, h: 244 };
+  const textX = x + 18;
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const date = now.toISOString().slice(0, 10).replace(/-/g, '.');
 
   ctx.save();
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
   ctx.font = `600 34px ${mono}`;
-  ctx.fillText(time, x + 18, 92);
+  ctx.fillText(time, textX, topPanel.y + 38);
   ctx.font = `500 10px ${mono}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.62)';
-  ctx.fillText(date, x + 18, 116);
+  ctx.fillText(date, textX, topPanel.y + 66);
 
   ctx.font = `600 10px ${mono}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.66)';
-  ctx.fillText(copy.statusTitle, x + 18, 184);
+  ctx.fillText(copy.statusTitle, textX, statusPanel.y + 27);
   ctx.font = `600 14px ${sans}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.9)';
-  drawTextLine(ctx, copy.statusBody, x + 18, 208, 190, 20, 3);
+  drawTextLine(ctx, copy.statusBody, textX, statusPanel.y + 59, 190, 20, 3);
   ctx.font = `500 11px ${mono}`;
   ctx.fillStyle = 'rgba(204, 226, 255, 0.86)';
-  ctx.fillText(copy.statusFoot, x + 18, 278);
+  ctx.fillText(copy.statusFoot, textX, statusPanel.y + 126);
 
   const stats = [
     [Math.round(state.fps).toString(), copy.wFps],
@@ -590,13 +594,13 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   stats.forEach((item, index) => {
     const col = index % 2;
     const row = Math.floor(index / 2);
-    const sx = x + 18 + col * 100;
-    const sy = 314 + row * 44;
+    const sx = textX + col * 100;
+    const sy = statusPanel.y + 159 + row * 44;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.9)';
     ctx.fillText(item[0], sx, sy);
     ctx.font = `500 9px ${mono}`;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.58)';
-    ctx.fillText(item[1], sx, sy + 16);
+    ctx.fillText(item[1], sx, sy + 18);
     ctx.font = `700 15px ${mono}`;
   });
   ctx.restore();
