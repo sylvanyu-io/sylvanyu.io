@@ -1,11 +1,19 @@
 import * as THREE from 'three';
 
+export type LayerRect = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 export type CanvasLayer = {
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
   texture: THREE.CanvasTexture;
   cacheKey: string | null;
   dirty: boolean;
+  rect: LayerRect;
 };
 
 export function makeRenderTarget(width: number, height: number) {
@@ -49,7 +57,24 @@ export function makeCanvasLayer(): CanvasLayer | null {
     texture: makeCanvasTexture(canvas),
     cacheKey: null,
     dirty: true,
+    rect: { x: 0, y: 0, w: 1, h: 1 },
   };
+}
+
+// Sizes the layer's backing store to the content rect (instead of the full
+// viewport) and snaps the css rect to the device grid so the quad maps 1:1.
+export function syncCanvasLayerRect(layer: CanvasLayer, rect: LayerRect, pixelRatio: number) {
+  const deviceW = Math.max(1, Math.ceil(rect.w * pixelRatio));
+  const deviceH = Math.max(1, Math.ceil(rect.h * pixelRatio));
+
+  if (layer.canvas.width !== deviceW || layer.canvas.height !== deviceH) {
+    layer.canvas.width = deviceW;
+    layer.canvas.height = deviceH;
+    layer.cacheKey = null;
+    layer.dirty = true;
+  }
+
+  layer.rect = { x: rect.x, y: rect.y, w: deviceW / pixelRatio, h: deviceH / pixelRatio };
 }
 
 export function disposeTarget(target: THREE.WebGLRenderTarget | null) {

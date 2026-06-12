@@ -7,6 +7,26 @@ void main() {
 }
 `;
 
+// Positions the unit quad onto a pixel rect (top-left origin, css px) so passes
+// only rasterize the pixels they own instead of discarding across a fullscreen quad.
+export const rectVertexShader = `
+uniform vec4 uRect;
+uniform vec2 uViewport;
+
+varying vec2 vUv;
+varying vec2 vScreenUv;
+
+void main() {
+  vec2 corner = vec2(uv.x, 1.0 - uv.y);
+  vec2 px = uRect.xy + corner * uRect.zw;
+  vec2 ndc = px / max(uViewport, vec2(1.0)) * 2.0 - 1.0;
+  ndc.y = -ndc.y;
+  vUv = uv;
+  vScreenUv = ndc * 0.5 + 0.5;
+  gl_Position = vec4(ndc, 0.0, 1.0);
+}
+`;
+
 export const coverFragmentShader = `
 precision highp float;
 
@@ -14,6 +34,7 @@ uniform sampler2D uScene;
 uniform vec2 uResolution;
 uniform float uImageAspect;
 uniform float uOverscan;
+uniform vec2 uShade;
 
 varying vec2 vUv;
 
@@ -33,11 +54,19 @@ vec2 coverUv(vec2 uv) {
 }
 
 void main() {
-  gl_FragColor = texture2D(uScene, coverUv(vUv));
+  vec4 color = texture2D(uScene, coverUv(vUv));
+
+  if (uShade.x > 0.5) {
+    float yPx = (1.0 - vUv.y) * uResolution.y;
+    float fade = 1.0 - clamp(yPx / uShade.x, 0.0, 1.0);
+    color.rgb *= 1.0 - uShade.y * fade * fade;
+  }
+
+  gl_FragColor = color;
 }
 `;
 
-export const uiFragmentShader = `
+export const uiRectFragmentShader = `
 precision highp float;
 
 uniform sampler2D uUi;
@@ -53,8 +82,7 @@ export const photoRectFragmentShader = `
 precision highp float;
 
 uniform sampler2D uPhoto;
-uniform vec2 uResolution;
-uniform vec4 uRect;
+uniform float uRectAspect;
 uniform float uPhotoAspect;
 uniform float uPhotoOverscan;
 
@@ -74,15 +102,8 @@ vec2 coverUv(vec2 uv, float rectAspect, float imageAspect, float overscan) {
 }
 
 void main() {
-  vec2 screenPx = vec2(vUv.x * uResolution.x, (1.0 - vUv.y) * uResolution.y);
-  vec2 local = (screenPx - uRect.xy) / max(uRect.zw, vec2(1.0));
-
-  if (local.x < 0.0 || local.y < 0.0 || local.x > 1.0 || local.y > 1.0) {
-    discard;
-  }
-
-  float rectAspect = uRect.z / max(uRect.w, 1.0);
-  vec2 photoUv = coverUv(local, rectAspect, max(uPhotoAspect, 0.001), uPhotoOverscan);
+  vec2 local = vec2(vUv.x, 1.0 - vUv.y);
+  vec2 photoUv = coverUv(local, uRectAspect, max(uPhotoAspect, 0.001), uPhotoOverscan);
   photoUv = clamp(photoUv, vec2(0.001), vec2(0.999));
   gl_FragColor = texture2D(uPhoto, vec2(photoUv.x, 1.0 - photoUv.y));
 }
@@ -132,6 +153,9 @@ void main() {
 }
 `;
 
+// Per-fragment-constant work (uniform clamps, pow, trig) lives on the CPU:
+// uCurveMix = clamp(curvature / 80, 0, 1), uBlurLevel = smoothstep(0, 6, blur),
+// uTintEase = pow(clamp(tint, 0, 1), 1.15), uLightDir = (cos a, sin a).
 export const liquidGlassFragmentShader = `
 precision highp float;
 
@@ -143,16 +167,17 @@ uniform float uRadius;
 uniform float uScale;
 uniform float uDepth;
 uniform float uCurvature;
+uniform float uCurveMix;
 uniform float uSplay;
 uniform float uChroma;
-uniform float uBlur;
+uniform float uBlurLevel;
 uniform float uFrost;
-uniform float uTint;
+uniform float uTintEase;
 uniform float uGlow;
 uniform float uEdge;
-uniform float uSpecularAngle;
+uniform vec2 uLightDir;
 
-varying vec2 vUv;
+varying vec2 vScreenUv;
 
 float lumaOf(vec3 color) {
   return dot(color, vec3(0.299, 0.587, 0.114));
@@ -182,7 +207,7 @@ vec3 sampleBlurredScene(vec2 uv) {
 }
 
 void main() {
-  vec2 uv = vUv;
+  vec2 uv = vScreenUv;
   vec2 screenPx = vec2(uv.x * uResolution.x, (1.0 - uv.y) * uResolution.y);
   vec2 panelLocal = (screenPx - uPanel.xy) / max(uPanel.zw, vec2(1.0));
 
@@ -200,16 +225,6 @@ void main() {
     discard;
   }
 
-  float blurLevel = smoothstep(0.0, 6.0, uBlur);
-  float frost = clamp(uFrost, 0.0, 1.0);
-  float tint = clamp(uTint, 0.0, 1.0);
-  float scale = clamp(uScale, 0.0, 1.0);
-  float curvature = clamp(uCurvature / 80.0, 0.0, 1.0);
-  float splay = clamp(uSplay, 0.0, 1.0);
-  float chroma = clamp(uChroma, 0.0, 1.0);
-  float glow = clamp(uGlow, 0.0, 1.0);
-  float edgeAmount = clamp(uEdge, 0.0, 1.0);
-
   vec2 local = pointPx / halfPx;
   float safeDepth = min(max(uDepth, 0.0), min(halfPx.x, halfPx.y) - 1.0);
   float innerW = max(0.0, halfPx.x - safeDepth);
@@ -219,14 +234,14 @@ void main() {
   float edgeFalloff = smoothstep(-safeDepth * 0.9, safeDepth * 0.9, innerSdf) * mask;
 
   vec2 dome = vec2(
-    sign(pointPx.x) * domeGradient(pointPx.x, halfPx.x, max(uCurvature, 0.01)),
-    sign(pointPx.y) * domeGradient(pointPx.y, halfPx.y, max(uCurvature, 0.01))
+    sign(pointPx.x) * domeGradient(pointPx.x, halfPx.x, uCurvature),
+    sign(pointPx.y) * domeGradient(pointPx.y, halfPx.y, uCurvature)
   );
   vec2 linearDome = clamp(local, vec2(-1.0), vec2(1.0));
-  vec2 lensVector = mix(linearDome, dome, curvature);
+  vec2 lensVector = mix(linearDome, dome, uCurveMix);
 
   float halfMin = max(0.5 * min(halfPx.x, halfPx.y), 1.0);
-  vec2 splayAmount = max(vec2(0.0), 1.0 - (halfPx - abs(pointPx)) / halfMin) * (1.0 - splay);
+  vec2 splayAmount = max(vec2(0.0), 1.0 - (halfPx - abs(pointPx)) / halfMin) * (1.0 - uSplay);
   float originalLength = length(lensVector);
   lensVector *= vec2(1.0 - splayAmount.y, 1.0 - splayAmount.x);
   float adjustedLength = length(lensVector);
@@ -236,16 +251,14 @@ void main() {
 
   float edgeLine = (sdfPx < 0.0) ? 1.0 - smoothstep(0.0, 1.25, -sdfPx) : 0.0;
   float rimLine = (1.0 - smoothstep(0.0, 1.0, abs(sdfPx))) * mask;
-  float angle = radians(uSpecularAngle);
-  vec2 lightDirection = normalize(vec2(cos(angle), sin(angle)));
-  float directional = abs(dot(clamp(local, vec2(-1.0), vec2(1.0)), lightDirection));
-  float specular = glow * pow(clamp(directional * 0.7071, 0.0, 1.0), 0.5) * edgeFalloff;
-  specular += edgeAmount * (edgeLine + rimLine * 0.65) * pow(clamp(directional, 0.0, 1.0), 1.5);
+  float directional = abs(dot(clamp(local, vec2(-1.0), vec2(1.0)), uLightDir));
+  float specular = uGlow * pow(clamp(directional * 0.7071, 0.0, 1.0), 0.5) * edgeFalloff;
+  specular += uEdge * (edgeLine + rimLine * 0.65) * pow(clamp(directional, 0.0, 1.0), 1.5);
 
   float refractionSizePx = max(min(uPanel.z, uPanel.w), 1.0);
-  vec2 offsetPx = -lensVector * edgeFalloff * refractionSizePx * scale * mix(1.0, 0.82, blurLevel);
+  vec2 offsetPx = -lensVector * edgeFalloff * refractionSizePx * uScale * mix(1.0, 0.82, uBlurLevel);
   vec2 offset = vec2(offsetPx.x / max(uResolution.x, 1.0), -offsetPx.y / max(uResolution.y, 1.0));
-  float chromaSpread = 0.18 * chroma;
+  float chromaSpread = 0.18 * uChroma;
 
   vec3 sharp = vec3(
     sampleScene(uv + offset * (1.0 + chromaSpread)).r,
@@ -257,17 +270,16 @@ void main() {
     sampleBlurredScene(uv + offset).g,
     sampleBlurredScene(uv + offset * (1.0 - chromaSpread * 1.28)).b
   );
-  vec3 glass = mix(sharp, soft, clamp(0.64 + blurLevel * 0.22 + frost * 0.12, 0.0, 0.92));
+  vec3 glass = mix(sharp, soft, clamp(0.64 + uBlurLevel * 0.22 + uFrost * 0.12, 0.0, 0.92));
 
   float glassLum = lumaOf(glass);
-  glass = mix(glass, vec3(glassLum), frost * 0.14);
-  float tintEase = pow(tint, 1.15);
-  glass = glass * (1.0 + 0.28 * tintEase) - 0.06 * tintEase;
-  glass = mix(glass, vec3(0.965, 0.973, 0.956), 0.72 * tintEase * mask);
-  glass += vec3(0.42, 0.92, 0.60) * edgeLine * (0.07 + tintEase * 0.1);
-  glass += vec3(1.0, 0.98, 0.86) * rimLine * (0.2 + edgeAmount * 0.18);
-  glass += vec3(1.0, 0.94, 0.78) * specular * (0.52 + glow * 0.62);
-  glass -= vec3(0.06, 0.04, 0.12) * edgeFalloff * edgeAmount * 0.035;
+  glass = mix(glass, vec3(glassLum), uFrost * 0.14);
+  glass = glass * (1.0 + 0.28 * uTintEase) - 0.06 * uTintEase;
+  glass = mix(glass, vec3(0.965, 0.973, 0.956), 0.72 * uTintEase * mask);
+  glass += vec3(0.42, 0.92, 0.60) * edgeLine * (0.07 + uTintEase * 0.1);
+  glass += vec3(1.0, 0.98, 0.86) * rimLine * (0.2 + uEdge * 0.18);
+  glass += vec3(1.0, 0.94, 0.78) * specular * (0.52 + uGlow * 0.62);
+  glass -= vec3(0.06, 0.04, 0.12) * edgeFalloff * uEdge * 0.035;
 
   gl_FragColor = vec4(clamp(glass, 0.0, 1.0), mask);
 }

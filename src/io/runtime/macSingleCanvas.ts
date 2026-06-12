@@ -4,29 +4,36 @@ import {
   buildMacCanvasLayout,
   bringWindowFront,
   createInitialMacCanvasState,
-  drawMacBaseUi,
+  drawMacDesktopIcons,
   drawMacDockOverlay,
   drawMacMenubarOverlay,
+  drawMacPhotoHud,
   drawMacWidgetOverlay,
   drawMacWindowDetails,
   drawMacWindowSurface,
   hitTest,
   loadMacUiAssets,
   MAC_MENUBAR_HEIGHT,
-  type GlassPanel,
+  PHOTO_APP_HUD_HEIGHT,
+  type HitTarget,
   type MacCanvasLayout,
   type MacCanvasState,
   type MacUiAssets,
+  type Rect,
   type WindowId,
+  type WindowLayout,
 } from './macCanvas/ui';
 import {
+  createGlassPipeline,
+  type GlassPanelInput,
+  type GlassParams,
+} from './macCanvas/glassPipeline';
+import {
   coverFragmentShader,
-  kawaseDownFragmentShader,
-  kawaseUpFragmentShader,
-  liquidGlassFragmentShader,
   photoRectFragmentShader,
+  rectVertexShader,
   screenVertexShader,
-  uiFragmentShader,
+  uiRectFragmentShader,
 } from './macCanvas/shaders';
 import {
   disposeTarget,
@@ -37,6 +44,7 @@ import {
   makeRenderTarget,
   rectKey,
   renderPass,
+  syncCanvasLayerRect,
   type CanvasLayer,
 } from './macCanvas/threeHelpers';
 
@@ -47,27 +55,42 @@ const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const PHOTO_APP_OVERSCAN = 1.12;
-const GLASS_STATE = {
-  scale: 0.1,
-  depth: 10,
-  curvature: 40,
-  splay: 1,
-  chroma: 0.2,
-  blur: 1,
-  frost: 0.08,
-  tint: 0.05,
-  glow: 0.1,
-  edge: 0.25,
-  specularAngle: 45,
-};
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
 const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
+const WALLPAPER_SHADE_STRENGTH = 0.16;
+// Covers the window drop shadows (blur 34 + offset 18) around each layer rect.
+const WINDOW_LAYER_PAD = 56;
 
-function windowVisualKey(layout: MacCanvasLayout, state: MacCanvasState, id: WindowId, includeStats = false) {
-  const win = layout.windows.find((windowLayout) => windowLayout.id === id);
-  const base = win
-    ? `${id}:${Math.round(win.x)}:${Math.round(win.y)}:${Math.round(win.w)}:${Math.round(win.h)}:${layout.mobile ? 1 : 0}:${state.lang}:${win.sourceText ?? ''}`
-    : `${id}:closed`;
+// Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
+// the selected segment.
+const LANG_PILL_GLASS: Partial<GlassParams> = {
+  scale: 0.05,
+  depth: 5,
+  curvature: 18,
+  chroma: 0.12,
+  blur: 2.6,
+  frost: 0.2,
+  tint: 0.05,
+  glow: 0.08,
+  edge: 0.32,
+};
+const LANG_THUMB_GLASS: Partial<GlassParams> = {
+  scale: 0.3,
+  depth: 7,
+  curvature: 30,
+  chroma: 0.3,
+  blur: 3.4,
+  frost: 0.16,
+  tint: 0.6,
+  glow: 0.5,
+  edge: 0.7,
+};
+const LANG_THUMB_INSET = 2;
+
+// Window layer content is drawn relative to its own rect, so position is
+// irrelevant to the cache — drags reposition the quad without a redraw.
+function windowVisualKey(layout: MacCanvasLayout, state: MacCanvasState, win: WindowLayout, includeStats = false) {
+  const base = `${win.id}:${Math.round(win.w)}:${Math.round(win.h)}:${layout.mobile ? 1 : 0}:${state.lang}:${win.sourceText ?? ''}`;
   return includeStats ? `${base}:${Math.round(state.fps)}:${state.bufferText}` : base;
 }
 
@@ -76,41 +99,17 @@ function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: Ma
   return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${dots}`;
 }
 
-function applyHitAction(state: MacCanvasState, action: ReturnType<typeof hitTest>['action'] | undefined) {
-  if (!action) return;
-
-  if (action.type === 'lang') {
-    state.lang = action.lang;
-    return;
-  }
-
-  if (action.type === 'open') {
-    state.windows[action.id].open = true;
-    bringWindowFront(state, action.id);
-    return;
-  }
-
-  if (action.type === 'close') {
-    state.windows[action.id].open = false;
-    return;
-  }
-
-  if (action.type === 'front') {
-    bringWindowFront(state, action.id);
-    return;
-  }
-
-  if (action.type === 'drag') {
-    bringWindowFront(state, action.id);
-  }
+function padRect(rect: Rect, pad: number): Rect {
+  return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };
 }
 
 export function mountMacSingleCanvas(root: Element) {
   if (!(root instanceof HTMLElement) || root.dataset.macSingleCanvasMounted === 'true') return;
   root.dataset.macSingleCanvasMounted = 'true';
 
-  const canvas = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
-  if (!canvas) return;
+  const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
+  if (!canvasEl) return;
+  const canvas: HTMLCanvasElement = canvasEl;
 
   const placeholder = makePlaceholderTexture();
   const state = createInitialMacCanvasState();
@@ -119,6 +118,7 @@ export function mountMacSingleCanvas(root: Element) {
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
   let photoAppPass: Photo3DPass | null = null;
+
   function photoLayoutOptions() {
     return photoAppPass
       ? {
@@ -129,6 +129,8 @@ export function mountMacSingleCanvas(root: Element) {
   }
 
   let layout = buildMacCanvasLayout(1, 1, state, photoLayoutOptions());
+  let layoutDirty = true;
+  let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
   let backgroundPixelRatio = 1;
   let cssWidth = 1;
@@ -141,7 +143,7 @@ export function mountMacSingleCanvas(root: Element) {
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: false,
     alpha: false,
     premultipliedAlpha: false,
     preserveDrawingBuffer: false,
@@ -155,72 +157,30 @@ export function mountMacSingleCanvas(root: Element) {
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const geometry = new THREE.PlaneGeometry(2, 2);
   const passMesh = new THREE.Mesh(geometry);
+  passMesh.frustumCulled = false;
   scene.add(passMesh);
+
+  const glassPipeline = createGlassPipeline({ renderer, scene, camera, mesh: passMesh }, placeholder);
 
   const coverUniforms = {
     uScene: { value: placeholder as THREE.Texture },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uImageAspect: { value: 1 },
     uOverscan: { value: 1.0 },
-  };
-  const downUniforms = {
-    uInput: { value: placeholder as THREE.Texture },
-    uTexelSize: { value: new THREE.Vector2(1, 1) },
-    uOffset: { value: 1 },
-  };
-  const upUniforms = {
-    uInput: { value: placeholder as THREE.Texture },
-    uTexelSize: { value: new THREE.Vector2(1, 1) },
-    uOffset: { value: 1 },
-  };
-  const glassUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
-    uBlurredScene: { value: placeholder as THREE.Texture },
-    uResolution: { value: new THREE.Vector2(1, 1) },
-    uPanel: { value: new THREE.Vector4(0, 0, 1, 1) },
-    uRadius: { value: 1 },
-    uScale: { value: GLASS_STATE.scale },
-    uDepth: { value: GLASS_STATE.depth },
-    uCurvature: { value: GLASS_STATE.curvature },
-    uSplay: { value: GLASS_STATE.splay },
-    uChroma: { value: GLASS_STATE.chroma },
-    uBlur: { value: GLASS_STATE.blur },
-    uFrost: { value: GLASS_STATE.frost },
-    uTint: { value: GLASS_STATE.tint },
-    uGlow: { value: GLASS_STATE.glow },
-    uEdge: { value: GLASS_STATE.edge },
-    uSpecularAngle: { value: GLASS_STATE.specularAngle },
+    uShade: { value: new THREE.Vector2(0, 0) },
   };
   const photoRectUniforms = {
     uPhoto: { value: placeholder as THREE.Texture },
-    uResolution: { value: new THREE.Vector2(1, 1) },
-    uRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+    uViewport: { value: new THREE.Vector2(1, 1) },
+    uRectAspect: { value: 1 },
     uPhotoAspect: { value: 1 },
     uPhotoOverscan: { value: PHOTO_APP_OVERSCAN },
   };
-
-  const baseLayer = makeCanvasLayer();
-  const widgetLayer = makeCanvasLayer();
-  const windowSurfaceLayers = Object.fromEntries(
-    WINDOW_IDS.map((id) => [id, makeCanvasLayer()]),
-  ) as Record<WindowId, CanvasLayer | null>;
-  const windowDetailLayers = Object.fromEntries(
-    WINDOW_IDS.map((id) => [id, makeCanvasLayer()]),
-  ) as Record<WindowId, CanvasLayer | null>;
-  const dockLayer = makeCanvasLayer();
-  const menubarLayer = makeCanvasLayer();
-  const uiLayers = [
-    baseLayer,
-    widgetLayer,
-    ...Object.values(windowSurfaceLayers),
-    ...Object.values(windowDetailLayers),
-    dockLayer,
-    menubarLayer,
-  ];
-  if (uiLayers.some((layer) => !layer)) return;
-
   const uiUniforms = {
     uUi: { value: placeholder as THREE.Texture },
+    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+    uViewport: { value: new THREE.Vector2(1, 1) },
   };
 
   const coverMaterial = new THREE.ShaderMaterial({
@@ -230,58 +190,45 @@ export function mountMacSingleCanvas(root: Element) {
     depthTest: false,
     depthWrite: false,
   });
-  const downMaterial = new THREE.ShaderMaterial({
-    uniforms: downUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: kawaseDownFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const upMaterial = new THREE.ShaderMaterial({
-    uniforms: upUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: kawaseUpFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const glassMaterial = new THREE.ShaderMaterial({
-    uniforms: glassUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: liquidGlassFragmentShader,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-  });
   const photoRectMaterial = new THREE.ShaderMaterial({
     uniforms: photoRectUniforms,
-    vertexShader: screenVertexShader,
+    vertexShader: rectVertexShader,
     fragmentShader: photoRectFragmentShader,
     transparent: true,
     depthTest: false,
     depthWrite: false,
   });
-  const uiMaterial = new THREE.ShaderMaterial({
+  const uiRectMaterial = new THREE.ShaderMaterial({
     uniforms: uiUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: uiFragmentShader,
+    vertexShader: rectVertexShader,
+    fragmentShader: uiRectFragmentShader,
     transparent: true,
     depthTest: false,
     depthWrite: false,
   });
 
+  const iconsLayer = makeCanvasLayer();
+  const widgetLayer = makeCanvasLayer();
+  const dockLayer = makeCanvasLayer();
+  const menubarLayer = makeCanvasLayer();
+  const photoHudLayer = makeCanvasLayer();
+  const windowSurfaceLayers = Object.fromEntries(WINDOW_IDS.map((id) => [id, makeCanvasLayer()])) as Record<WindowId, CanvasLayer | null>;
+  const windowDetailLayers = Object.fromEntries(WINDOW_IDS.map((id) => [id, makeCanvasLayer()])) as Record<WindowId, CanvasLayer | null>;
+  const allLayers = [
+    iconsLayer,
+    widgetLayer,
+    dockLayer,
+    menubarLayer,
+    photoHudLayer,
+    ...Object.values(windowSurfaceLayers),
+    ...Object.values(windowDetailLayers),
+  ];
+  if (allLayers.some((layer) => !layer)) return;
+
   let wallpaperSourceTarget: THREE.WebGLRenderTarget | null = null;
   let wallpaperTarget: THREE.WebGLRenderTarget | null = null;
   let glassSourceTarget: THREE.WebGLRenderTarget | null = null;
   let baseTarget: THREE.WebGLRenderTarget | null = null;
-  let compositeTarget: THREE.WebGLRenderTarget | null = null;
-  let downTarget: THREE.WebGLRenderTarget | null = null;
-  let deepDownTarget: THREE.WebGLRenderTarget | null = null;
-  let deeperDownTarget: THREE.WebGLRenderTarget | null = null;
-  let tinyDownTarget: THREE.WebGLRenderTarget | null = null;
-  let tinyUpTarget: THREE.WebGLRenderTarget | null = null;
-  let deepUpTarget: THREE.WebGLRenderTarget | null = null;
-  let upTarget: THREE.WebGLRenderTarget | null = null;
-  let blurTarget: THREE.WebGLRenderTarget | null = null;
   let photoAppTarget: THREE.WebGLRenderTarget | null = null;
 
   function disposeTargets() {
@@ -289,29 +236,11 @@ export function mountMacSingleCanvas(root: Element) {
     disposeTarget(wallpaperTarget);
     disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
-    disposeTarget(compositeTarget);
-    disposeTarget(downTarget);
-    disposeTarget(deepDownTarget);
-    disposeTarget(deeperDownTarget);
-    disposeTarget(tinyDownTarget);
-    disposeTarget(tinyUpTarget);
-    disposeTarget(deepUpTarget);
-    disposeTarget(upTarget);
-    disposeTarget(blurTarget);
     disposeTarget(photoAppTarget);
     wallpaperSourceTarget = null;
     wallpaperTarget = null;
     glassSourceTarget = null;
     baseTarget = null;
-    compositeTarget = null;
-    downTarget = null;
-    deepDownTarget = null;
-    deeperDownTarget = null;
-    tinyDownTarget = null;
-    tinyUpTarget = null;
-    deepUpTarget = null;
-    upTarget = null;
-    blurTarget = null;
     photoAppTarget = null;
   }
 
@@ -341,6 +270,12 @@ export function mountMacSingleCanvas(root: Element) {
     photoAppTarget = makeRenderTarget(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
   }
 
+  function rebuildLayout() {
+    layout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
+    layoutDirty = false;
+    if (photoStageKey !== rectKey(layout.photoStage)) resizePhotoTarget();
+  }
+
   function resize() {
     const bounds = root.getBoundingClientRect();
     cssWidth = Math.max(1, Math.round(bounds.width));
@@ -360,156 +295,47 @@ export function mountMacSingleCanvas(root: Element) {
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
 
-    uiLayers.forEach((layer) => {
+    allLayers.forEach((layer) => {
       if (!layer) return;
-      layer.canvas.width = renderWidth;
-      layer.canvas.height = renderHeight;
-      layer.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       layer.cacheKey = null;
       layer.dirty = true;
     });
 
-    layout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
-    state.bufferText = `BUF ${Math.round(layout.width * pixelRatio)}x${Math.round(layout.height * pixelRatio)}`;
+    state.bufferText = `BUF ${renderWidth}x${renderHeight}`;
 
     disposeTarget(wallpaperSourceTarget);
     disposeTarget(wallpaperTarget);
     disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
-    disposeTarget(compositeTarget);
-    disposeTarget(downTarget);
-    disposeTarget(deepDownTarget);
-    disposeTarget(deeperDownTarget);
-    disposeTarget(tinyDownTarget);
-    disposeTarget(tinyUpTarget);
-    disposeTarget(deepUpTarget);
-    disposeTarget(upTarget);
-    disposeTarget(blurTarget);
 
     const sourceAspect = wallpaperPass?.aspect ?? (1024 / 640);
     const sourceH = Math.min(
       WALLPAPER_SOURCE_MAX_HEIGHT,
       Math.max(WALLPAPER_SOURCE_MIN_HEIGHT, Math.round(backgroundHeight * 0.72)),
     );
-    const sourceW = Math.max(1, Math.round(sourceH * sourceAspect));
-    wallpaperSourceTarget = makeRenderTarget(sourceW, sourceH);
+    wallpaperSourceTarget = makeRenderTarget(Math.max(1, Math.round(sourceH * sourceAspect)), sourceH);
     wallpaperTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
     glassSourceTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
     baseTarget = makeRenderTarget(renderWidth, renderHeight);
-    compositeTarget = makeRenderTarget(renderWidth, renderHeight);
-    const halfWidth = Math.max(2, Math.round(backgroundWidth * 0.5));
-    const halfHeight = Math.max(2, Math.round(backgroundHeight * 0.5));
-    const quarterWidth = Math.max(2, Math.round(halfWidth * 0.5));
-    const quarterHeight = Math.max(2, Math.round(halfHeight * 0.5));
-    const eighthWidth = Math.max(2, Math.round(quarterWidth * 0.5));
-    const eighthHeight = Math.max(2, Math.round(quarterHeight * 0.5));
-    const sixteenthWidth = Math.max(2, Math.round(eighthWidth * 0.5));
-    const sixteenthHeight = Math.max(2, Math.round(eighthHeight * 0.5));
-    downTarget = makeRenderTarget(halfWidth, halfHeight);
-    deepDownTarget = makeRenderTarget(quarterWidth, quarterHeight);
-    deeperDownTarget = makeRenderTarget(eighthWidth, eighthHeight);
-    tinyDownTarget = makeRenderTarget(sixteenthWidth, sixteenthHeight);
-    tinyUpTarget = makeRenderTarget(eighthWidth, eighthHeight);
-    deepUpTarget = makeRenderTarget(quarterWidth, quarterHeight);
-    upTarget = makeRenderTarget(halfWidth, halfHeight);
-    blurTarget = makeRenderTarget(halfWidth, halfHeight);
-    resizePhotoTarget();
+    glassPipeline.resize(backgroundWidth, backgroundHeight);
 
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
-    glassUniforms.uResolution.value.set(cssWidth, cssHeight);
-    photoRectUniforms.uResolution.value.set(cssWidth, cssHeight);
+    rebuildLayout();
+    resizePhotoTarget();
   }
 
-  function renderBlur(source: THREE.WebGLRenderTarget) {
-    if (
-      !downTarget
-      || !deepDownTarget
-      || !deeperDownTarget
-      || !tinyDownTarget
-      || !tinyUpTarget
-      || !deepUpTarget
-      || !upTarget
-      || !blurTarget
-    ) return;
-
-    const blurAmount = THREE.MathUtils.clamp(GLASS_STATE.blur, 0, 6);
-    const useDeepBlur = blurAmount > 2.4;
-    const useTinyBlur = blurAmount > 3;
-    const downOffset = 0.9 + blurAmount * 0.55;
-    const deepDownOffset = 1.05 + blurAmount * 0.86;
-    const deeperDownOffset = 1.15 + blurAmount * 1.18;
-    const tinyDownOffset = 1.25 + blurAmount * 1.55;
-    const tinyUpOffset = 1.1 + blurAmount * 1.35 + GLASS_STATE.frost * 0.35;
-    const deepUpOffset = 0.95 + blurAmount * 1.22 + GLASS_STATE.frost * 0.45;
-    const upOffset = 0.85 + blurAmount * 1.02 + GLASS_STATE.frost * 0.5;
-    const finalUpOffset = 0.75 + blurAmount * 0.82;
-
-    if (blurAmount <= 0.01) {
-      glassUniforms.uBlurredScene.value = source.texture;
-      return;
-    }
-
-    downUniforms.uInput.value = source.texture;
-    downUniforms.uTexelSize.value.set(1 / source.width, 1 / source.height);
-    downUniforms.uOffset.value = downOffset;
-    renderPass(renderer, scene, camera, passMesh, downMaterial, downTarget);
-
-    downUniforms.uInput.value = downTarget.texture;
-    downUniforms.uTexelSize.value.set(1 / downTarget.width, 1 / downTarget.height);
-    downUniforms.uOffset.value = deepDownOffset;
-    renderPass(renderer, scene, camera, passMesh, downMaterial, deepDownTarget);
-
-    if (useTinyBlur) {
-      downUniforms.uInput.value = deepDownTarget.texture;
-      downUniforms.uTexelSize.value.set(1 / deepDownTarget.width, 1 / deepDownTarget.height);
-      downUniforms.uOffset.value = deeperDownOffset;
-      renderPass(renderer, scene, camera, passMesh, downMaterial, deeperDownTarget);
-
-      downUniforms.uInput.value = deeperDownTarget.texture;
-      downUniforms.uTexelSize.value.set(1 / deeperDownTarget.width, 1 / deeperDownTarget.height);
-      downUniforms.uOffset.value = tinyDownOffset;
-      renderPass(renderer, scene, camera, passMesh, downMaterial, tinyDownTarget);
-
-      upUniforms.uInput.value = tinyDownTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / tinyDownTarget.width, 1 / tinyDownTarget.height);
-      upUniforms.uOffset.value = tinyUpOffset;
-      renderPass(renderer, scene, camera, passMesh, upMaterial, tinyUpTarget);
-
-      upUniforms.uInput.value = tinyUpTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / tinyUpTarget.width, 1 / tinyUpTarget.height);
-      upUniforms.uOffset.value = deepUpOffset;
-      renderPass(renderer, scene, camera, passMesh, upMaterial, deepUpTarget);
-
-      upUniforms.uInput.value = deepUpTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / deepUpTarget.width, 1 / deepUpTarget.height);
-      upUniforms.uOffset.value = upOffset;
-    } else if (useDeepBlur) {
-      downUniforms.uInput.value = deepDownTarget.texture;
-      downUniforms.uTexelSize.value.set(1 / deepDownTarget.width, 1 / deepDownTarget.height);
-      downUniforms.uOffset.value = deeperDownOffset;
-      renderPass(renderer, scene, camera, passMesh, downMaterial, deeperDownTarget);
-
-      upUniforms.uInput.value = deeperDownTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / deeperDownTarget.width, 1 / deeperDownTarget.height);
-      upUniforms.uOffset.value = deepUpOffset;
-      renderPass(renderer, scene, camera, passMesh, upMaterial, deepUpTarget);
-
-      upUniforms.uInput.value = deepUpTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / deepUpTarget.width, 1 / deepUpTarget.height);
-      upUniforms.uOffset.value = upOffset;
-    } else {
-      upUniforms.uInput.value = deepDownTarget.texture;
-      upUniforms.uTexelSize.value.set(1 / deepDownTarget.width, 1 / deepDownTarget.height);
-      upUniforms.uOffset.value = upOffset;
-    }
-    renderPass(renderer, scene, camera, passMesh, upMaterial, upTarget);
-
-    upUniforms.uInput.value = upTarget.texture;
-    upUniforms.uTexelSize.value.set(1 / upTarget.width, 1 / upTarget.height);
-    upUniforms.uOffset.value = finalUpOffset;
-    renderPass(renderer, scene, camera, passMesh, upMaterial, blurTarget);
-
-    glassUniforms.uBlurredScene.value = blurTarget.texture;
+  function presentTexture(
+    texture: THREE.Texture,
+    target: THREE.WebGLRenderTarget | null,
+    targetWidth = renderWidth,
+    targetHeight = renderHeight,
+    shadeHeightPx = 0,
+  ) {
+    coverUniforms.uScene.value = texture;
+    coverUniforms.uResolution.value.set(targetWidth, targetHeight);
+    coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
+    coverUniforms.uOverscan.value = 1.0;
+    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
+    renderPass(renderer, scene, camera, passMesh, coverMaterial, target);
   }
 
   function renderWallpaper(time: number) {
@@ -526,20 +352,63 @@ export function mountMacSingleCanvas(root: Element) {
       });
       coverUniforms.uScene.value = wallpaperSourceTarget.texture;
       coverUniforms.uImageAspect.value = wallpaperPass.aspect;
-      coverUniforms.uOverscan.value = 1.08;
     }
 
     coverUniforms.uResolution.value.set(backgroundWidth, backgroundHeight);
+    coverUniforms.uOverscan.value = wallpaperPass ? 1.08 : 1.0;
+    coverUniforms.uShade.value.set(0, 0);
     renderPass(renderer, scene, camera, passMesh, coverMaterial, wallpaperTarget);
   }
 
-  function renderPhotoApp(time: number, target: THREE.WebGLRenderTarget | null) {
-    if (!layout.photoStage || !photoAppPass || !photoAppTarget) return;
+  function drawRectLayer(
+    layer: CanvasLayer,
+    rect: Rect,
+    cacheKey: string,
+    draw: (context: CanvasRenderingContext2D) => void,
+    target: THREE.WebGLRenderTarget | null,
+  ) {
+    if (rect.w <= 0 || rect.h <= 0) return;
 
-    if (photoStageKey !== rectKey(layout.photoStage)) {
-      resizePhotoTarget();
-      if (!photoAppTarget) return;
+    syncCanvasLayerRect(layer, rect, pixelRatio);
+
+    if (layer.dirty || layer.cacheKey !== cacheKey) {
+      const context = layer.context;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, -layer.rect.x * pixelRatio, -layer.rect.y * pixelRatio);
+      draw(context);
+      layer.texture.needsUpdate = true;
+      layer.cacheKey = cacheKey;
+      layer.dirty = false;
     }
+
+    uiUniforms.uUi.value = layer.texture;
+    uiUniforms.uRect.value.set(layer.rect.x, layer.rect.y, layer.rect.w, layer.rect.h);
+    uiUniforms.uViewport.value.set(cssWidth, cssHeight);
+    renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
+  }
+
+  // Wallpaper (with the top shade baked into the cover pass) plus desktop
+  // icons; this is the scene the glass panels refract.
+  function renderBase() {
+    if (!wallpaperTarget || !baseTarget || !glassSourceTarget) return;
+
+    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
+    presentTexture(wallpaperTarget.texture, baseTarget, renderWidth, renderHeight, shadeHeightPx);
+
+    drawRectLayer(
+      iconsLayer as CanvasLayer,
+      layout.iconsRect,
+      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}`,
+      (context) => drawMacDesktopIcons(context, layout, assets, state),
+      baseTarget,
+    );
+
+    presentTexture(baseTarget.texture, glassSourceTarget, backgroundWidth, backgroundHeight);
+  }
+
+  function renderPhotoApp(time: number) {
+    if (!layout.photoStage || !photoAppPass || !photoAppTarget) return;
 
     photoAppPass.render(renderer, photoAppTarget, {
       time,
@@ -552,104 +421,43 @@ export function mountMacSingleCanvas(root: Element) {
       baseY: -0.01,
     });
 
+    const stage = layout.photoStage;
+    const imageRect = {
+      x: stage.x,
+      y: stage.y,
+      w: stage.w,
+      h: Math.max(1, stage.h - PHOTO_APP_HUD_HEIGHT),
+    };
     photoRectUniforms.uPhoto.value = photoAppTarget.texture;
+    photoRectUniforms.uRect.value.set(imageRect.x, imageRect.y, imageRect.w, imageRect.h);
+    photoRectUniforms.uViewport.value.set(cssWidth, cssHeight);
+    photoRectUniforms.uRectAspect.value = imageRect.w / imageRect.h;
     photoRectUniforms.uPhotoAspect.value = photoAppPass.aspect;
     photoRectUniforms.uPhotoOverscan.value = PHOTO_APP_OVERSCAN;
-    photoRectUniforms.uRect.value.set(layout.photoStage.x, layout.photoStage.y, layout.photoStage.w, layout.photoStage.h);
-    renderPass(renderer, scene, camera, passMesh, photoRectMaterial, target);
+    renderPass(renderer, scene, camera, passMesh, photoRectMaterial, null);
   }
 
-  function drawCachedCanvasLayer(
-    layer: CanvasLayer,
-    cacheKey: string,
-    draw: () => void,
-    target: THREE.WebGLRenderTarget | null,
-  ) {
-    if (layer.dirty || layer.cacheKey !== cacheKey) {
-      layer.context.save();
-      layer.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      draw();
-      layer.context.restore();
-      layer.texture.needsUpdate = true;
-      layer.cacheKey = cacheKey;
-      layer.dirty = false;
-    }
-
-    uiUniforms.uUi.value = layer.texture;
-    renderPass(renderer, scene, camera, passMesh, uiMaterial, target);
-  }
-
-  function renderBase() {
-    if (!wallpaperTarget || !baseTarget || !glassSourceTarget) return;
-
-    renderer.setRenderTarget(baseTarget);
-    renderer.clear();
-
-    coverUniforms.uScene.value = wallpaperTarget.texture;
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
-    coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
-    coverUniforms.uOverscan.value = 1.0;
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, baseTarget);
-
-    drawCachedCanvasLayer(
-      baseLayer as CanvasLayer,
-      `base-ui:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}`,
-      () => drawMacBaseUi((baseLayer as CanvasLayer).context, layout, assets, state),
-      baseTarget,
-    );
-
-    presentTexture(baseTarget.texture, glassSourceTarget, backgroundWidth, backgroundHeight);
-    glassUniforms.uScene.value = glassSourceTarget.texture;
-    glassUniforms.uBlurredScene.value = blurTarget?.texture ?? glassSourceTarget.texture;
-  }
-
-  function presentTexture(
-    texture: THREE.Texture,
-    target: THREE.WebGLRenderTarget | null,
-    targetWidth = renderWidth,
-    targetHeight = renderHeight,
-  ) {
-    coverUniforms.uScene.value = texture;
-    coverUniforms.uResolution.value.set(targetWidth, targetHeight);
-    coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
-    coverUniforms.uOverscan.value = 1.0;
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, target);
-  }
-
-  function renderGlassPanels(source: THREE.WebGLRenderTarget, target: THREE.WebGLRenderTarget, panels: GlassPanel[]) {
-    if (panels.length === 0) return;
-    glassUniforms.uScene.value = source.texture;
-    glassUniforms.uBlurredScene.value = blurTarget?.texture ?? source.texture;
-
-    renderer.setScissorTest(true);
-    panels.forEach((panel) => {
-      const pad = 8;
-      const sx = Math.max(0, Math.floor((panel.x - pad) * pixelRatio));
-      const sy = Math.max(0, Math.floor((cssHeight - panel.y - panel.h - pad) * pixelRatio));
-      const sw = Math.min(renderWidth - sx, Math.ceil((panel.w + pad * 2) * pixelRatio));
-      const sh = Math.min(renderHeight - sy, Math.ceil((panel.h + pad * 2) * pixelRatio));
-      if (sw <= 0 || sh <= 0) return;
-
-      glassUniforms.uPanel.value.set(panel.x, panel.y, panel.w, panel.h);
-      glassUniforms.uRadius.value = panel.r;
-      renderer.setScissor(sx, sy, sw, sh);
-      renderPass(renderer, scene, camera, passMesh, glassMaterial, target);
-    });
-    renderer.setScissorTest(false);
-  }
-
-  function drawCachedUiLayer(
-    layer: CanvasLayer,
-    cacheKey: string,
-    draw: (context: CanvasRenderingContext2D) => void,
-    target: THREE.WebGLRenderTarget | null,
-  ) {
-    drawCachedCanvasLayer(layer, cacheKey, () => draw(layer.context), target);
+  function langGlassPanels(): GlassPanelInput[] {
+    const lang = layout.langSwitch;
+    const thumbH = lang.h - LANG_THUMB_INSET * 2;
+    return [
+      { x: lang.x, y: lang.y, w: lang.w, h: lang.h, r: lang.h * 0.5, params: LANG_PILL_GLASS },
+      {
+        x: lang.x + LANG_THUMB_INSET + langAnim * lang.segW,
+        y: lang.y + LANG_THUMB_INSET,
+        w: lang.segW - LANG_THUMB_INSET * 2,
+        h: thumbH,
+        r: thumbH * 0.5,
+        params: LANG_THUMB_GLASS,
+      },
+    ];
   }
 
   let raf = 0;
+  let running = false;
   let frameCount = 0;
   let lastFpsTime = performance.now();
+  let lastFrameMs = performance.now();
   const startTime = performance.now();
   let dragState: {
     id: WindowId;
@@ -664,6 +472,8 @@ export function mountMacSingleCanvas(root: Element) {
 
   function frame(nowMs: number) {
     const time = (nowMs - startTime) / 1000;
+    const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastFrameMs) / 1000));
+    lastFrameMs = nowMs;
     frameCount += 1;
     if (nowMs - lastFpsTime > 500) {
       state.fps = (frameCount * 1000) / (nowMs - lastFpsTime);
@@ -671,34 +481,37 @@ export function mountMacSingleCanvas(root: Element) {
       lastFpsTime = nowMs;
     }
 
-    const nextLayout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
-    const layoutChanged = rectKey(nextLayout.photoStage) !== rectKey(layout.photoStage);
-    layout = nextLayout;
-    if (layoutChanged) resizePhotoTarget();
+    if (layoutDirty) rebuildLayout();
+
+    const langTarget = state.lang === 'zh' ? 1 : 0;
+    langAnim += (langTarget - langAnim) * (1 - Math.exp(-dt * 14));
+    if (Math.abs(langTarget - langAnim) < 0.001) langAnim = langTarget;
 
     const now = new Date();
     renderWallpaper(time);
     renderBase();
 
-    if (baseTarget && compositeTarget && glassSourceTarget) {
-      renderer.setRenderTarget(compositeTarget);
+    if (baseTarget && glassSourceTarget) {
+      renderer.setRenderTarget(null);
       renderer.clear();
-      presentTexture(baseTarget.texture, compositeTarget);
+      presentTexture(baseTarget.texture, null);
 
-      renderBlur(glassSourceTarget);
-      renderGlassPanels(glassSourceTarget, compositeTarget, layout.glassPanels);
+      const blurred = glassPipeline.renderBlur(glassSourceTarget);
+      glassPipeline.renderPanels(glassSourceTarget.texture, blurred, layout.glassPanels, cssWidth, cssHeight, null);
 
-      drawCachedUiLayer(
+      drawRectLayer(
         widgetLayer as CanvasLayer,
-        `widget:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${frameSecondKey(now)}:${Math.round(state.fps)}`,
+        layout.widgetsRect ?? { x: 0, y: 0, w: 0, h: 0 },
+        `widget:${layout.width}:${layout.height}:${state.lang}:${frameSecondKey(now)}:${Math.round(state.fps)}`,
         (context) => drawMacWidgetOverlay(context, layout, state, now),
-        compositeTarget,
+        null,
       );
-      drawCachedUiLayer(
+      drawRectLayer(
         dockLayer as CanvasLayer,
+        layout.dockRect,
         dockStateKey(layout, state, assets),
         (context) => drawMacDockOverlay(context, layout, assets, state),
-        compositeTarget,
+        null,
       );
 
       layout.windows.forEach((win) => {
@@ -706,34 +519,84 @@ export function mountMacSingleCanvas(root: Element) {
         const detailLayer = windowDetailLayers[win.id];
         if (!surfaceLayer || !detailLayer) return;
 
-        drawCachedUiLayer(
+        const layerRect = padRect(win, WINDOW_LAYER_PAD);
+        drawRectLayer(
           surfaceLayer,
-          `surface:${windowVisualKey(layout, state, win.id)}`,
-          (context) => drawMacWindowSurface(context, layout, win),
-          compositeTarget,
+          layerRect,
+          `surface:${windowVisualKey(layout, state, win)}`,
+          (context) => drawMacWindowSurface(context, win),
+          null,
         );
-        if (win.id === 'photo') renderPhotoApp(time, compositeTarget);
-        drawCachedUiLayer(
+        if (win.id === 'photo') renderPhotoApp(time);
+        drawRectLayer(
           detailLayer,
-          `detail:${windowVisualKey(layout, state, win.id, win.id === 'photo')}`,
-          (context) => drawMacWindowDetails(context, layout, win, state),
-          compositeTarget,
+          layerRect,
+          `detail:${windowVisualKey(layout, state, win, win.id === 'photo')}`,
+          (context) => drawMacWindowDetails(context, win, state),
+          null,
         );
+        if (win.id === 'photo' && win.stage && photoHudLayer) {
+          const hudRect = padRect(
+            { x: win.stage.x, y: win.stage.y + win.stage.h - PHOTO_APP_HUD_HEIGHT, w: win.stage.w, h: PHOTO_APP_HUD_HEIGHT },
+            2,
+          );
+          drawRectLayer(
+            photoHudLayer,
+            hudRect,
+            `photo-hud:${Math.round(win.x)}:${Math.round(win.y)}:${Math.round(state.fps)}:${state.bufferText}:${win.sourceText ?? ''}`,
+            (context) => drawMacPhotoHud(context, win, state),
+            null,
+          );
+        }
       });
 
-      drawCachedUiLayer(
-        menubarLayer as CanvasLayer,
-        `menubar:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${frameMinuteKey(now)}`,
-        (context) => drawMacMenubarOverlay(context, layout, state, now),
-        compositeTarget,
-      );
+      glassPipeline.renderPanels(glassSourceTarget.texture, blurred, langGlassPanels(), cssWidth, cssHeight, null);
 
-      renderer.setRenderTarget(null);
-      renderer.clear();
-      presentTexture(compositeTarget.texture, null);
+      drawRectLayer(
+        menubarLayer as CanvasLayer,
+        layout.menubarRect,
+        `menubar:${layout.width}:${layout.mobile ? 1 : 0}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
+        (context) => drawMacMenubarOverlay(context, layout, state, now, langAnim),
+        null,
+      );
     }
 
+    if (running) raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    frameCount = 0;
+    lastFpsTime = performance.now();
+    lastFrameMs = performance.now();
     raf = requestAnimationFrame(frame);
+  }
+
+  function stop() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(raf);
+  }
+
+  function applyHitAction(action: HitTarget['action'] | undefined) {
+    if (!action) return;
+
+    if (action.type === 'lang') {
+      state.lang = action.lang;
+      return;
+    }
+
+    if (action.type === 'open') {
+      state.windows[action.id].open = true;
+      bringWindowFront(state, action.id);
+    } else if (action.type === 'close') {
+      state.windows[action.id].open = false;
+    } else if (action.type === 'front' || action.type === 'drag') {
+      bringWindowFront(state, action.id);
+    }
+
+    layoutDirty = true;
   }
 
   function eventPoint(event: PointerEvent | MouseEvent) {
@@ -764,9 +627,10 @@ export function mountMacSingleCanvas(root: Element) {
     const minY = MAC_MENUBAR_HEIGHT;
     const maxY = Math.max(minY, cssHeight - 60);
 
+    // Integer positions keep the cached layer quads on the device pixel grid.
     return {
-      x: THREE.MathUtils.clamp(x, minX, maxX),
-      y: THREE.MathUtils.clamp(y, minY, maxY),
+      x: Math.round(THREE.MathUtils.clamp(x, minX, maxX)),
+      y: Math.round(THREE.MathUtils.clamp(y, minY, maxY)),
     };
   }
 
@@ -775,6 +639,7 @@ export function mountMacSingleCanvas(root: Element) {
     if (!win) return;
 
     bringWindowFront(state, id);
+    layoutDirty = true;
     dragState = {
       id,
       pointerId,
@@ -800,6 +665,7 @@ export function mountMacSingleCanvas(root: Element) {
       const next = clampWindowPosition(dragState.id, point.x - dragState.offsetX, point.y - dragState.offsetY);
       state.windows[dragState.id].x = next.x;
       state.windows[dragState.id].y = next.y;
+      layoutDirty = true;
       event.preventDefault();
       return;
     }
@@ -822,6 +688,7 @@ export function mountMacSingleCanvas(root: Element) {
 
     if (action?.type === 'front') {
       bringWindowFront(state, action.id);
+      layoutDirty = true;
     }
 
     canvas.style.cursor = hit?.cursor ?? 'default';
@@ -853,7 +720,12 @@ export function mountMacSingleCanvas(root: Element) {
 
     const point = eventPoint(event);
     const hit = hitTest(layout, point.x, point.y);
-    applyHitAction(state, hit?.action);
+    applyHitAction(hit?.action);
+  };
+
+  const onVisibilityChange = () => {
+    if (document.hidden) stop();
+    else start();
   };
 
   canvas.addEventListener('pointermove', onPointerMove);
@@ -862,6 +734,7 @@ export function mountMacSingleCanvas(root: Element) {
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
+  document.addEventListener('visibilitychange', onVisibilityChange);
   canvas.style.touchAction = 'none';
 
   const resizeObserver = new ResizeObserver(resize);
@@ -884,12 +757,12 @@ export function mountMacSingleCanvas(root: Element) {
     console.warn('mac single canvas:', error);
   });
 
-  raf = requestAnimationFrame(frame);
+  start();
 
   window.addEventListener(
     'pagehide',
     () => {
-      cancelAnimationFrame(raf);
+      stop();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerdown', onPointerDown);
@@ -897,18 +770,17 @@ export function mountMacSingleCanvas(root: Element) {
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       disposeTargets();
+      glassPipeline.dispose();
       wallpaperPass?.dispose();
       photoAppPass?.dispose();
       placeholder.dispose();
-      uiLayers.forEach((layer) => layer?.texture.dispose());
+      allLayers.forEach((layer) => layer?.texture.dispose());
       geometry.dispose();
       coverMaterial.dispose();
-      downMaterial.dispose();
-      upMaterial.dispose();
-      glassMaterial.dispose();
       photoRectMaterial.dispose();
-      uiMaterial.dispose();
+      uiRectMaterial.dispose();
       renderer.dispose();
     },
     { once: true },
