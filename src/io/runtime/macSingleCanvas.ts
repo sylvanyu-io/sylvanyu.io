@@ -43,6 +43,8 @@ const SHADER_URL = '/io-design/assets/photo3d.fs';
 const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const WINDOW_IDS: WindowId[] = ['readme', 'photo', 'worklog', 'projects'];
+const MAX_DEVICE_PIXEL_RATIO = 2;
+const MAX_RENDER_EDGE = 2048;
 const GLASS_STATE = {
   scale: 0.1,
   depth: 10,
@@ -312,7 +314,12 @@ export function mountMacSingleCanvas(root: Element) {
     const bounds = root.getBoundingClientRect();
     cssWidth = Math.max(1, Math.round(bounds.width));
     cssHeight = Math.max(1, Math.round(bounds.height));
-    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
+    pixelRatio = Math.min(
+      desiredPixelRatio,
+      MAX_RENDER_EDGE / cssWidth,
+      MAX_RENDER_EDGE / cssHeight,
+    );
     renderWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
     renderHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
 
