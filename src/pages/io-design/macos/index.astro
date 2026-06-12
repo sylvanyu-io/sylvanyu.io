@@ -1,183 +1,32 @@
 ---
-import DesktopWindow from '../../../components/io/DesktopWindow.astro';
-import Photo3DView from '../../../components/io/Photo3DView.astro';
 import Base from '../../../layouts/Base.astro';
-import { desktopCopy, desktopProjects, logLines, profile } from '../../../io/data';
 import '../../../styles/io/macos.css';
-
-const langs = ['en', 'zh'] as const;
-const icons = [
-  { id: 'readme', icon: 'icon-readme.svg', labelKey: 'iconReadme' },
-  { id: 'photo', icon: 'icon-photo3d.svg', labelKey: 'iconPhoto' },
-  { id: 'worklog', icon: 'icon-worklog.svg', labelKey: 'iconLog' },
-  { id: 'projects', icon: 'icon-projects.svg', labelKey: 'iconProjects' },
-] as const;
 ---
 
-<Base title="IO Design B · Sylvan OS" description="macOS-inspired personal site page with canvas-rendered liquid glass panels.">
+<Base title="IO Design B · Sylvan OS" description="macOS-inspired personal site page rendered in one Three.js canvas.">
   <Fragment slot="head">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <script src="/io-design/assets/photo3d-view.js" defer></script>
   </Fragment>
 
-  <div
-    class="mac-page"
-    data-io-lang-root
-    data-desktop-root
-    data-desktop-style="mac"
-    data-mac-glass-root
-    data-mac-glass-texture="/io-design/assets/sprite1-rgb0.png"
-    data-lang="en"
-  >
-    <Photo3DView
-      sprite="sprite1"
-      fit="cover"
-      track="window"
-      strength="0.07"
-      idleDrift
-      class="mac-wallpaper-photo3d"
-    />
-    <canvas class="mac-glass-canvas" data-mac-glass-canvas></canvas>
-    <div class="wallpaper-shade" aria-hidden="true"></div>
-
-    <header class="mac-menubar" data-glass-panel data-glass-radius="0">
-      <div>
-        <strong>SYLVAN OS</strong>
-        {langs.map((lang) => <span data-locale={lang}>{desktopCopy[lang].role}</span>)}
-      </div>
-      <nav>
-        <a href={profile.github} rel="noreferrer">github ↗</a>
-        <a href={`mailto:${profile.email}`}>{profile.email}</a>
-        <div class="mac-lang-switch">
-          <button type="button" data-lang-toggle="en">EN</button>
-          <button type="button" data-lang-toggle="zh">中</button>
-        </div>
-        <span data-clock="hms">--:--:--</span>
-      </nav>
-    </header>
-
-    <nav class="desktop-icons" aria-label="Desktop shortcuts">
-      {icons.map((item) => (
-        <button type="button" data-open-window={item.id}>
-          <img src={`/io-design/assets/${item.icon}`} alt="" draggable="false" />
-          {langs.map((lang) => (
-            <span data-locale={lang}>{desktopCopy[lang][item.labelKey]}</span>
-          ))}
-        </button>
-      ))}
-    </nav>
-
-    <aside class="mac-widgets">
-      <section data-glass-panel data-glass-radius="18">
-        <strong data-clock="hms">--:--:--</strong>
-        <span data-clock="date">----.--.--</span>
-      </section>
-      <section data-glass-panel data-glass-radius="18">
-        {langs.map((lang) => (
-          <div data-locale={lang}>
-            <p>{desktopCopy[lang].statusTitle}</p>
-            <strong>{desktopCopy[lang].statusBody}</strong>
-            <span>{desktopCopy[lang].statusFoot}</span>
-          </div>
-        ))}
-        <dl>
-          {langs.map((lang) => (
-            <Fragment>
-              <div data-locale={lang}><dt data-wallpaper-fps>—</dt><dd>{desktopCopy[lang].wFps}</dd></div>
-              <div data-locale={lang}><dt>WebGL</dt><dd>{desktopCopy[lang].wRenderer}</dd></div>
-              <div data-locale={lang}><dt>2L·LDI</dt><dd>{desktopCopy[lang].wWallpaper}</dd></div>
-              <div data-locale={lang}><dt data-ship-years>4</dt><dd>{desktopCopy[lang].wUptime}</dd></div>
-            </Fragment>
-          ))}
-        </dl>
-      </section>
-    </aside>
-
-    <DesktopWindow id="readme" title="README.md" left={130} top={64} z={11} glass>
-      <div class="readme-copy">
-        <p>SYLVAN YU 俞宇锋</p>
-        {langs.map((lang) => (
-          <div data-locale={lang}>
-            <h1>{desktopCopy[lang].readmeTitle}</h1>
-            <p>{desktopCopy[lang].readmeBody}</p>
-            <div class="readme-chips">
-              {desktopCopy[lang].chips.map((chip) => <span>{chip}</span>)}
-            </div>
-            <div class="readme-actions">
-              <a href={`mailto:${profile.email}`}>{profile.email}</a>
-              <a href={profile.github} rel="noreferrer">GitHub ↗</a>
-            </div>
-          </div>
-        ))}
-      </div>
-    </DesktopWindow>
-
-    <DesktopWindow id="photo" title="Photo3D.app" left={600} top={58} z={12} glass>
-      <Fragment slot="status"><span class="window-live">LIVE</span></Fragment>
-      <div class="photo-window-stage">
-        <Photo3DView sprite="sprite2" fit="cover" track="self" idleDrift stats class="desktop-photo3d" />
-      </div>
-      {langs.map((lang) => (
-        <p data-locale={lang} class="window-note">{desktopCopy[lang].photoNote}</p>
-      ))}
-    </DesktopWindow>
-
-    <DesktopWindow id="worklog" title="sylvan@os — tail -f work.log" left={240} top={130} z={10} open={false} glass>
-      {langs.map((lang) => (
-        <div data-locale={lang} class="terminal-lines">
-          {logLines[lang].map((line) => <p data-tone={line.tone}>{line.text}</p>)}
-          <i aria-hidden="true"></i>
-        </div>
-      ))}
-    </DesktopWindow>
-
-    <DesktopWindow id="projects" title="~/projects" left={180} top={90} z={13} open={false} glass>
-      <Fragment slot="status">
-        {langs.map((lang) => (
-          <span data-locale={lang} class="window-count">{desktopProjects[lang].length} ITEMS</span>
-        ))}
-      </Fragment>
-      {langs.map((lang) => (
-        <div data-locale={lang} class="project-window-list">
-          {desktopProjects[lang].map((project) => (
-            <article>
-              <div>
-                <h2>{project.title}</h2>
-                <span>{project.meta}</span>
-                <p>{project.body}</p>
-              </div>
-              <div class="project-score">
-                <strong>{project.metric}</strong>
-                <span>{project.metricLabel}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      ))}
-    </DesktopWindow>
-
-    <footer class="mac-dock" data-glass-panel data-glass-radius="22">
-      {icons.map((item) => (
-        <button type="button" data-open-window={item.id} title={item.id}>
-          <img src={`/io-design/assets/${item.icon}`} alt="" draggable="false" />
-          <span data-window-dot={item.id}></span>
-        </button>
-      ))}
-    </footer>
+  <div class="mac-page mac-page--single-canvas" data-mac-single-canvas-root>
+    <canvas
+      class="mac-single-canvas"
+      data-mac-single-canvas
+      aria-label="Sylvan OS desktop rendered with Photo3D and liquid glass in one Three.js canvas"
+    ></canvas>
+    <noscript>
+      <p class="mac-noscript">This page needs JavaScript to render the canvas desktop.</p>
+    </noscript>
   </div>
 
   <script>
-    import { mountDesktop } from '../../../io/runtime/desktop';
-    import { mountLanguageRoots } from '../../../io/runtime/language';
-    import { mountMacGlassCanvases } from '../../../io/runtime/macGlassCanvas';
+    import { mountMacSingleCanvases } from '../../../io/runtime/macSingleCanvas?single-canvas-v10';
 
-    mountLanguageRoots();
-    document.querySelectorAll('[data-desktop-root]').forEach(mountDesktop);
-    mountMacGlassCanvases();
+    mountMacSingleCanvases();
   </script>
 </Base>
