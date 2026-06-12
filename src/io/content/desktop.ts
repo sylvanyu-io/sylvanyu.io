@@ -33,7 +33,7 @@ export const desktopCopy: Record<Lang, {
     readmeBody:
       'Render pipelines, cross-platform text and particle systems, and the editor tooling around them. Currently on Predy — RedNote’s real-time motion engine across Web, iOS and Android. Previously on Galacean at Ant Group. This desktop runs on my own work: the wallpaper is Photo3D rendering live, and the glass everywhere is my liquid-glass study.',
     chips: ['RENDER PIPELINES', 'CROSS-PLATFORM GRAPHICS', 'EDITOR TOOLING & AI INFRA'],
-    photoNote: 'One photo → layered RGBD → ray-marched parallax. Move the pointer. Same renderer as the wallpaper behind you.',
+    photoNote: 'One photo → layered RGBD → LDI parallax shader. Move the pointer. Same renderer as the wallpaper behind you.',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconLog: 'work.log',
@@ -53,7 +53,7 @@ export const desktopCopy: Record<Lang, {
     readmeBody:
       '渲染管线、跨端文字与粒子系统，以及围绕它们的编辑器工具链。现在做小红书自研实时动效引擎 Predy（Web / iOS / Android 三端）；此前在蚂蚁集团 Galacean 引擎团队。这张桌面跑的就是我的工作本身：壁纸是 Photo3D 实时渲染，到处的玻璃是我的液态玻璃研究。',
     chips: ['渲染管线', '跨端图形', '编辑器工具链 & AI 基建'],
-    photoNote: '单张照片 → 分层 RGBD → 光线步进视差。移动鼠标看看。和身后壁纸是同一个渲染器。',
+    photoNote: '单张照片 → 分层 RGBD → LDI 视差 shader。移动鼠标看看。和身后壁纸是同一个渲染器。',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconLog: 'work.log',
