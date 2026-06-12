@@ -6,6 +6,7 @@ import {
   type Photo3DPass,
   type SpriteFrameMeta,
 } from './macCanvas/photo3d';
+import { createGyroPointer } from './macCanvas/gyroPointer';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -101,6 +102,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const placeholder = makePlaceholderTexture();
   const state = createInitialMacCanvasState();
   const pointer = new THREE.Vector2(0, 0);
+  const gyro = createGyroPointer();
   let pointerActive = false;
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
@@ -442,8 +444,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     langAnim += (langTarget - langAnim) * (1 - Math.exp(-dt * 14));
     if (Math.abs(langTarget - langAnim) < 0.001) langAnim = langTarget;
 
+    // Tilt drives the wallpaper whenever no pointer is engaged.
+    const useGyro = !pointerActive && gyro.active;
+    if (useGyro) pointer.set(gyro.x, gyro.y);
+
     const now = new Date();
-    renderWallpaper(time, pointerActive);
+    renderWallpaper(time, pointerActive || useGyro);
     renderBase();
 
     if (baseTarget && glassSourceTarget) {
@@ -571,20 +577,27 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
 
   // Touch pointers vanish after the gesture; release the wallpaper back to
-  // idle drift instead of freezing on the last tap position.
+  // idle drift / gyro instead of freezing on the last tap position.
   const onRootPointerEnd = (event: PointerEvent) => {
     if (event.pointerType === 'touch') pointerActive = false;
+  };
+
+  // iOS only grants DeviceOrientation from inside a user gesture.
+  const onFirstPointerDown = () => {
+    gyro.unlock();
   };
 
   root.addEventListener('pointermove', onRootPointerMove);
   root.addEventListener('pointerleave', onRootPointerLeave);
   root.addEventListener('pointerup', onRootPointerEnd);
   root.addEventListener('pointercancel', onRootPointerEnd);
+  root.addEventListener('pointerdown', onFirstPointerDown, { once: true });
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
   canvas.style.touchAction = 'none';
+  gyro.enable();
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(root);
@@ -617,10 +630,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
       root.removeEventListener('pointerleave', onRootPointerLeave);
       root.removeEventListener('pointerup', onRootPointerEnd);
       root.removeEventListener('pointercancel', onRootPointerEnd);
+      root.removeEventListener('pointerdown', onFirstPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      gyro.dispose();
       safeAreaProbe.remove();
       disposeTargets();
       domWindows.destroy();
