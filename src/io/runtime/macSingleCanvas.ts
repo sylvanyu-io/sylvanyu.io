@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createMacDomWindows } from './macDomWindows';
 import { createPhoto3DPass, type Photo3DPass } from './macCanvas/photo3d';
 import {
   buildMacCanvasLayout,
@@ -7,22 +8,17 @@ import {
   drawMacDesktopIcons,
   drawMacDockOverlay,
   drawMacMenubarOverlay,
-  drawMacPhotoHud,
   drawMacWidgetOverlay,
-  drawMacWindowDetails,
-  drawMacWindowSurface,
   hitTest,
   loadMacUiAssets,
   MAC_WINDOW_IDS,
   MAC_MENUBAR_HEIGHT,
-  PHOTO_APP_HUD_HEIGHT,
   type HitTarget,
   type MacCanvasLayout,
   type MacCanvasState,
   type MacUiAssets,
   type Rect,
   type WindowId,
-  type WindowLayout,
 } from './macCanvas/ui';
 import {
   createGlassPipeline,
@@ -31,7 +27,6 @@ import {
 } from './macCanvas/glassPipeline';
 import {
   coverFragmentShader,
-  photoRectFragmentShader,
   rectVertexShader,
   screenVertexShader,
   uiRectFragmentShader,
@@ -43,7 +38,6 @@ import {
   makeCanvasLayer,
   makePlaceholderTexture,
   makeRenderTarget,
-  rectKey,
   renderPass,
   syncCanvasLayerRect,
   type CanvasLayer,
@@ -55,12 +49,9 @@ const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const WINDOW_IDS = MAC_WINDOW_IDS;
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
-const PHOTO_APP_OVERSCAN = 1.12;
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
 const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
-// Covers the window drop shadows (blur 34 + offset 18) around each layer rect.
-const WINDOW_LAYER_PAD = 56;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -88,20 +79,9 @@ const LANG_THUMB_GLASS: Partial<GlassParams> = {
 };
 const LANG_THUMB_INSET = 2;
 
-// Window layer content is drawn relative to its own rect, so position is
-// irrelevant to the cache — drags reposition the quad without a redraw.
-function windowVisualKey(layout: MacCanvasLayout, state: MacCanvasState, win: WindowLayout, includeStats = false) {
-  const base = `${win.id}:${Math.round(win.w)}:${Math.round(win.h)}:${layout.mobile ? 1 : 0}:${state.lang}:${win.sourceText ?? ''}`;
-  return includeStats ? `${base}:${Math.round(state.fps)}:${state.bufferText}` : base;
-}
-
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const dots = WINDOW_IDS.map((id) => (state.windows[id].open ? '1' : '0')).join('');
   return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${dots}`;
-}
-
-function padRect(rect: Rect, pad: number): Rect {
-  return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };
 }
 
 export function mountMacSingleCanvas(root: Element) {
@@ -140,7 +120,6 @@ export function mountMacSingleCanvas(root: Element) {
   let renderHeight = 1;
   let backgroundWidth = 1;
   let backgroundHeight = 1;
-  let photoStageKey = 'empty';
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -170,14 +149,6 @@ export function mountMacSingleCanvas(root: Element) {
     uOverscan: { value: 1.0 },
     uShade: { value: new THREE.Vector2(0, 0) },
   };
-  const photoRectUniforms = {
-    uPhoto: { value: placeholder as THREE.Texture },
-    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
-    uViewport: { value: new THREE.Vector2(1, 1) },
-    uRectAspect: { value: 1 },
-    uPhotoAspect: { value: 1 },
-    uPhotoOverscan: { value: PHOTO_APP_OVERSCAN },
-  };
   const uiUniforms = {
     uUi: { value: placeholder as THREE.Texture },
     uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
@@ -188,14 +159,6 @@ export function mountMacSingleCanvas(root: Element) {
     uniforms: coverUniforms,
     vertexShader: screenVertexShader,
     fragmentShader: coverFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const photoRectMaterial = new THREE.ShaderMaterial({
-    uniforms: photoRectUniforms,
-    vertexShader: rectVertexShader,
-    fragmentShader: photoRectFragmentShader,
-    transparent: true,
     depthTest: false,
     depthWrite: false,
   });
@@ -212,69 +175,65 @@ export function mountMacSingleCanvas(root: Element) {
   const widgetLayer = makeCanvasLayer();
   const dockLayer = makeCanvasLayer();
   const menubarLayer = makeCanvasLayer();
-  const photoHudLayer = makeCanvasLayer();
-  const windowSurfaceLayers = Object.fromEntries(WINDOW_IDS.map((id) => [id, makeCanvasLayer()])) as Record<WindowId, CanvasLayer | null>;
-  const windowDetailLayers = Object.fromEntries(WINDOW_IDS.map((id) => [id, makeCanvasLayer()])) as Record<WindowId, CanvasLayer | null>;
   const allLayers = [
     iconsLayer,
     widgetLayer,
     dockLayer,
     menubarLayer,
-    photoHudLayer,
-    ...Object.values(windowSurfaceLayers),
-    ...Object.values(windowDetailLayers),
   ];
   if (allLayers.some((layer) => !layer)) return;
+
+  function clampWindowPosition(id: WindowId, x: number, y: number) {
+    const win = layout.windows.find((windowLayout) => windowLayout.id === id);
+    const winW = win?.w ?? 320;
+    const minX = Math.min(0, 80 - winW);
+    const maxX = Math.max(0, cssWidth - 80);
+    const minY = MAC_MENUBAR_HEIGHT;
+    const maxY = Math.max(minY, cssHeight - 60);
+
+    return {
+      x: Math.round(THREE.MathUtils.clamp(x, minX, maxX)),
+      y: Math.round(THREE.MathUtils.clamp(y, minY, maxY)),
+    };
+  }
+
+  const domWindows = createMacDomWindows(root, {
+    bringFront(id) {
+      bringWindowFront(state, id);
+      layoutDirty = true;
+    },
+    setOpen(id, open) {
+      state.windows[id].open = open;
+      if (open) bringWindowFront(state, id);
+      layoutDirty = true;
+    },
+    moveWindow(id, x, y) {
+      const next = clampWindowPosition(id, x, y);
+      state.windows[id].x = next.x;
+      state.windows[id].y = next.y;
+      layoutDirty = true;
+    },
+  });
 
   let wallpaperSourceTarget: THREE.WebGLRenderTarget | null = null;
   let wallpaperTarget: THREE.WebGLRenderTarget | null = null;
   let glassSourceTarget: THREE.WebGLRenderTarget | null = null;
   let baseTarget: THREE.WebGLRenderTarget | null = null;
-  let photoAppTarget: THREE.WebGLRenderTarget | null = null;
 
   function disposeTargets() {
     disposeTarget(wallpaperSourceTarget);
     disposeTarget(wallpaperTarget);
     disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
-    disposeTarget(photoAppTarget);
     wallpaperSourceTarget = null;
     wallpaperTarget = null;
     glassSourceTarget = null;
     baseTarget = null;
-    photoAppTarget = null;
-  }
-
-  function resizePhotoTarget() {
-    disposeTarget(photoAppTarget);
-    photoAppTarget = null;
-    photoStageKey = rectKey(layout.photoStage);
-
-    if (!layout.photoStage || !photoAppPass) return;
-
-    const stageWidth = Math.max(1, layout.photoStage.w * pixelRatio);
-    const stageHeight = Math.max(1, layout.photoStage.h * pixelRatio);
-    const sourceAspect = Math.max(photoAppPass.aspect, 0.001);
-    let width = stageWidth;
-    let height = width / sourceAspect;
-
-    if (height < stageHeight) {
-      height = stageHeight;
-      width = height * sourceAspect;
-    }
-
-    width *= PHOTO_APP_OVERSCAN;
-    height *= PHOTO_APP_OVERSCAN;
-
-    const maxEdge = 1200;
-    const scale = Math.min(1, maxEdge / Math.max(width, height));
-    photoAppTarget = makeRenderTarget(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
   }
 
   function rebuildLayout() {
     layout = buildMacCanvasLayout(cssWidth, cssHeight, state, photoLayoutOptions());
     layoutDirty = false;
-    if (photoStageKey !== rectKey(layout.photoStage)) resizePhotoTarget();
   }
 
   function resize() {
@@ -321,7 +280,6 @@ export function mountMacSingleCanvas(root: Element) {
     glassPipeline.resize(backgroundWidth, backgroundHeight);
 
     rebuildLayout();
-    resizePhotoTarget();
   }
 
   function presentTexture(
@@ -408,36 +366,6 @@ export function mountMacSingleCanvas(root: Element) {
     presentTexture(baseTarget.texture, glassSourceTarget, backgroundWidth, backgroundHeight);
   }
 
-  function renderPhotoApp(time: number) {
-    if (!layout.photoStage || !photoAppPass || !photoAppTarget) return;
-
-    photoAppPass.render(renderer, photoAppTarget, {
-      time,
-      pointer,
-      pointerActive,
-      strength: 0.05,
-      maxOffset: 0.06,
-      idleDrift: true,
-      baseX: 0.003,
-      baseY: -0.01,
-    });
-
-    const stage = layout.photoStage;
-    const imageRect = {
-      x: stage.x,
-      y: stage.y,
-      w: stage.w,
-      h: Math.max(1, stage.h - PHOTO_APP_HUD_HEIGHT),
-    };
-    photoRectUniforms.uPhoto.value = photoAppTarget.texture;
-    photoRectUniforms.uRect.value.set(imageRect.x, imageRect.y, imageRect.w, imageRect.h);
-    photoRectUniforms.uViewport.value.set(cssWidth, cssHeight);
-    photoRectUniforms.uRectAspect.value = imageRect.w / imageRect.h;
-    photoRectUniforms.uPhotoAspect.value = photoAppPass.aspect;
-    photoRectUniforms.uPhotoOverscan.value = PHOTO_APP_OVERSCAN;
-    renderPass(renderer, scene, camera, passMesh, photoRectMaterial, null);
-  }
-
   function langGlassPanels(): GlassPanelInput[] {
     const lang = layout.langSwitch;
     const thumbH = lang.h - LANG_THUMB_INSET * 2;
@@ -483,6 +411,7 @@ export function mountMacSingleCanvas(root: Element) {
     }
 
     if (layoutDirty) rebuildLayout();
+    domWindows.sync(layout, state);
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
     langAnim += (langTarget - langAnim) * (1 - Math.exp(-dt * 14));
@@ -514,42 +443,6 @@ export function mountMacSingleCanvas(root: Element) {
         (context) => drawMacDockOverlay(context, layout, assets, state),
         null,
       );
-
-      layout.windows.forEach((win) => {
-        const surfaceLayer = windowSurfaceLayers[win.id];
-        const detailLayer = windowDetailLayers[win.id];
-        if (!surfaceLayer || !detailLayer) return;
-
-        const layerRect = padRect(win, WINDOW_LAYER_PAD);
-        drawRectLayer(
-          surfaceLayer,
-          layerRect,
-          `surface:${windowVisualKey(layout, state, win)}`,
-          (context) => drawMacWindowSurface(context, win),
-          null,
-        );
-        if (win.id === 'photo') renderPhotoApp(time);
-        drawRectLayer(
-          detailLayer,
-          layerRect,
-          `detail:${windowVisualKey(layout, state, win, win.id === 'photo')}`,
-          (context) => drawMacWindowDetails(context, win, state),
-          null,
-        );
-        if (win.id === 'photo' && win.stage && photoHudLayer) {
-          const hudRect = padRect(
-            { x: win.stage.x, y: win.stage.y + win.stage.h - PHOTO_APP_HUD_HEIGHT, w: win.stage.w, h: PHOTO_APP_HUD_HEIGHT },
-            2,
-          );
-          drawRectLayer(
-            photoHudLayer,
-            hudRect,
-            `photo-hud:${Math.round(win.x)}:${Math.round(win.y)}:${Math.round(state.fps)}:${state.bufferText}:${win.sourceText ?? ''}`,
-            (context) => drawMacPhotoHud(context, win, state),
-            null,
-          );
-        }
-      });
 
       glassPipeline.renderPanels(glassSourceTarget.texture, blurred, langGlassPanels(), cssWidth, cssHeight, null);
 
@@ -619,21 +512,6 @@ export function mountMacSingleCanvas(root: Element) {
       THREE.MathUtils.clamp(-(point.normalizedY * 2 - 1), -1, 1),
     );
     pointerActive = true;
-  }
-
-  function clampWindowPosition(id: WindowId, x: number, y: number) {
-    const win = layout.windows.find((windowLayout) => windowLayout.id === id);
-    const winW = win?.w ?? 320;
-    const minX = Math.min(0, 80 - winW);
-    const maxX = Math.max(0, cssWidth - 80);
-    const minY = MAC_MENUBAR_HEIGHT;
-    const maxY = Math.max(minY, cssHeight - 60);
-
-    // Integer positions keep the cached layer quads on the device pixel grid.
-    return {
-      x: Math.round(THREE.MathUtils.clamp(x, minX, maxX)),
-      y: Math.round(THREE.MathUtils.clamp(y, minY, maxY)),
-    };
   }
 
   function startWindowDrag(id: WindowId, point: ReturnType<typeof eventPoint>, pointerId: number) {
@@ -730,6 +608,17 @@ export function mountMacSingleCanvas(root: Element) {
     else start();
   };
 
+  const onRootPointerMove = (event: PointerEvent) => {
+    updatePointer(eventPoint(event));
+  };
+
+  const onRootPointerLeave = () => {
+    if (dragState) return;
+    pointerActive = false;
+  };
+
+  root.addEventListener('pointermove', onRootPointerMove);
+  root.addEventListener('pointerleave', onRootPointerLeave);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointerup', onPointerUp);
@@ -766,6 +655,8 @@ export function mountMacSingleCanvas(root: Element) {
     () => {
       stop();
       resizeObserver.disconnect();
+      root.removeEventListener('pointermove', onRootPointerMove);
+      root.removeEventListener('pointerleave', onRootPointerLeave);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
@@ -774,6 +665,7 @@ export function mountMacSingleCanvas(root: Element) {
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       disposeTargets();
+      domWindows.destroy();
       glassPipeline.dispose();
       wallpaperPass?.dispose();
       photoAppPass?.dispose();
@@ -781,7 +673,6 @@ export function mountMacSingleCanvas(root: Element) {
       allLayers.forEach((layer) => layer?.texture.dispose());
       geometry.dispose();
       coverMaterial.dispose();
-      photoRectMaterial.dispose();
       uiRectMaterial.dispose();
       renderer.dispose();
     },
