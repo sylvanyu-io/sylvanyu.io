@@ -6,6 +6,7 @@ import {
 } from './macCanvas/photo3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
 import { createMacPowerOffOverlay } from './macPowerOff';
+import { requestHostClose } from './hostClose';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -361,10 +362,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     root.dataset.macPowerConfirm = 'exiting';
     powerOffOverlay.setExiting(true);
     window.setTimeout(() => {
-      window.history.go(mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY) ? -2 : -1);
+      const closeRequested = requestHostClose() === 'requested';
       window.setTimeout(() => {
-        if (!document.hidden) mobilePowerExiting = false;
-      }, 1200);
+        if (document.hidden) return;
+        window.history.go(mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY) ? -2 : -1);
+        window.setTimeout(() => {
+          if (!document.hidden) mobilePowerExiting = false;
+        }, 1200);
+      }, closeRequested ? 900 : 0);
     }, 160);
   }
 
