@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { createMacDomWindows } from './macDomWindows';
 import {
   createPhoto3DPass,
-  loadSpriteFrameMeta,
   type Photo3DPass,
-  type SpriteFrameMeta,
 } from './macCanvas/photo3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
 import {
@@ -53,7 +51,11 @@ import { createFpsSampler, createFrameLimiter } from './canvasTiming';
 
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
-const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
+const PHOTO_APP_META = {
+  sourceFrameWidth: 472,
+  sourceFrameHeight: 1024,
+  renderAspect: 0.72,
+};
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
@@ -112,7 +114,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let pointerActive = false;
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
-  let photoMeta: SpriteFrameMeta | null = null;
   let initialModeApplied = false;
 
   // env(safe-area-inset-*) is only readable through CSS, so a hidden probe
@@ -142,12 +143,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function layoutOptions() {
     return {
       safeInsets,
-      ...(photoMeta
-        ? {
-          photoAspect: photoMeta.aspect,
-          photoSourceText: `SRC ${photoMeta.frameWidth}x${photoMeta.frameHeight}`,
-        }
-        : {}),
+      photoAspect: PHOTO_APP_META.renderAspect,
+      photoSourceText: `SRC ${PHOTO_APP_META.sourceFrameWidth}x${PHOTO_APP_META.sourceFrameHeight}`,
     };
   }
 
@@ -847,10 +844,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     createPhoto3DPass(SHADER_URL, WALLPAPER_SPRITE, 2).then((pass) => {
       wallpaperPass = pass;
       resize();
-    }),
-    loadSpriteFrameMeta(PHOTO_APP_SPRITE).then((meta) => {
-      photoMeta = meta;
-      layoutDirty = true;
     }),
   ]).catch((error) => {
     console.warn('mac single canvas:', error);

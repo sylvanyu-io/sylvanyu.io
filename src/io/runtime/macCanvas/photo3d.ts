@@ -259,21 +259,6 @@ export function loadPhoto3DShader(shaderUrl: string) {
   return cached;
 }
 
-export type SpriteFrameMeta = {
-  frameWidth: number;
-  frameHeight: number;
-  aspect: number;
-};
-
-// Frame dimensions of a 3x2 Photo3D sprite without building any GPU resources
-// (the layout only needs the aspect and the "SRC WxH" caption).
-export async function loadSpriteFrameMeta(spriteUrl: string): Promise<SpriteFrameMeta> {
-  const image = await loadImage(spriteUrl);
-  const frameWidth = Math.max(1, Math.floor(image.width / 3));
-  const frameHeight = Math.max(1, Math.floor(image.height / 2));
-  return { frameWidth, frameHeight, aspect: frameWidth / frameHeight };
-}
-
 export async function createPhoto3DPass(shaderUrl: string, spriteUrl: string, layers = 2) {
   const [shaderBody, image] = await Promise.all([loadPhoto3DShader(shaderUrl), loadImage(spriteUrl)]);
   return new Photo3DPass(shaderBody, image, layers);
