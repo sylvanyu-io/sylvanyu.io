@@ -332,6 +332,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const touchViewport = layout.mobile || window.matchMedia('(hover: none), (pointer: coarse)').matches;
     const shouldShow = touchViewport
       && !gyro.active
+      && gyro.permissionState !== 'denied'
       && gyro.permissionState !== 'unsupported';
     const label = gyroControlLabel();
     const rect: Rect = {
