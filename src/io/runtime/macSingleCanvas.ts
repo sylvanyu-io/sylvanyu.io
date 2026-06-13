@@ -1056,40 +1056,57 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   start();
 
-  window.addEventListener(
-    'pagehide',
-    () => {
-      stop();
-      resizeObserver.disconnect();
-      root.removeEventListener('pointermove', onRootPointerMove);
-      root.removeEventListener('pointerleave', onRootPointerLeave);
-      root.removeEventListener('pointerup', onRootPointerEnd);
-      root.removeEventListener('pointercancel', onRootPointerEnd);
-      gyroButton.removeEventListener('click', onGyroButtonClick);
-      gyroButton.removeEventListener('touchstart', onGyroButtonTouchStart);
-      gyroButton.removeEventListener('touchend', onGyroButtonTouchEnd);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerleave', onPointerLeave);
-      canvas.removeEventListener('click', onClick);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('popstate', onPopState);
-      gyro.dispose();
-      safeAreaProbe.remove();
-      gyroButton.remove();
-      powerOffOverlay.destroy();
-      disposeTargets();
-      domWindows.destroy();
-      glassPipeline.dispose();
-      wallpaperPass?.dispose();
-      placeholder.dispose();
-      allLayers.forEach((layer) => layer?.texture.dispose());
-      geometry.dispose();
-      coverMaterial.dispose();
-      uiRectMaterial.dispose();
-      renderer.dispose();
-    },
-    { once: true },
-  );
+  let destroyed = false;
+
+  const destroy = () => {
+    if (destroyed) return;
+    destroyed = true;
+    stop();
+    resizeObserver.disconnect();
+    root.removeEventListener('pointermove', onRootPointerMove);
+    root.removeEventListener('pointerleave', onRootPointerLeave);
+    root.removeEventListener('pointerup', onRootPointerEnd);
+    root.removeEventListener('pointercancel', onRootPointerEnd);
+    gyroButton.removeEventListener('click', onGyroButtonClick);
+    gyroButton.removeEventListener('touchstart', onGyroButtonTouchStart);
+    gyroButton.removeEventListener('touchend', onGyroButtonTouchEnd);
+    canvas.removeEventListener('pointermove', onPointerMove);
+    canvas.removeEventListener('pointerleave', onPointerLeave);
+    canvas.removeEventListener('click', onClick);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('popstate', onPopState);
+    window.removeEventListener('pageshow', onPageShow);
+    window.removeEventListener('pagehide', onPageHide);
+    gyro.dispose();
+    safeAreaProbe.remove();
+    gyroButton.remove();
+    powerOffOverlay.destroy();
+    disposeTargets();
+    domWindows.destroy();
+    glassPipeline.dispose();
+    wallpaperPass?.dispose();
+    placeholder.dispose();
+    allLayers.forEach((layer) => layer?.texture.dispose());
+    geometry.dispose();
+    coverMaterial.dispose();
+    uiRectMaterial.dispose();
+    renderer.dispose();
+  };
+
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (!event.persisted) return;
+    resize();
+    start();
+  };
+
+  const onPageHide = (event: PageTransitionEvent) => {
+    stop();
+    if (event.persisted) return;
+    destroy();
+  };
+
+  window.addEventListener('pageshow', onPageShow);
+  window.addEventListener('pagehide', onPageHide);
 }
 
 export function mountMacSingleCanvases() {
