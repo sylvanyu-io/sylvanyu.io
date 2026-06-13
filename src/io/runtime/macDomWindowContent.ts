@@ -28,6 +28,8 @@ export type MacDomWindowRecord = {
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const REFLECTION_DEMO_ID = 'planar-reflection';
+const LOADING_APP = 'Loading app';
+const LOADING_ASSET = 'Loading asset';
 
 function div(className: string) {
   const element = document.createElement('div');
@@ -163,7 +165,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   }
 
   root.dataset.mounting = 'true';
-  setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', 'Loading Photo3D shader');
+  setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', LOADING_APP);
   try {
     const [{ mountPhoto3D }, shaderBody] = await Promise.all([
       import('./photo3d/rawWebgl'),
@@ -205,7 +207,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   photoStage.dataset.photo3dStage = '';
   photoStage.dataset.macWindowCanvas = 'photo';
   photoStage.setAttribute('aria-label', 'Photo3D live render');
-  const status = createAppLoader('Loading Photo3D app');
+  const status = createAppLoader(LOADING_APP);
   status.classList.add('mac-photo__status');
   status.dataset.photo3dStatus = '';
 
@@ -238,7 +240,7 @@ function renderReflection(record: MacDomWindowRecord) {
   canvas.className = 'mac-demo__canvas';
   canvas.dataset.canvasDemoCanvas = REFLECTION_DEMO_ID;
 
-  const loader = createAppLoader('Loading Reflection app');
+  const loader = createAppLoader(LOADING_APP);
   const hud = div('mac-demo__hud');
   hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
   record.canvasDemoHud = hud;
@@ -302,11 +304,11 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
   record.canvasDemoMountToken = mountToken;
   record.element.dataset.mountingDemo = 'true';
   const loader = record.body.querySelector('[data-app-loader]');
-  setAppLoaderState(loader, 'loading', 'Loading Reflection engine');
+  setAppLoaderState(loader, 'loading', LOADING_APP);
 
   try {
     const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
-    setAppLoaderState(loader, 'loading', 'Loading Reflection env');
+    setAppLoaderState(loader, 'loading', LOADING_ASSET);
     const handle = await module.initScene(canvas);
     if (record.canvasDemoMountToken !== mountToken || record.element.hidden) {
       handle.destroy();

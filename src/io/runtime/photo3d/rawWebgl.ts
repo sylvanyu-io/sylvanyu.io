@@ -277,7 +277,7 @@ export function mountPhoto3D(
   };
 
   const loadSprite = async (url: string) => {
-    setStatus('Loading sprite...');
+    setStatus('Loading asset');
     const frames = splitPhoto3DSprite(await loadPhoto3DImage(url), SPRITE_LAYOUT);
 
     textures.rgb0 = createTexture(gl, frames[3]);

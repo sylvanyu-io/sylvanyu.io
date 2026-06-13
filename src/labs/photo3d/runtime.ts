@@ -369,7 +369,7 @@ export const mountPhoto3D = (
   }
 
   const loadSprite = async (url: string) => {
-    setStatus('Loading sprite...');
+    setStatus('Loading asset');
     const frames = splitSprite(await loadImage(url), SPRITE_LAYOUT);
 
     textures.rgb0 = texFromSource(frames[3]);
@@ -680,7 +680,7 @@ export const mountPhoto3D = (
   });
 
   const init = async () => {
-    setStatus('Loading shader...');
+    setStatus('Loading app');
     const fragmentShader = `precision highp float;\nprecision highp int;\n${shaderBody}`;
     const nextProgram = gl.createProgram();
     if (!nextProgram) throw new Error('program unavailable');
