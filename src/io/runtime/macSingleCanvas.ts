@@ -109,7 +109,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
   const mobileHasExternalBackEntry = window.history.length > 1;
-  const mobileUsesPowerGuard = isEmbeddedBrowserHost() && !mobileHasExternalBackEntry;
+  const mobileUsesPowerGuard = mobileHasExternalBackEntry || isEmbeddedBrowserHost();
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
   if (!canvasEl) return;
@@ -394,21 +394,21 @@ export function mountMacSingleCanvas(rootInput: Element) {
     mobilePowerExiting = true;
     root.dataset.macPowerConfirm = 'exiting';
     powerOffOverlay.setExiting(true);
-    const closeRequested = requestHostClose({ allowWindowClose: !mobileHasExternalBackEntry }) === 'requested';
-    if (!mobileHasExternalBackEntry) {
+    if (mobileHasExternalBackEntry) {
       window.setTimeout(() => {
-        if (!document.hidden) resetMobilePowerExit();
-      }, closeRequested ? 1200 : 160);
+        if (document.hidden) return;
+        window.history.go(-1);
+        window.setTimeout(() => {
+          if (!document.hidden) resetMobilePowerExit();
+        }, 1200);
+      }, 160);
       return;
     }
 
+    const closeRequested = requestHostClose({ allowWindowClose: true }) === 'requested';
     window.setTimeout(() => {
-      if (document.hidden) return;
-      window.history.go(-1);
-      window.setTimeout(() => {
-        if (!document.hidden) resetMobilePowerExit();
-      }, 1200);
-    }, closeRequested ? 900 : 160);
+      if (!document.hidden) resetMobilePowerExit();
+    }, closeRequested ? 1200 : 160);
   }
 
   function openWindow(id: WindowId, updateHistory = true) {
