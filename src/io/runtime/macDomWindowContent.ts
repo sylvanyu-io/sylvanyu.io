@@ -195,8 +195,10 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   setText(record.title, win.title);
 
   if (win.id === 'photo') {
+    const photoFps = record.photo3dController?.fps ?? 0;
+    const fpsText = photoFps > 0 ? Math.round(photoFps).toString().padStart(3, ' ') : '---';
     setText(record.accessory, 'LIVE');
-    setText(record.photoHud, `FPS ${Math.round(state.fps).toString().padStart(3, ' ')}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
+    setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
     return;
   }
 
