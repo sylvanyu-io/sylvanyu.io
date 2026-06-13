@@ -85,7 +85,7 @@ const LANG_THUMB_GLASS: Partial<GlassParams> = {
 };
 const LANG_THUMB_INSET = 2;
 const GYRO_CONTROL_W = 104;
-const GYRO_CONTROL_H = 44;
+const GYRO_CONTROL_H = 32;
 const GYRO_CONTROL_GAP = 10;
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
@@ -500,23 +500,23 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function drawGyroControlOverlay(context: CanvasRenderingContext2D) {
     if (!gyroControlRect) return;
     const label = gyroControlLabel();
-    const iconCenterX = gyroControlRect.x + 27;
+    const iconCenterX = gyroControlRect.x + 25;
     const centerY = gyroControlRect.y + gyroControlRect.h * 0.5;
-    const labelX = gyroControlRect.x + 56;
+    const labelX = gyroControlRect.x + 50;
 
     context.save();
     context.shadowColor = 'rgba(0, 0, 0, .45)';
     context.shadowBlur = 7;
     context.shadowOffsetY = 1.5;
     context.strokeStyle = 'rgba(255, 255, 255, .94)';
-    context.lineWidth = 2.6;
+    context.lineWidth = 2.2;
     context.translate(iconCenterX, centerY);
     context.rotate(-0.2);
-    roundedRectPath(context, { x: -8, y: -8, w: 16, h: 16 }, 5);
+    roundedRectPath(context, { x: -7, y: -7, w: 14, h: 14 }, 4);
     context.stroke();
     context.beginPath();
-    context.moveTo(-4, 4);
-    context.lineTo(4, 4);
+    context.moveTo(-3.5, 3.5);
+    context.lineTo(3.5, 3.5);
     context.stroke();
     context.restore();
 
@@ -525,7 +525,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     context.shadowBlur = 7;
     context.shadowOffsetY = 1.5;
     context.fillStyle = 'rgba(255, 255, 255, .96)';
-    context.font = '700 12px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+    context.font = '700 11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
     context.textAlign = 'left';
     context.textBaseline = 'middle';
     context.fillText(label, labelX, centerY);
