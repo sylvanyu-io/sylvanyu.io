@@ -268,6 +268,7 @@ export function createMacDomWindows(
   const restoreOrigins = new Map<WindowId, RestoreOrigin>();
   let lastLang: Lang | null = null;
   let latestLayout: MacCanvasLayout | null = null;
+  let latestState: MacCanvasState | null = null;
 
   MAC_WINDOW_IDS.forEach((id) => {
     const record = createWindowElement(id, root, actions);
@@ -344,8 +345,24 @@ export function createMacDomWindows(
     });
   }
 
+  function syncDynamicWindowTexts() {
+    const layout = latestLayout;
+    const state = latestState;
+    if (!layout || !state) return;
+
+    MAC_WINDOW_IDS.forEach((id) => {
+      const record = records.get(id);
+      const win = windowById(layout, id);
+      if (!record || !win || !state.windows[id].open) return;
+      updateWindowTexts(record, win, state);
+    });
+  }
+
+  const textTimer = window.setInterval(syncDynamicWindowTexts, 500);
+
   function sync(layout: MacCanvasLayout, state: MacCanvasState) {
     latestLayout = layout;
+    latestState = state;
     root.__macCanvasLayout = layout;
     const activeId = activeWindowId(layout, state);
 
@@ -391,6 +408,7 @@ export function createMacDomWindows(
     },
     sync,
     destroy() {
+      window.clearInterval(textTimer);
       animations.forEach((animation) => animation.cancel());
       records.forEach((record) => {
         releaseWindowCanvasDemo(record);

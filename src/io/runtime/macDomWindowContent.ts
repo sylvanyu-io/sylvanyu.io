@@ -29,10 +29,6 @@ const SHADER_URL = '/io-design/assets/photo3d.fs';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
 const REFLECTION_DEMO_ID = 'planar-reflection';
 
-function showCanvasDemoDebug() {
-  return import.meta.env.DEV || new URLSearchParams(window.location.search).has('debugCanvas');
-}
-
 function div(className: string) {
   const element = document.createElement('div');
   element.className = className;
@@ -215,7 +211,6 @@ function renderReflection(record: MacDomWindowRecord) {
 
   const hud = div('mac-demo__hud');
   hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
-  hud.hidden = !showCanvasDemoDebug();
   record.canvasDemoHud = hud;
 
   stage.append(canvas, hud);
@@ -249,7 +244,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     const fpsText = demoFps > 0 ? Math.round(demoFps).toString().padStart(3, ' ') : '---';
     setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
     if (record.canvasDemoHud) {
-      record.canvasDemoHud.hidden = !showCanvasDemoDebug();
+      record.canvasDemoHud.hidden = false;
       setText(record.canvasDemoHud, `FPS ${fpsText}    ${demo.engine}    ${demo.label}`);
     }
     return;
