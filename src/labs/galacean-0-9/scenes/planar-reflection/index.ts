@@ -25,6 +25,7 @@ import type { CanvasDemoHandle } from '../../../../io/runtime/canvasDemoTypes'
 
 const MAX_RENDER_FPS = 60
 const PLANAR_REFLECTION_ENV_URL = '/io-design/assets/planar-reflection-env.bin'
+const UV_TEST_TEXTURE_SIZE = 512
 
 type ManualLoopEngine = WebGLEngine & {
   time?: { _reset?: () => void }
@@ -37,7 +38,9 @@ function canvasIdOf(canvas: HTMLCanvasElement | string) {
 }
 
 function createUvTestTexture(engine: WebGLEngine): Texture2D {
-  const size = 1024
+  const size = UV_TEST_TEXTURE_SIZE
+  const scale = size / 1024
+  const px = (value: number) => Math.round(value * scale)
   const gridCount = 4
   const cellSize = size / gridCount
   const canvas = document.createElement('canvas')
@@ -66,28 +69,28 @@ function createUvTestTexture(engine: WebGLEngine): Texture2D {
       ctx.globalAlpha = 1
 
       ctx.fillStyle = 'rgba(8, 13, 18, 0.86)'
-      ctx.fillRect(left + 14, top + 14, cellSize - 28, 54)
+      ctx.fillRect(left + px(14), top + px(14), cellSize - px(28), px(54))
 
       ctx.fillStyle = '#ffffff'
-      ctx.font = '700 30px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+      ctx.font = `700 ${px(30)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
       ctx.textBaseline = 'middle'
-      ctx.fillText(`UV ${index.toString().padStart(2, '0')}`, left + 30, top + 42)
+      ctx.fillText(`UV ${index.toString().padStart(2, '0')}`, left + px(30), top + px(42))
 
       ctx.fillStyle = 'rgba(8, 13, 18, 0.84)'
-      ctx.font = '800 92px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-      ctx.fillText(`${index + 1}`, left + 28, top + cellSize * 0.56)
+      ctx.font = `800 ${px(92)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+      ctx.fillText(`${index + 1}`, left + px(28), top + cellSize * 0.56)
 
-      ctx.font = '600 24px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-      ctx.fillText(`U${x} V${gridCount - 1 - y}`, left + 30, top + cellSize - 34)
+      ctx.font = `600 ${px(24)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+      ctx.fillText(`U${x} V${gridCount - 1 - y}`, left + px(30), top + cellSize - px(34))
     }
   }
 
   ctx.strokeStyle = 'rgba(8, 13, 18, 0.94)'
-  ctx.lineWidth = 8
-  ctx.strokeRect(4, 4, size - 8, size - 8)
+  ctx.lineWidth = px(8)
+  ctx.strokeRect(px(4), px(4), size - px(8), size - px(8))
 
   ctx.strokeStyle = 'rgba(8, 13, 18, 0.56)'
-  ctx.lineWidth = 5
+  ctx.lineWidth = px(5)
   for (let index = 1; index < gridCount; index += 1) {
     const pos = index * cellSize
     ctx.beginPath()
@@ -101,20 +104,20 @@ function createUvTestTexture(engine: WebGLEngine): Texture2D {
   }
 
   ctx.fillStyle = 'rgba(8, 13, 18, 0.9)'
-  ctx.fillRect(0, 0, size, 48)
+  ctx.fillRect(0, 0, size, px(48))
   ctx.fillStyle = '#ffffff'
-  ctx.font = '700 24px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-  ctx.fillText('UV TEST 1024', 20, 25)
-  ctx.fillText('U ->', size - 98, 25)
+  ctx.font = `700 ${px(24)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+  ctx.fillText(`UV TEST ${size}`, px(20), px(25))
+  ctx.fillText('U ->', size - px(98), px(25))
 
   ctx.save()
-  ctx.translate(size - 24, size - 94)
+  ctx.translate(size - px(24), size - px(94))
   ctx.rotate(-Math.PI / 2)
   ctx.fillText('V ->', 0, 0)
   ctx.restore()
 
   const texture = new Texture2D(engine, size, size)
-  texture.name = 'Generated UV test grid'
+  texture.name = `Generated UV test grid ${size}`
   texture.setImageSource(canvas)
   texture.filterMode = TextureFilterMode.Trilinear
   texture.wrapModeU = TextureWrapMode.Clamp
