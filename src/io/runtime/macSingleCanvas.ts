@@ -92,6 +92,7 @@ const LANG_THUMB_INSET = 2;
 const GYRO_CONTROL_W = 104;
 const GYRO_CONTROL_H = 32;
 const GYRO_CONTROL_GAP = 10;
+const MAC_APP_HISTORY_KEY = '__sylvanMacApp';
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
@@ -246,6 +247,40 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return activeId;
   }
 
+  function mobileHistoryAppId(value: unknown): WindowId | null {
+    if (!value || typeof value !== 'object') return null;
+    const id = (value as Record<string, unknown>)[MAC_APP_HISTORY_KEY];
+    return MAC_WINDOW_IDS.includes(id as WindowId) ? id as WindowId : null;
+  }
+
+  function mobileAppHistoryUrl(id: WindowId) {
+    const url = new URL(window.location.href);
+    url.hash = `app=${encodeURIComponent(id)}`;
+    return url;
+  }
+
+  function pushMobileAppHistory(id: WindowId) {
+    if (!layout.mobile || mobileHistoryAppId(window.history.state) === id) return;
+    const baseState = window.history.state && typeof window.history.state === 'object'
+      ? window.history.state
+      : {};
+    window.history.pushState({ ...baseState, [MAC_APP_HISTORY_KEY]: id }, '', mobileAppHistoryUrl(id));
+  }
+
+  function requestMobileWindowClose(id: WindowId) {
+    if (!layout.mobile || mobileHistoryAppId(window.history.state) !== id) return false;
+    window.history.back();
+    return true;
+  }
+
+  function openWindow(id: WindowId, updateHistory = true) {
+    if (layout.mobile) closeOtherWindows(id);
+    state.windows[id].open = true;
+    bringWindowFront(state, id);
+    markLayoutDirty();
+    if (updateHistory) pushMobileAppHistory(id);
+  }
+
   function enforceMobileSingleWindow() {
     if (!layout.mobile) return false;
     const openCount = MAC_WINDOW_IDS.filter((id) => state.windows[id].open).length;
@@ -277,9 +312,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
       markLayoutDirty();
     },
     setOpen(id, open) {
-      state.windows[id].open = open;
-      if (open && layout.mobile) closeOtherWindows(id);
-      if (open) bringWindowFront(state, id);
+      if (open) {
+        openWindow(id);
+        return;
+      }
+      state.windows[id].open = false;
       markLayoutDirty();
     },
     moveWindow(id, x, y) {
@@ -287,6 +324,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
       state.windows[id].x = next.x;
       state.windows[id].y = next.y;
       markLayoutDirty();
+    },
+    requestClose(id) {
+      return requestMobileWindowClose(id);
     },
   });
 
@@ -739,10 +779,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     domWindows.setRestoreOrigin(action.id, action.origin);
-    if (layout.mobile) closeOtherWindows(action.id);
-    state.windows[action.id].open = true;
-    bringWindowFront(state, action.id);
-    markLayoutDirty();
+    openWindow(action.id);
   }
 
   function eventPoint(event: PointerEvent | MouseEvent) {
@@ -789,6 +826,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
     else start();
   };
 
+  const onPopState = (event: PopStateEvent) => {
+    if (!layout.mobile) return;
+
+    const historyAppId = mobileHistoryAppId(event.state);
+    if (historyAppId) {
+      openWindow(historyAppId, false);
+      return;
+    }
+
+    const activeId = topOpenWindowId();
+    if (activeId) domWindows.minimize(activeId);
+  };
+
   const onRootPointerMove = (event: PointerEvent) => {
     updatePointer(eventPoint(event));
   };
@@ -831,6 +881,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('popstate', onPopState);
   canvas.style.touchAction = 'none';
   gyro.enable();
   syncGyroButton();
@@ -867,6 +918,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('popstate', onPopState);
       gyro.dispose();
       safeAreaProbe.remove();
       gyroButton.remove();

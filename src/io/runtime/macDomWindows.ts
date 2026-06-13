@@ -15,6 +15,7 @@ type MacDomWindowActions = {
   bringFront: (id: WindowId) => void;
   setOpen: (id: WindowId, open: boolean) => void;
   moveWindow: (id: WindowId, x: number, y: number) => void;
+  requestClose?: (id: WindowId) => boolean;
 };
 
 type MacDomWindowController = {
@@ -278,6 +279,7 @@ export function createMacDomWindows(
     record.close.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (actions.requestClose?.(id)) return;
       minimize(id);
     });
   });
