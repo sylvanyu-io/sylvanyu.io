@@ -1,9 +1,9 @@
 import { desktopCopy, desktopProjects, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
-import type { Photo3DController } from '../../labs/photo3d/runtime';
+import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
-import { loadPhoto3DShader } from './macCanvas/photo3d';
+import { loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 
@@ -141,7 +141,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   root.dataset.mounting = 'true';
   try {
     const [{ mountPhoto3D }, shaderBody] = await Promise.all([
-      import('../../labs/photo3d/runtime'),
+      import('./photo3d/rawWebgl'),
       loadPhoto3DShader(SHADER_URL),
     ]);
     const controller = mountPhoto3D(root, {
