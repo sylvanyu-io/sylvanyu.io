@@ -60,6 +60,8 @@ const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
 const BUSY_BACKGROUND_FPS = 30;
+const FPS_SAMPLE_WINDOW_MS = 5000;
+const FPS_SAMPLE_UPDATE_MS = 500;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -586,17 +588,30 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   let raf = 0;
-  let frameTimer = 0;
   let running = false;
-  let frameCount = 0;
-  let lastFpsTime = performance.now();
+  let fpsSamples: number[] = [];
+  let lastFpsUpdateTime = performance.now();
   let lastFrameMs = performance.now();
   const startTime = performance.now();
 
   function clearQueuedFrame() {
     cancelAnimationFrame(raf);
-    window.clearTimeout(frameTimer);
-    frameTimer = 0;
+  }
+
+  function resetFpsSamples(nowMs = performance.now()) {
+    fpsSamples = [];
+    lastFpsUpdateTime = nowMs;
+  }
+
+  function recordFpsSample(nowMs: number) {
+    fpsSamples.push(nowMs);
+    const cutoff = nowMs - FPS_SAMPLE_WINDOW_MS;
+    while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
+
+    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_UPDATE_MS || fpsSamples.length < 2) return;
+    const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
+    if (elapsed > 0) state.fps = ((fpsSamples.length - 1) * 1000) / elapsed;
+    lastFpsUpdateTime = nowMs;
   }
 
   function mobileWindowOpen() {
@@ -618,43 +633,37 @@ export function mountMacSingleCanvas(rootInput: Element) {
     clearQueuedFrame();
   }
 
-  function queueFrame(delayMs = 0) {
+  function queueFrame() {
     if (!running) return;
-    if (delayMs > 1) {
-      frameTimer = window.setTimeout(() => {
-        frameTimer = 0;
-        raf = requestAnimationFrame(frame);
-      }, delayMs);
-      return;
-    }
-
     raf = requestAnimationFrame(frame);
   }
 
-  function queueNextFrame() {
+  function shouldRenderFrame(nowMs: number) {
     const fpsLimit = currentCanvasFpsLimit();
     if (fpsLimit <= 0) {
       suspend();
-      return;
+      return false;
     }
 
     const frameInterval = 1000 / fpsLimit;
-    queueFrame(Math.max(0, frameInterval - (performance.now() - lastFrameMs)));
+    return nowMs - lastFrameMs >= frameInterval - 0.5;
   }
 
   function frame(nowMs: number) {
+    if (layoutDirty) {
+      rebuildLayout();
+      domWindows.sync(layout, state);
+    }
+
+    if (!shouldRenderFrame(nowMs)) {
+      if (running) queueFrame();
+      return;
+    }
+
     const time = (nowMs - startTime) / 1000;
     const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastFrameMs) / 1000));
     lastFrameMs = nowMs;
-    frameCount += 1;
-    if (nowMs - lastFpsTime > 500) {
-      const fpsLimit = currentCanvasFpsLimit();
-      state.fps = Math.min(fpsLimit > 0 ? fpsLimit : MAX_CANVAS_FPS, (frameCount * 1000) / (nowMs - lastFpsTime));
-      frameCount = 0;
-      lastFpsTime = nowMs;
-    }
-
-    if (layoutDirty) rebuildLayout();
+    recordFpsSample(nowMs);
     domWindows.sync(layout, state);
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
@@ -713,15 +722,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
       );
     }
 
-    if (running) queueNextFrame();
+    if (running) queueFrame();
   }
 
   function start() {
     if (running || document.hidden) return;
     running = true;
-    frameCount = 0;
-    lastFpsTime = performance.now();
-    lastFrameMs = performance.now() - (1000 / MAX_CANVAS_FPS);
+    const nowMs = performance.now();
+    resetFpsSamples(nowMs);
+    lastFrameMs = nowMs - (1000 / MAX_CANVAS_FPS);
     queueFrame();
   }
 

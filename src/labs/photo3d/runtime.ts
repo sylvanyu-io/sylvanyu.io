@@ -37,6 +37,8 @@ const F1 = 1248.0;
 const INVZMIN = 0.1282;
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
+const FPS_SAMPLE_WINDOW_MS = 5000;
+const FPS_SAMPLE_UPDATE_MS = 500;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -227,10 +229,10 @@ export const mountPhoto3D = (
   let program: WebGLProgram;
   let transparentTextureRef: WebGLTexture | null = null;
   let animationFrame = 0;
-  let animationTimer = 0;
   let running = false;
   let renderActive = true;
   let maxRenderFps = MAX_RENDER_FPS;
+  let lastFrameTime = performance.now();
   let dragging = false;
   let pointerActive = false;
   let smoothX = config.offsetX;
@@ -238,8 +240,8 @@ export const mountPhoto3D = (
   let mx = 0;
   let my = 0;
   let fps = 0;
-  let frameCount = 0;
-  let lastFpsTime = performance.now();
+  let fpsSamples: number[] = [];
+  let lastFpsUpdateTime = performance.now();
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
   const textures: Record<string, WebGLTexture | null> = {};
 
@@ -465,36 +467,46 @@ export const mountPhoto3D = (
     canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
   }
 
-  const queueFrame = (delayMs = 0) => {
-    if (!running || !renderActive) return;
-    if (delayMs > 1) {
-      animationTimer = window.setTimeout(() => {
-        animationTimer = 0;
-        animationFrame = requestAnimationFrame(frame);
-      }, delayMs);
-      return;
-    }
+  const resetFpsSamples = (nowMs = performance.now()) => {
+    fpsSamples = [];
+    lastFpsUpdateTime = nowMs;
+  };
 
+  const recordFpsSample = (nowMs: number) => {
+    fpsSamples.push(nowMs);
+    const cutoff = nowMs - FPS_SAMPLE_WINDOW_MS;
+    while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
+
+    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_UPDATE_MS || fpsSamples.length < 2) return;
+    const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
+    if (elapsed > 0) {
+      fps = ((fpsSamples.length - 1) * 1000) / elapsed;
+      updateStats();
+    }
+    lastFpsUpdateTime = nowMs;
+  };
+
+  const queueFrame = () => {
+    if (!running || !renderActive) return;
     animationFrame = requestAnimationFrame(frame);
   };
 
-  const queueNextFrame = (time: number) => {
-    queueFrame(Math.max(0, (1000 / maxRenderFps) - (performance.now() - time)));
+  const shouldRenderFrame = (time: number) => {
+    return time - lastFrameTime >= (1000 / maxRenderFps) - 0.5;
   };
 
   const stopLoop = () => {
     running = false;
     cancelAnimationFrame(animationFrame);
-    window.clearTimeout(animationTimer);
     animationFrame = 0;
-    animationTimer = 0;
   };
 
   const startLoop = () => {
     if (running || !renderActive) return;
     running = true;
-    frameCount = 0;
-    lastFpsTime = performance.now();
+    const nowMs = performance.now();
+    resetFpsSamples(nowMs);
+    lastFrameTime = nowMs - (1000 / maxRenderFps);
     queueFrame();
   };
 
@@ -528,13 +540,12 @@ export const mountPhoto3D = (
 
   const frame = (time = performance.now()) => {
     if (!renderActive) return;
-    frameCount += 1;
-    if (time - lastFpsTime >= 500) {
-      fps = Math.min(maxRenderFps, (frameCount * 1000) / (time - lastFpsTime));
-      frameCount = 0;
-      lastFpsTime = time;
-      updateStats();
+    if (!shouldRenderFrame(time)) {
+      queueFrame();
+      return;
     }
+    lastFrameTime = time;
+    recordFpsSample(time);
 
     let ox = config.offsetX;
     let oy = config.offsetY;
@@ -592,7 +603,7 @@ export const mountPhoto3D = (
     ]));
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    queueNextFrame(time);
+    queueFrame();
   };
 
   const bind = (id: string, key: NumericConfigKey, format: (value: number) => string) => {

@@ -22,6 +22,8 @@
   var INVZMIN = 0.1282;
   var MAX_EDGE = 2048;
   var MAX_FPS = 60;
+  var FPS_SAMPLE_WINDOW_MS = 5000;
+  var FPS_SAMPLE_UPDATE_MS = 500;
   var shaderCache = {};
 
   // When bundled into a standalone file, assets are inlined as blob URLs under window.__resources.
@@ -156,10 +158,9 @@
       this._mx = 0; this._my = 0;
       this._smoothX = this._cfg.offsetX; this._smoothY = this._cfg.offsetY;
       this._pointerActive = false;
-      this._fps = 0; this._frameCount = 0; this._lastFps = performance.now();
+      this._fps = 0; this._fpsSamples = []; this._lastFpsUpdate = performance.now();
       this._uniforms = {}; this._textures = {};
       this._raf = 0;
-      this._timer = 0;
       this._lastFrameTime = 0;
       this._ready = false;
 
@@ -198,7 +199,6 @@
 
     disconnectedCallback() {
       cancelAnimationFrame(this._raf);
-      clearTimeout(this._timer);
       if (this._ro) this._ro.disconnect();
       var target = this._track === 'window' ? window : this;
       if (this._onMove) {
@@ -335,46 +335,54 @@
       this._layout();
       this._ready = true;
       this.dataset.state = 'ready';
-      this._scheduleFrame(0);
+      this._resetFpsSamples(performance.now());
+      this._scheduleFrame();
     }
 
-    _scheduleFrame(delay) {
+    _resetFpsSamples(time) {
+      this._fpsSamples = [];
+      this._lastFpsUpdate = time;
+      this._lastFrameTime = time - (1000 / MAX_FPS);
+    }
+
+    _recordFpsSample(time) {
+      this._fpsSamples.push(time);
+      var cutoff = time - FPS_SAMPLE_WINDOW_MS;
+      while (this._fpsSamples.length > 0 && this._fpsSamples[0] < cutoff) this._fpsSamples.shift();
+      if (time - this._lastFpsUpdate < FPS_SAMPLE_UPDATE_MS || this._fpsSamples.length < 2) return;
+
+      var elapsed = this._fpsSamples[this._fpsSamples.length - 1] - this._fpsSamples[0];
+      if (elapsed > 0) this._fps = ((this._fpsSamples.length - 1) * 1000) / elapsed;
+      this._lastFpsUpdate = time;
+      if (this._statsEl) {
+        var cfg = this._cfg;
+        this._statsEl.textContent =
+          'FPS ' + Math.round(this._fps).toString().padStart(3, ' ') +
+          '  BUF ' + this._canvas.width + 'x' + this._canvas.height +
+          '  SRC ' + cfg.W + 'x' + cfg.H +
+          '  LDI ' + cfg.layers + 'L';
+      }
+    }
+
+    _scheduleFrame() {
       var self = this;
       if (!this._mounted || !this._ready) return;
-      if (delay > 1) {
-        this._timer = window.setTimeout(function () {
-          self._timer = 0;
-          self._raf = requestAnimationFrame(function (t) { self._frame(t); });
-        }, delay);
-        return;
-      }
-
       this._raf = requestAnimationFrame(function (t) { self._frame(t); });
     }
 
-    _scheduleNextFrame() {
-      var delay = Math.max(0, (1000 / MAX_FPS) - (performance.now() - this._lastFrameTime));
-      this._scheduleFrame(delay);
+    _shouldRenderFrame(time) {
+      return time - this._lastFrameTime >= (1000 / MAX_FPS) - 0.5;
     }
 
     _frame(time) {
       if (!this._mounted || !this._ready) return;
+      if (!this._shouldRenderFrame(time)) {
+        this._scheduleFrame();
+        return;
+      }
       this._lastFrameTime = time;
       var gl = this._gl, cfg = this._cfg, u = this._uniforms;
-
-      this._frameCount += 1;
-      if (time - this._lastFps >= 500) {
-        this._fps = Math.min(MAX_FPS, (this._frameCount * 1000) / (time - this._lastFps));
-        this._frameCount = 0;
-        this._lastFps = time;
-        if (this._statsEl) {
-          this._statsEl.textContent =
-            'FPS ' + Math.round(this._fps).toString().padStart(3, ' ') +
-            '  BUF ' + this._canvas.width + 'x' + this._canvas.height +
-            '  SRC ' + cfg.W + 'x' + cfg.H +
-            '  LDI ' + cfg.layers + 'L';
-        }
-      }
+      this._recordFpsSample(time);
 
       var targetX = cfg.offsetX, targetY = cfg.offsetY;
       if (this._pointerActive) {
@@ -408,7 +416,7 @@
       gl.uniform1fv(u['f1[0]'], new Float32Array([F1, F1, F1, 0]));
       gl.uniform2fv(u['iRes[0]'], new Float32Array([cfg.W, cfg.H, cfg.W, cfg.H, cfg.W, cfg.H, 1, 1]));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      this._scheduleNextFrame();
+      this._scheduleFrame();
     }
   }
 
