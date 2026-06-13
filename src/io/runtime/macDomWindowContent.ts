@@ -20,7 +20,6 @@ export type MacDomWindowRecord = {
   photoNote?: HTMLElement;
   photo3dController?: Photo3DController | null;
   canvasDemoHandle?: CanvasDemoHandle | null;
-  canvasDemoStatus?: HTMLElement;
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
@@ -201,7 +200,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
 }
 
 function renderReflection(record: MacDomWindowRecord) {
-  if (record.canvasDemoStatus) return;
+  if (record.canvasDemoHud) return;
 
   record.body.replaceChildren();
 
@@ -214,18 +213,12 @@ function renderReflection(record: MacDomWindowRecord) {
   canvas.className = 'mac-demo__canvas';
   canvas.dataset.canvasDemoCanvas = REFLECTION_DEMO_ID;
 
-  const status = document.createElement('p');
-  status.className = 'mac-demo__status';
-  status.dataset.canvasDemoStatus = REFLECTION_DEMO_ID;
-  status.textContent = 'Loading...';
-  record.canvasDemoStatus = status;
-
   const hud = div('mac-demo__hud');
   hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
   hud.hidden = !showCanvasDemoDebug();
   record.canvasDemoHud = hud;
 
-  stage.append(canvas, status, hud);
+  stage.append(canvas, hud);
   record.body.append(stage);
 }
 
@@ -283,10 +276,6 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
   const mountToken = (record.canvasDemoMountToken ?? 0) + 1;
   record.canvasDemoMountToken = mountToken;
   record.element.dataset.mountingDemo = 'true';
-  if (record.canvasDemoStatus) {
-    record.canvasDemoStatus.hidden = false;
-    record.canvasDemoStatus.textContent = 'Loading...';
-  }
 
   try {
     const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
@@ -310,16 +299,8 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
     };
     record.canvasDemoCleanup = cleanup;
 
-    if (record.canvasDemoStatus) {
-      record.canvasDemoStatus.textContent = 'Loaded';
-      record.canvasDemoStatus.hidden = !showCanvasDemoDebug();
-    }
   } catch (error) {
     console.warn('mac reflection demo:', error);
-    if (record.canvasDemoStatus) {
-      record.canvasDemoStatus.hidden = false;
-      record.canvasDemoStatus.textContent = 'Unable to load demo';
-    }
   } finally {
     delete record.element.dataset.mountingDemo;
   }
@@ -362,10 +343,6 @@ export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
   record.canvasDemoCleanup?.();
   record.canvasDemoCleanup = undefined;
   record.canvasDemoHandle = null;
-  if (record.canvasDemoStatus) {
-    record.canvasDemoStatus.hidden = false;
-    record.canvasDemoStatus.textContent = 'Loading...';
-  }
 }
 
 export { PHOTO_APP_HUD_HEIGHT };

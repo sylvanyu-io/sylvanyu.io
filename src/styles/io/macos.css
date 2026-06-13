@@ -470,22 +470,6 @@
     -webkit-user-select: none;
   }
 
-  .mac-demo__status {
-    position: absolute;
-    left: 14px;
-    top: 12px;
-    z-index: 2;
-    margin: 0;
-    color: rgba(255, 255, 255, .62);
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 10px;
-    pointer-events: none;
-  }
-
-  .mac-demo__status[hidden] {
-    display: none;
-  }
-
   .mac-demo__hud {
     position: absolute;
     left: 0;
