@@ -70,6 +70,8 @@ export function syncCanvasLayerRect(layer: CanvasLayer, rect: LayerRect, pixelRa
   if (layer.canvas.width !== deviceW || layer.canvas.height !== deviceH) {
     layer.canvas.width = deviceW;
     layer.canvas.height = deviceH;
+    layer.texture.dispose();
+    layer.texture = makeCanvasTexture(layer.canvas);
     layer.cacheKey = null;
     layer.dirty = true;
   }
