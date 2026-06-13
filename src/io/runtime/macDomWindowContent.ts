@@ -35,6 +35,34 @@ function div(className: string) {
   return element;
 }
 
+function createAppLoader(label: string) {
+  const loader = div('mac-app-loader');
+  loader.dataset.appLoader = '';
+  loader.dataset.state = 'loading';
+  loader.setAttribute('role', 'status');
+  loader.setAttribute('aria-live', 'polite');
+  loader.setAttribute('aria-label', label);
+
+  const ring = document.createElement('span');
+  ring.className = 'mac-app-loader__ring';
+  ring.setAttribute('aria-hidden', 'true');
+
+  const text = document.createElement('span');
+  text.className = 'mac-app-loader__text';
+  text.dataset.appLoaderText = '';
+
+  loader.append(ring, text);
+  return loader;
+}
+
+function setAppLoaderState(loader: Element | null | undefined, state: 'loading' | 'ready' | 'error', label: string) {
+  if (!(loader instanceof HTMLElement)) return;
+  loader.hidden = state === 'ready';
+  loader.dataset.state = state;
+  loader.setAttribute('aria-label', label);
+  setText(loader.querySelector('[data-app-loader-text]'), state === 'error' ? label : '');
+}
+
 function setText(element: Element | null | undefined, value: string) {
   if (element && element.textContent !== value) element.textContent = value;
 }
@@ -175,10 +203,9 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   photoStage.dataset.photo3dStage = '';
   photoStage.dataset.macWindowCanvas = 'photo';
   photoStage.setAttribute('aria-label', 'Photo3D live render');
-  const status = document.createElement('p');
-  status.className = 'mac-photo__status';
+  const status = createAppLoader('Loading Photo3D app');
+  status.classList.add('mac-photo__status');
   status.dataset.photo3dStatus = '';
-  status.textContent = 'Loading...';
 
   const hud = div('mac-photo__hud');
   record.photoHud = hud;
@@ -209,11 +236,12 @@ function renderReflection(record: MacDomWindowRecord) {
   canvas.className = 'mac-demo__canvas';
   canvas.dataset.canvasDemoCanvas = REFLECTION_DEMO_ID;
 
+  const loader = createAppLoader('Loading Reflection app');
   const hud = div('mac-demo__hud');
   hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
   record.canvasDemoHud = hud;
 
-  stage.append(canvas, hud);
+  stage.append(canvas, loader, hud);
   record.body.append(stage);
 }
 
@@ -271,6 +299,8 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
   const mountToken = (record.canvasDemoMountToken ?? 0) + 1;
   record.canvasDemoMountToken = mountToken;
   record.element.dataset.mountingDemo = 'true';
+  const loader = record.body.querySelector('[data-app-loader]');
+  setAppLoaderState(loader, 'loading', 'Loading Reflection app');
 
   try {
     const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
@@ -281,6 +311,7 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
     }
 
     record.canvasDemoHandle = handle;
+    setAppLoaderState(loader, 'ready', 'Reflection app loaded');
     handle.setMaxFps?.(60);
     handle.resize?.();
     if (record.element.dataset.active === 'true') handle.resume?.();
@@ -296,6 +327,7 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
 
   } catch (error) {
     console.warn('mac reflection demo:', error);
+    setAppLoaderState(loader, 'error', 'Reflection app failed to load');
   } finally {
     delete record.element.dataset.mountingDemo;
   }

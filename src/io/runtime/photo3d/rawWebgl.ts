@@ -124,16 +124,23 @@ export function mountPhoto3D(
     return null;
   }
 
+  const statusText = statusEl.querySelector('[data-app-loader-text]');
   const setStatus = (message: string, error = false) => {
     statusEl.hidden = false;
-    statusEl.textContent = message;
+    statusEl.dataset.state = error ? 'error' : 'loading';
+    statusEl.setAttribute('aria-label', message);
+    if (statusText) setText(statusText, error ? message : '');
+    else statusEl.textContent = message;
     statusEl.classList.toggle('err', error);
     root.dataset.state = error ? 'error' : 'loading';
   };
 
   const hideStatus = () => {
     statusEl.hidden = true;
-    statusEl.textContent = '';
+    statusEl.dataset.state = 'ready';
+    statusEl.removeAttribute('aria-label');
+    if (statusText) setText(statusText, '');
+    else statusEl.textContent = '';
     statusEl.classList.remove('err');
   };
 
