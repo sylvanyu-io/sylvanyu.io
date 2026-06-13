@@ -284,9 +284,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return url;
   }
 
-  function mobileHomeHistoryUrl() {
+  function mobileExitHistoryUrl() {
     const url = new URL(window.location.href);
     url.hash = '';
+    return url;
+  }
+
+  function mobileHomeHistoryUrl() {
+    const url = new URL(window.location.href);
+    url.hash = 'home';
     return url;
   }
 
@@ -335,7 +341,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
-    window.history.replaceState(mobileHistoryBaseState(), '', mobileHomeHistoryUrl());
+    window.history.replaceState(mobileHistoryBaseState(), '', mobileExitHistoryUrl());
     writeMobileHomeGuard('push');
     mobileHistoryReady = true;
   }
@@ -945,6 +951,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (mobileHistoryHasKey(event.state, MAC_POWER_HISTORY_KEY)) {
       showMobilePowerConfirm(false);
+      return;
+    }
+
+    if (mobileHistoryHasKey(event.state, MAC_HOME_GUARD_HISTORY_KEY)) {
+      hideMobilePowerConfirm();
+      const activeId = topOpenWindowId();
+      if (activeId) domWindows.minimize(activeId);
       return;
     }
 
