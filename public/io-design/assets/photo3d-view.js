@@ -380,7 +380,7 @@
 
       var frameInterval = 1000 / MAX_FPS;
       var elapsed = time - this._frameClockTime;
-      if (elapsed < frameInterval - 0.5) return false;
+      if (elapsed < frameInterval) return false;
 
       this._frameClockTime = time - (elapsed % frameInterval);
       return true;

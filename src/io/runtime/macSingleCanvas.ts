@@ -658,7 +658,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     const frameInterval = 1000 / fpsLimit;
     const elapsed = nowMs - frameClockMs;
-    if (elapsed < frameInterval - 0.5) return false;
+    if (elapsed < frameInterval) return false;
 
     frameClockMs = nowMs - (elapsed % frameInterval);
     return true;

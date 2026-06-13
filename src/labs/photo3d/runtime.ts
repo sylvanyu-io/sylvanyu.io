@@ -502,7 +502,7 @@ export const mountPhoto3D = (
 
     const frameInterval = 1000 / maxRenderFps;
     const elapsed = time - frameClockTime;
-    if (elapsed < frameInterval - 0.5) return false;
+    if (elapsed < frameInterval) return false;
 
     frameClockTime = time - (elapsed % frameInterval);
     return true;
