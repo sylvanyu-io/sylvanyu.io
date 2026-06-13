@@ -232,7 +232,8 @@ export const mountPhoto3D = (
   let running = false;
   let renderActive = true;
   let maxRenderFps = MAX_RENDER_FPS;
-  let lastFrameTime = performance.now();
+  let frameClockTime = performance.now();
+  let activeFrameLimit = maxRenderFps;
   let dragging = false;
   let pointerActive = false;
   let smoothX = config.offsetX;
@@ -486,13 +487,26 @@ export const mountPhoto3D = (
     lastFpsUpdateTime = nowMs;
   };
 
+  const resetFrameLimiter = (nowMs = performance.now()) => {
+    activeFrameLimit = maxRenderFps;
+    frameClockTime = nowMs - (1000 / maxRenderFps);
+    resetFpsSamples(nowMs);
+  };
+
   const queueFrame = () => {
     if (!running || !renderActive) return;
     animationFrame = requestAnimationFrame(frame);
   };
 
   const shouldRenderFrame = (time: number) => {
-    return time - lastFrameTime >= (1000 / maxRenderFps) - 0.5;
+    if (maxRenderFps !== activeFrameLimit) resetFrameLimiter(time);
+
+    const frameInterval = 1000 / maxRenderFps;
+    const elapsed = time - frameClockTime;
+    if (elapsed < frameInterval - 0.5) return false;
+
+    frameClockTime = time - (elapsed % frameInterval);
+    return true;
   };
 
   const stopLoop = () => {
@@ -504,9 +518,7 @@ export const mountPhoto3D = (
   const startLoop = () => {
     if (running || !renderActive) return;
     running = true;
-    const nowMs = performance.now();
-    resetFpsSamples(nowMs);
-    lastFrameTime = nowMs - (1000 / maxRenderFps);
+    resetFrameLimiter();
     queueFrame();
   };
 
@@ -523,7 +535,10 @@ export const mountPhoto3D = (
       }
     },
     setMaxFps(fpsLimit) {
-      maxRenderFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS));
+      const nextFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS));
+      if (nextFps === maxRenderFps) return;
+      maxRenderFps = nextFps;
+      if (running) resetFrameLimiter();
     },
     dispose() {
       stopLoop();
@@ -544,7 +559,6 @@ export const mountPhoto3D = (
       queueFrame();
       return;
     }
-    lastFrameTime = time;
     recordFpsSample(time);
 
     let ox = config.offsetX;

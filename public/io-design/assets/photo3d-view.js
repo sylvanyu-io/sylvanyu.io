@@ -161,7 +161,8 @@
       this._fps = 0; this._fpsSamples = []; this._lastFpsUpdate = performance.now();
       this._uniforms = {}; this._textures = {};
       this._raf = 0;
-      this._lastFrameTime = 0;
+      this._frameClockTime = 0;
+      this._activeFrameLimit = MAX_FPS;
       this._ready = false;
 
       var gl = this._canvas.getContext('webgl', { alpha: false, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: true });
@@ -335,14 +336,19 @@
       this._layout();
       this._ready = true;
       this.dataset.state = 'ready';
-      this._resetFpsSamples(performance.now());
+      this._resetFrameLimiter(performance.now());
       this._scheduleFrame();
     }
 
     _resetFpsSamples(time) {
       this._fpsSamples = [];
       this._lastFpsUpdate = time;
-      this._lastFrameTime = time - (1000 / MAX_FPS);
+    }
+
+    _resetFrameLimiter(time) {
+      this._activeFrameLimit = MAX_FPS;
+      this._frameClockTime = time - (1000 / MAX_FPS);
+      this._resetFpsSamples(time);
     }
 
     _recordFpsSample(time) {
@@ -371,7 +377,14 @@
     }
 
     _shouldRenderFrame(time) {
-      return time - this._lastFrameTime >= (1000 / MAX_FPS) - 0.5;
+      if (this._activeFrameLimit !== MAX_FPS) this._resetFrameLimiter(time);
+
+      var frameInterval = 1000 / MAX_FPS;
+      var elapsed = time - this._frameClockTime;
+      if (elapsed < frameInterval - 0.5) return false;
+
+      this._frameClockTime = time - (elapsed % frameInterval);
+      return true;
     }
 
     _frame(time) {
@@ -380,7 +393,6 @@
         this._scheduleFrame();
         return;
       }
-      this._lastFrameTime = time;
       var gl = this._gl, cfg = this._cfg, u = this._uniforms;
       this._recordFpsSample(time);
 

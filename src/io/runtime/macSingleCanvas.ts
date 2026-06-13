@@ -591,7 +591,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let running = false;
   let fpsSamples: number[] = [];
   let lastFpsUpdateTime = performance.now();
-  let lastFrameMs = performance.now();
+  let lastRenderMs = performance.now();
+  let frameClockMs = performance.now();
+  let activeFpsLimit = MAX_CANVAS_FPS;
   const startTime = performance.now();
 
   function clearQueuedFrame() {
@@ -628,6 +630,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return activeWindowHasCanvas() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
   }
 
+  function resetFrameLimiter(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
+    activeFpsLimit = fpsLimit;
+    const frameInterval = fpsLimit > 0 ? 1000 / fpsLimit : 0;
+    frameClockMs = nowMs - frameInterval;
+    lastRenderMs = frameClockMs;
+    resetFpsSamples(nowMs);
+  }
+
   function suspend() {
     running = false;
     clearQueuedFrame();
@@ -645,8 +655,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return false;
     }
 
+    if (fpsLimit !== activeFpsLimit) resetFrameLimiter(nowMs, fpsLimit);
+
     const frameInterval = 1000 / fpsLimit;
-    return nowMs - lastFrameMs >= frameInterval - 0.5;
+    const elapsed = nowMs - frameClockMs;
+    if (elapsed < frameInterval - 0.5) return false;
+
+    frameClockMs = nowMs - (elapsed % frameInterval);
+    return true;
   }
 
   function frame(nowMs: number) {
@@ -661,8 +677,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     const time = (nowMs - startTime) / 1000;
-    const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastFrameMs) / 1000));
-    lastFrameMs = nowMs;
+    const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastRenderMs) / 1000));
+    lastRenderMs = nowMs;
     recordFpsSample(nowMs);
     domWindows.sync(layout, state);
 
@@ -728,9 +744,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function start() {
     if (running || document.hidden) return;
     running = true;
-    const nowMs = performance.now();
-    resetFpsSamples(nowMs);
-    lastFrameMs = nowMs - (1000 / MAX_CANVAS_FPS);
+    resetFrameLimiter();
     queueFrame();
   }
 
