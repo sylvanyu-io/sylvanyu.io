@@ -5,6 +5,7 @@ export type CanvasDemoHandle = {
   setStatsVisible?: (visible: boolean) => void;
   resize?: () => void;
   destroy: () => void;
+  readonly active?: boolean;
   readonly fps?: number;
 };
 

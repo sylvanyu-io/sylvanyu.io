@@ -494,6 +494,9 @@ export const mountPhoto3D = (
     running = false;
     cancelAnimationFrame(animationFrame);
     animationFrame = 0;
+    fps = 0;
+    fpsSampler.reset();
+    updateStats();
   };
 
   const startLoop = () => {

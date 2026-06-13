@@ -224,6 +224,8 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
   const pause = () => {
     running = false
     cancelAnimationFrame(raf)
+    fps = 0
+    fpsSampler.reset()
   }
 
   resume()
@@ -249,6 +251,9 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
       document.body.classList.remove('galacean-stats-open')
       document.querySelectorAll('.gl-perf').forEach((node) => node.remove())
       ;(engine as WebGLEngine & { destroy?: () => void }).destroy?.()
+    },
+    get active() {
+      return running
     },
     get fps() {
       return fps
