@@ -241,18 +241,20 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   setText(record.title, win.title);
 
   if (win.id === 'photo') {
-    const photoFps = record.photo3dController?.fps ?? 0;
+    const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
+    const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
     const fpsText = photoFps > 0 ? Math.round(photoFps).toString().padStart(3, ' ') : '---';
-    setText(record.accessory, 'LIVE');
+    setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
     setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
     return;
   }
 
   if (win.id === 'reflection') {
     const demo = macCanvasDemos[REFLECTION_DEMO_ID];
-    const demoFps = record.canvasDemoHandle?.fps ?? 0;
+    const demoActive = record.canvasDemoHandle?.active ?? record.element.dataset.active === 'true';
+    const demoFps = demoActive ? record.canvasDemoHandle?.fps ?? 0 : 0;
     const fpsText = demoFps > 0 ? Math.round(demoFps).toString().padStart(3, ' ') : '---';
-    setText(record.accessory, 'LIVE');
+    setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
     if (record.canvasDemoHud) {
       record.canvasDemoHud.hidden = !showCanvasDemoDebug();
       setText(record.canvasDemoHud, `FPS ${fpsText}    ${demo.engine}    ${demo.label}`);
