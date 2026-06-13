@@ -18,7 +18,8 @@ export type HitTarget = Rect & {
   cursor: 'default' | 'pointer';
   action:
     | { type: 'lang'; lang: Lang }
-    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' };
+    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' }
+    | { type: 'gyro' };
 };
 
 export type MacCanvasState = {
@@ -31,8 +32,9 @@ export type MacCanvasState = {
 type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects';
 
 export type IconCell = {
-  id: WindowId | 'lang';
+  id: WindowId | 'lang' | 'gyro';
   labelKey?: IconLabelKey;
+  label?: string;
   x: number;
   y: number;
   w: number;
@@ -83,9 +85,11 @@ export type MacCanvasLayout = {
 };
 
 export type MacCanvasLayoutOptions = {
+  gyroLabel?: string;
   photoAspect?: number;
   photoSourceText?: string;
   safeInsets?: SafeInsets;
+  showGyroApp?: boolean;
 };
 
 type IconDef = {
@@ -211,9 +215,9 @@ function boundsOf(rects: Rect[]): Rect {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-// iOS-style home screen grid: app icons in 4 columns plus a language tile,
-// laid out below the widgets.
-function buildMobileIconCells(width: number, top: number): IconCell[] {
+// iOS-style home screen grid: app icons in 4 columns plus optional utility
+// tiles, laid out below the widgets.
+function buildMobileIconCells(width: number, top: number, options: MacCanvasLayoutOptions): IconCell[] {
   const sidePad = 20;
   const columns = 4;
   const cellW = Math.floor((width - sidePad * 2) / columns);
@@ -244,17 +248,18 @@ function buildMobileIconCells(width: number, top: number): IconCell[] {
     labelKey: icon.labelKey,
     ...cellAt(index),
   }));
-  cells.push({ id: 'lang', ...cellAt(icons.length) });
+  if (options.showGyroApp) cells.push({ id: 'gyro', label: options.gyroLabel ?? 'TILT', ...cellAt(cells.length) });
+  cells.push({ id: 'lang', ...cellAt(cells.length) });
   return cells;
 }
 
-function buildDesktopIconCells(): IconCell[] {
+function buildDesktopIconCells(options: MacCanvasLayoutOptions): IconCell[] {
   const iconX = 18;
   const iconTop = 56;
   const iconGap = 18;
   const itemH = 76;
 
-  return icons.map((icon, index) => {
+  const cells: IconCell[] = icons.map((icon, index) => {
     const y = iconTop + index * (itemH + iconGap);
     const imgY = y + 4;
     return {
@@ -271,6 +276,26 @@ function buildDesktopIconCells(): IconCell[] {
       labelY: imgY + 54 + 8,
     };
   });
+
+  if (options.showGyroApp) {
+    const y = iconTop + cells.length * (itemH + iconGap);
+    const imgY = y + 4;
+    cells.push({
+      id: 'gyro',
+      label: options.gyroLabel ?? 'TILT',
+      x: iconX,
+      y,
+      w: 86,
+      h: itemH,
+      imgX: iconX + 16,
+      imgY,
+      imgSize: 54,
+      labelX: iconX + 45,
+      labelY: imgY + 54 + 8,
+    });
+  }
+
+  return cells;
 }
 
 export function buildMacCanvasLayout(
@@ -323,7 +348,7 @@ export function buildMacCanvasLayout(
   widgetGlassPanels.push(widgets.clock, widgets.status);
 
   const iconsTop = mobile ? widgets.status.y + widgets.status.h + 26 : 56;
-  const iconCells = mobile ? buildMobileIconCells(width, iconsTop) : buildDesktopIconCells();
+  const iconCells = mobile ? buildMobileIconCells(width, iconsTop, options) : buildDesktopIconCells(options);
   iconCells.forEach((cell) => {
     hitTargets.push({
       x: cell.x,
@@ -333,7 +358,9 @@ export function buildMacCanvasLayout(
       cursor: 'pointer',
       action: cell.id === 'lang'
         ? { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' }
-        : { type: 'open', id: cell.id, origin: 'desktop' },
+        : cell.id === 'gyro'
+          ? { type: 'gyro' }
+          : { type: 'open', id: cell.id, origin: 'desktop' },
     });
   });
 
@@ -570,12 +597,67 @@ function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   ctx.restore();
 }
 
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const radius = Math.min(r, w * 0.5, h * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+function drawGyroIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
+  const { imgX, imgY, imgSize } = cell;
+  const centerX = imgX + imgSize * 0.5;
+  const centerY = imgY + imgSize * 0.5;
+  const phoneW = imgSize * 0.46;
+  const phoneH = imgSize * 0.64;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(-0.18);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 9;
+  ctx.shadowOffsetY = 4;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.lineWidth = Math.max(2.3, imgSize * 0.055);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  roundRectPath(ctx, -phoneW * 0.5, -phoneH * 0.5, phoneW, phoneH, imgSize * 0.13);
+  ctx.stroke();
+
+  ctx.shadowBlur = 5;
+  ctx.beginPath();
+  ctx.moveTo(-phoneW * 0.2, phoneH * 0.26);
+  ctx.lineTo(phoneW * 0.2, phoneH * 0.26);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.66)';
+  ctx.lineWidth = Math.max(1.6, imgSize * 0.035);
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
+  ctx.shadowBlur = 5;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, imgSize * 0.38, -0.82, -0.38);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, imgSize * 0.38, Math.PI - 0.38, Math.PI - 0.82, true);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
   const copy = desktopCopy[state.lang];
 
   layout.iconCells.forEach((cell) => {
     if (cell.id === 'lang') {
       drawLangIcon(ctx, cell);
+    } else if (cell.id === 'gyro') {
+      drawGyroIcon(ctx, cell);
     } else {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.34)';
@@ -587,6 +669,8 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
 
     const label = cell.id === 'lang'
       ? (state.lang === 'en' ? '中文' : 'English')
+      : cell.id === 'gyro'
+        ? cell.label ?? 'TILT'
       : copy[cell.labelKey as IconLabelKey];
 
     ctx.save();

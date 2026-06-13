@@ -91,9 +91,6 @@ const LANG_THUMB_GLASS: Partial<GlassParams> = {
   edge: 0.7,
 };
 const LANG_THUMB_INSET = 2;
-const GYRO_CONTROL_W = 104;
-const GYRO_CONTROL_H = 32;
-const GYRO_CONTROL_GAP = 10;
 const MAC_APP_HISTORY_KEY = '__sylvanMacApp';
 const MAC_HOME_GUARD_HISTORY_KEY = '__sylvanMacHomeGuard';
 const MAC_POWER_HISTORY_KEY = '__sylvanMacPowerConfirm';
@@ -131,13 +128,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     + 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
   root.append(safeAreaProbe);
 
-  const gyroButton = document.createElement('button');
-  gyroButton.type = 'button';
-  gyroButton.className = 'mac-gyro-permission';
-  gyroButton.hidden = true;
-  gyroButton.setAttribute('aria-label', 'Enable motion parallax');
-  root.append(gyroButton);
-
   const powerOffOverlay = createMacPowerOffOverlay(root, {
     onCancel: cancelMobilePowerConfirm,
     onComplete: completeMobilePowerOff,
@@ -152,10 +142,28 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   let safeInsets = readSafeInsets();
+  let cssWidth = 1;
+  let cssHeight = 1;
+
+  function gyroControlLabel() {
+    return gyro.permissionState === 'insecure' ? 'HTTPS' : 'TILT';
+  }
+
+  function shouldShowGyroApp() {
+    const mobileViewport = cssWidth <= 700 || cssHeight > cssWidth * 1.18;
+    const touchViewport = mobileViewport || window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    return touchViewport
+      && !gyro.active
+      && gyro.permissionState !== 'denied'
+      && gyro.permissionState !== 'granted'
+      && gyro.permissionState !== 'unsupported';
+  }
 
   function layoutOptions() {
     return {
+      gyroLabel: gyroControlLabel(),
       safeInsets,
+      showGyroApp: shouldShowGyroApp(),
       photoAspect: PHOTO_APP_META.renderAspect,
       photoSourceText: `SRC ${PHOTO_APP_META.sourceFrameWidth}x${PHOTO_APP_META.sourceFrameHeight}`,
     };
@@ -166,8 +174,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
   let backgroundPixelRatio = 1;
-  let cssWidth = 1;
-  let cssHeight = 1;
   let renderWidth = 1;
   let renderHeight = 1;
   let backgroundWidth = 1;
@@ -226,13 +232,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const iconsLayer = makeCanvasLayer();
   const widgetLayer = makeCanvasLayer();
   const dockLayer = makeCanvasLayer();
-  const gyroLayer = makeCanvasLayer();
   const menubarLayer = makeCanvasLayer();
-  const allLayers = [iconsLayer, widgetLayer, dockLayer, gyroLayer, menubarLayer];
+  const allLayers = [iconsLayer, widgetLayer, dockLayer, menubarLayer];
   if (allLayers.some((layer) => !layer)) return;
-
-  let gyroControlRect: Rect | null = null;
-  let gyroTouchHandledAt = 0;
 
   function markLayoutDirty() {
     layoutDirty = true;
@@ -507,46 +509,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     }
 
-    syncGyroButton();
     ensureMobileHomeHistory();
-  }
-
-  function syncGyroButton() {
-    const touchViewport = layout.mobile || window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    const shouldShow = touchViewport
-      && !gyro.active
-      && gyro.permissionState !== 'denied'
-      && gyro.permissionState !== 'unsupported';
-    const label = gyroControlLabel();
-    const rect: Rect = {
-      x: Math.round((cssWidth - GYRO_CONTROL_W) * 0.5),
-      y: Math.round(layout.dock.panel.y - GYRO_CONTROL_GAP - GYRO_CONTROL_H),
-      w: GYRO_CONTROL_W,
-      h: GYRO_CONTROL_H,
-    };
-
-    gyroButton.hidden = !shouldShow;
-    gyroButton.disabled = gyro.permissionState === 'insecure' || gyro.permissionState === 'unsupported';
-    gyroButton.dataset.state = gyro.permissionState;
-    gyroButton.setAttribute('aria-label', label === 'HTTPS' ? 'Motion parallax needs HTTPS' : 'Enable motion parallax');
-    gyroButton.style.left = `${rect.x}px`;
-    gyroButton.style.top = `${rect.y}px`;
-    gyroButton.style.width = `${rect.w}px`;
-    gyroButton.style.height = `${rect.h}px`;
-
-    const nextRect = shouldShow ? rect : null;
-    const changed = !gyroControlRect
-      ? Boolean(nextRect)
-      : !nextRect
-        || gyroControlRect.x !== nextRect.x
-        || gyroControlRect.y !== nextRect.y
-        || gyroControlRect.w !== nextRect.w
-        || gyroControlRect.h !== nextRect.h;
-    gyroControlRect = nextRect;
-    if (changed && gyroLayer) {
-      gyroLayer.cacheKey = null;
-      gyroLayer.dirty = true;
-    }
   }
 
   function resize() {
@@ -670,7 +633,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     drawRectLayer(
       iconsLayer as CanvasLayer,
       layout.iconsRect,
-      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assets ? 1 : 0}`,
+      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assets ? 1 : 0}:${layout.iconCells.map((cell) => `${cell.id}:${cell.label ?? ''}`).join(',')}`,
       (context) => drawMacDesktopIcons(context, layout, assets, state),
       baseTarget,
     );
@@ -694,78 +657,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
         params: LANG_THUMB_GLASS,
       },
     ];
-  }
-
-  function gyroGlassPanels(): GlassPanelInput[] {
-    if (!gyroControlRect) return [];
-    return [{
-      x: gyroControlRect.x,
-      y: gyroControlRect.y,
-      w: gyroControlRect.w,
-      h: gyroControlRect.h,
-      r: gyroControlRect.h * 0.5,
-    }];
-  }
-
-  function gyroControlLabel() {
-    return gyro.permissionState === 'insecure' ? 'HTTPS' : 'TILT';
-  }
-
-  function roundedRectPath(context: CanvasRenderingContext2D, rect: Rect, radius: number) {
-    const r = Math.min(radius, rect.w * 0.5, rect.h * 0.5);
-    context.beginPath();
-    context.moveTo(rect.x + r, rect.y);
-    context.arcTo(rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h, r);
-    context.arcTo(rect.x + rect.w, rect.y + rect.h, rect.x, rect.y + rect.h, r);
-    context.arcTo(rect.x, rect.y + rect.h, rect.x, rect.y, r);
-    context.arcTo(rect.x, rect.y, rect.x + rect.w, rect.y, r);
-    context.closePath();
-  }
-
-  function drawGyroControlOverlay(context: CanvasRenderingContext2D) {
-    if (!gyroControlRect) return;
-    const label = gyroControlLabel();
-    const centerY = gyroControlRect.y + gyroControlRect.h * 0.5;
-    const iconSize = 14;
-    const iconLabelGap = 13;
-
-    context.save();
-    context.font = '700 11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
-    const labelMetrics = context.measureText(label);
-    const labelW = labelMetrics.width;
-    const groupW = iconSize + iconLabelGap + labelW;
-    const groupX = gyroControlRect.x + (gyroControlRect.w - groupW) * 0.5;
-    const iconCenterX = groupX + iconSize * 0.5;
-    const labelX = groupX + iconSize + iconLabelGap;
-    const labelBaselineY = centerY + ((labelMetrics.actualBoundingBoxAscent || 8) - (labelMetrics.actualBoundingBoxDescent || 2)) * 0.5;
-    context.restore();
-
-    context.save();
-    context.shadowColor = 'rgba(0, 0, 0, .45)';
-    context.shadowBlur = 7;
-    context.shadowOffsetY = 1.5;
-    context.strokeStyle = 'rgba(255, 255, 255, .94)';
-    context.lineWidth = 2.2;
-    context.translate(iconCenterX, centerY);
-    context.rotate(-0.2);
-    roundedRectPath(context, { x: -iconSize * 0.5, y: -iconSize * 0.5, w: iconSize, h: iconSize }, 4);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(-3.5, 3.5);
-    context.lineTo(3.5, 3.5);
-    context.stroke();
-    context.restore();
-
-    context.save();
-    context.shadowColor = 'rgba(0, 0, 0, .48)';
-    context.shadowBlur = 7;
-    context.shadowOffsetY = 1.5;
-    context.fillStyle = 'rgba(255, 255, 255, .96)';
-    context.font = '700 11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
-    context.textAlign = 'left';
-    context.textBaseline = 'alphabetic';
-    context.fillText(label, labelX, labelBaselineY);
-    context.restore();
   }
 
   let raf = 0;
@@ -844,7 +735,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // Tilt drives the wallpaper whenever no pointer is engaged.
     const useGyro = !pointerActive && gyro.active;
     if (useGyro) pointer.set(gyro.x, gyro.y);
-    if (gyro.active && !gyroButton.hidden) syncGyroButton();
 
     const now = new Date();
     renderWallpaper(time, pointerActive || useGyro);
@@ -870,15 +760,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
         layout.dockRect,
         dockStateKey(layout, state, assets),
         (context) => drawMacDockOverlay(context, layout, assets, state),
-        null,
-      );
-
-      glassPipeline.renderPanels(glassSourceTarget.texture, blurred, gyroGlassPanels(), cssWidth, cssHeight, null);
-      drawRectLayer(
-        gyroLayer as CanvasLayer,
-        gyroControlRect ? { x: gyroControlRect.x - 12, y: gyroControlRect.y - 12, w: gyroControlRect.w + 24, h: gyroControlRect.h + 24 } : { x: 0, y: 0, w: 0, h: 0 },
-        `gyro:${layout.width}:${layout.height}:${gyro.permissionState}:${gyro.active ? 1 : 0}:${gyroControlRect ? 1 : 0}`,
-        (context) => drawGyroControlOverlay(context),
         null,
       );
 
@@ -914,6 +795,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (action.type === 'lang') {
       state.lang = action.lang;
       markLayoutDirty();
+      return;
+    }
+
+    if (action.type === 'gyro') {
+      requestGyroFromGesture();
       return;
     }
 
@@ -1024,42 +910,20 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function requestGyroFromGesture() {
     const touchViewport = layout.mobile || window.matchMedia('(hover: none), (pointer: coarse)').matches;
     if (!touchViewport || gyro.permissionState === 'unsupported') {
-      syncGyroButton();
+      markLayoutDirty();
       return;
     }
 
     void gyro.unlock().then(() => {
-      syncGyroButton();
+      markLayoutDirty();
     });
-    syncGyroButton();
+    markLayoutDirty();
   }
-
-  const onGyroButtonClick = (event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (performance.now() - gyroTouchHandledAt < 700) return;
-    requestGyroFromGesture();
-  };
-
-  const onGyroButtonTouchStart = (event: TouchEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const onGyroButtonTouchEnd = (event: TouchEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    gyroTouchHandledAt = performance.now();
-    requestGyroFromGesture();
-  };
 
   root.addEventListener('pointermove', onRootPointerMove);
   root.addEventListener('pointerleave', onRootPointerLeave);
   root.addEventListener('pointerup', onRootPointerEnd);
   root.addEventListener('pointercancel', onRootPointerEnd);
-  gyroButton.addEventListener('click', onGyroButtonClick);
-  gyroButton.addEventListener('touchstart', onGyroButtonTouchStart, { passive: false });
-  gyroButton.addEventListener('touchend', onGyroButtonTouchEnd, { passive: false });
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
@@ -1067,7 +931,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   window.addEventListener('popstate', onPopState);
   canvas.style.touchAction = 'none';
   gyro.enable();
-  syncGyroButton();
+  markLayoutDirty();
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(root);
@@ -1098,9 +962,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     root.removeEventListener('pointerleave', onRootPointerLeave);
     root.removeEventListener('pointerup', onRootPointerEnd);
     root.removeEventListener('pointercancel', onRootPointerEnd);
-    gyroButton.removeEventListener('click', onGyroButtonClick);
-    gyroButton.removeEventListener('touchstart', onGyroButtonTouchStart);
-    gyroButton.removeEventListener('touchend', onGyroButtonTouchEnd);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('click', onClick);
@@ -1110,7 +971,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     window.removeEventListener('pagehide', onPageHide);
     gyro.dispose();
     safeAreaProbe.remove();
-    gyroButton.remove();
     powerOffOverlay.destroy();
     disposeTargets();
     domWindows.destroy();
