@@ -152,7 +152,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       && !gyro.active
       && gyro.permissionState !== 'denied'
       && gyro.permissionState !== 'granted'
-      && gyro.permissionState !== 'insecure'
+      && (gyro.permissionState !== 'insecure' || import.meta.env.DEV)
       && gyro.permissionState !== 'unsupported';
   }
 
