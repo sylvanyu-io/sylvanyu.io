@@ -24,6 +24,7 @@ import { createFpsSampler, createFrameLimiter } from '../../../../io/runtime/can
 import type { CanvasDemoHandle } from '../../../../io/runtime/canvasDemoTypes'
 
 const MAX_RENDER_FPS = 60
+const PLANAR_REFLECTION_ENV_URL = '/io-design/assets/planar-reflection-env.bin'
 
 type ManualLoopEngine = WebGLEngine & {
   time?: { _reset?: () => void }
@@ -130,7 +131,7 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
 
   const ambientLight = await engine.resourceManager.load<AmbientLight>({
     type: AssetType.Env,
-    url: 'https://gw.alipayobjects.com/os/bmw-prod/6470ea5e-094b-4a77-a05f-4945bf81e318.bin',
+    url: PLANAR_REFLECTION_ENV_URL,
   })
   const scene = engine.sceneManager.activeScene
   const sky = scene.background.sky
