@@ -333,11 +333,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
-    if (mobileHistoryHasKey(window.history.state, MAC_HOME_GUARD_HISTORY_KEY)) {
-      mobileHistoryReady = true;
-      return;
-    }
-
     window.history.replaceState(mobileHistoryBaseState(), '', mobileHomeHistoryUrl());
     writeMobileHomeGuard('push');
     mobileHistoryReady = true;
