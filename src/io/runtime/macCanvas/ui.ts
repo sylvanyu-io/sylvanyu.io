@@ -635,8 +635,9 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.fillStyle = 'rgba(204, 226, 255, 0.86)';
   ctx.fillText(copy.statusFoot, statusX, status.y + 126);
 
+  const wallpaperFps = state.fps > 0 ? Math.round(state.fps).toString() : '---';
   const stats = [
-    [Math.round(state.fps).toString(), copy.wFps],
+    [wallpaperFps, copy.wFps],
     ['WebGL', copy.wRenderer],
     ['2L-LDI', copy.wWallpaper],
     ['4', copy.wUptime],

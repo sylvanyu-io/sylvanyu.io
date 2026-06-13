@@ -690,7 +690,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     const time = (nowMs - startTime) / 1000;
     const dt = frameLimiter.consumeDelta(nowMs);
-    state.fps = fpsSampler.record(nowMs);
+    const sampledFps = fpsSampler.record(nowMs);
+    if (sampledFps > 0) state.fps = sampledFps;
     domWindows.sync(layout, state);
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
