@@ -20,6 +20,20 @@ import {
 import { OrbitControl, Stats } from '@galacean/engine-toolkit'
 import { PlaneMat } from './PlaneMat'
 import { PlanarReflectionScript } from './PlanarReflectionScript'
+import { createFpsSampler, createFrameLimiter } from '../../../../io/runtime/canvasTiming'
+import type { CanvasDemoHandle } from '../../../../io/runtime/canvasDemoTypes'
+
+const MAX_RENDER_FPS = 60
+
+type ManualLoopEngine = WebGLEngine & {
+  time?: { _reset?: () => void }
+}
+
+function canvasIdOf(canvas: HTMLCanvasElement | string) {
+  if (typeof canvas === 'string') return canvas
+  if (!canvas.id) canvas.id = `galacean-canvas-${Math.random().toString(36).slice(2, 8)}`
+  return canvas.id
+}
 
 function createUvTestTexture(engine: WebGLEngine): Texture2D {
   const size = 1024
@@ -109,8 +123,8 @@ function createUvTestTexture(engine: WebGLEngine): Texture2D {
   return texture
 }
 
-export async function initScene(canvasId: string) {
-  const engine = await WebGLEngine.create({ canvas: canvasId })
+export async function initScene(canvas: HTMLCanvasElement | string): Promise<CanvasDemoHandle> {
+  const engine = await WebGLEngine.create({ canvas: canvasIdOf(canvas) })
   engine.canvas.resizeByClientSize()
   engine.settings.colorSpace = ColorSpace.Gamma
 
@@ -175,13 +189,67 @@ export async function initScene(canvasId: string) {
   // 添加脚本
   planeEntity.addComponent(PlanarReflectionScript)
 
-  engine.run()
+  const frameLimiter = createFrameLimiter(MAX_RENDER_FPS)
+  const fpsSampler = createFpsSampler()
+  let raf = 0
+  let running = false
+  let destroyed = false
+  let maxRenderFps = MAX_RENDER_FPS
+  let fps = 0
+
+  const queueFrame = () => {
+    if (!running || destroyed) return
+    raf = requestAnimationFrame(frame)
+  }
+
+  const frame = (nowMs: number) => {
+    if (!running || destroyed) return
+    queueFrame()
+    if (!frameLimiter.shouldRender(nowMs, maxRenderFps)) return
+
+    engine.update()
+    fps = fpsSampler.record(nowMs)
+  }
+
+  const resume = () => {
+    if (running || destroyed) return
+    running = true
+    const nowMs = performance.now()
+    ;(engine as ManualLoopEngine).time?._reset?.()
+    frameLimiter.reset(nowMs, maxRenderFps)
+    fpsSampler.reset(nowMs)
+    queueFrame()
+  }
+
+  const pause = () => {
+    running = false
+    cancelAnimationFrame(raf)
+  }
+
+  resume()
+
   return {
     setStatsVisible,
+    pause,
+    resume,
+    setMaxFps(fpsLimit: number) {
+      maxRenderFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS))
+      frameLimiter.reset(performance.now(), maxRenderFps)
+      fpsSampler.reset()
+      fps = 0
+    },
+    resize() {
+      engine.canvas.resizeByClientSize()
+    },
     destroy() {
+      destroyed = true
+      pause()
       document.body.classList.remove('galacean-stats-open')
       document.querySelectorAll('.gl-perf').forEach((node) => node.remove())
       ;(engine as WebGLEngine & { destroy?: () => void }).destroy?.()
+    },
+    get fps() {
+      return fps
     },
   }
 }
