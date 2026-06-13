@@ -230,6 +230,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   if (allLayers.some((layer) => !layer)) return;
 
   let gyroControlRect: Rect | null = null;
+  let gyroTouchHandledAt = 0;
 
   function markLayoutDirty() {
     layoutDirty = true;
@@ -992,6 +993,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const onGyroButtonClick = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
+    if (performance.now() - gyroTouchHandledAt < 700) return;
+    requestGyroFromGesture();
+  };
+
+  const onGyroButtonTouchStart = (event: TouchEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const onGyroButtonTouchEnd = (event: TouchEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    gyroTouchHandledAt = performance.now();
     requestGyroFromGesture();
   };
 
@@ -1000,6 +1014,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   root.addEventListener('pointerup', onRootPointerEnd);
   root.addEventListener('pointercancel', onRootPointerEnd);
   gyroButton.addEventListener('click', onGyroButtonClick);
+  gyroButton.addEventListener('touchstart', onGyroButtonTouchStart, { passive: false });
+  gyroButton.addEventListener('touchend', onGyroButtonTouchEnd, { passive: false });
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
@@ -1037,6 +1053,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
       root.removeEventListener('pointerup', onRootPointerEnd);
       root.removeEventListener('pointercancel', onRootPointerEnd);
       gyroButton.removeEventListener('click', onGyroButtonClick);
+      gyroButton.removeEventListener('touchstart', onGyroButtonTouchStart);
+      gyroButton.removeEventListener('touchend', onGyroButtonTouchEnd);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('click', onClick);
