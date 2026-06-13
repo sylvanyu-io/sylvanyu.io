@@ -49,6 +49,7 @@ import {
   syncCanvasLayerRect,
   type CanvasLayer,
 } from './macCanvas/threeHelpers';
+import { createFpsSampler, createFrameLimiter } from './canvasTiming';
 
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
@@ -60,7 +61,6 @@ const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
 const BUSY_BACKGROUND_FPS = 30;
-const FPS_SAMPLE_MS = 1000;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -588,31 +588,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   let raf = 0;
   let running = false;
-  let fpsSamples: number[] = [];
-  let lastFpsUpdateTime = performance.now();
-  let lastRenderMs = performance.now();
-  let frameClockMs = performance.now();
-  let activeFpsLimit = MAX_CANVAS_FPS;
+  const frameLimiter = createFrameLimiter(MAX_CANVAS_FPS);
+  const fpsSampler = createFpsSampler();
+  let activeCanvasFpsLimit = MAX_CANVAS_FPS;
   const startTime = performance.now();
 
   function clearQueuedFrame() {
     cancelAnimationFrame(raf);
-  }
-
-  function resetFpsSamples(nowMs = performance.now()) {
-    fpsSamples = [];
-    lastFpsUpdateTime = nowMs;
-  }
-
-  function recordFpsSample(nowMs: number) {
-    fpsSamples.push(nowMs);
-    const cutoff = nowMs - FPS_SAMPLE_MS;
-    while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
-
-    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_MS || fpsSamples.length < 2) return;
-    const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
-    if (elapsed > 0) state.fps = ((fpsSamples.length - 1) * 1000) / elapsed;
-    lastFpsUpdateTime = nowMs;
   }
 
   function mobileWindowOpen() {
@@ -629,12 +611,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return activeWindowHasCanvas() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
   }
 
-  function resetFrameLimiter(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
-    activeFpsLimit = fpsLimit;
-    const frameInterval = fpsLimit > 0 ? 1000 / fpsLimit : 0;
-    frameClockMs = nowMs - frameInterval;
-    lastRenderMs = frameClockMs;
-    resetFpsSamples(nowMs);
+  function resetFrameTiming(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
+    activeCanvasFpsLimit = fpsLimit;
+    if (fpsLimit > 0) frameLimiter.reset(nowMs, fpsLimit);
+    fpsSampler.reset(nowMs);
   }
 
   function suspend() {
@@ -654,14 +634,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return false;
     }
 
-    if (fpsLimit !== activeFpsLimit) resetFrameLimiter(nowMs, fpsLimit);
-
-    const frameInterval = 1000 / fpsLimit;
-    const elapsed = nowMs - frameClockMs;
-    if (elapsed < frameInterval) return false;
-
-    frameClockMs = nowMs - (elapsed % frameInterval);
-    return true;
+    if (fpsLimit !== activeCanvasFpsLimit) resetFrameTiming(nowMs, fpsLimit);
+    return frameLimiter.shouldRender(nowMs, fpsLimit);
   }
 
   function frame(nowMs: number) {
@@ -676,9 +650,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     const time = (nowMs - startTime) / 1000;
-    const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastRenderMs) / 1000));
-    lastRenderMs = nowMs;
-    recordFpsSample(nowMs);
+    const dt = frameLimiter.consumeDelta(nowMs);
+    state.fps = fpsSampler.record(nowMs);
     domWindows.sync(layout, state);
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
@@ -743,7 +716,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function start() {
     if (running || document.hidden) return;
     running = true;
-    resetFrameLimiter();
+    resetFrameTiming();
     queueFrame();
   }
 

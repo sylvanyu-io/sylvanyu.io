@@ -1,3 +1,5 @@
+import { createFpsSampler, createFrameLimiter } from '../../io/runtime/canvasTiming';
+
 type Photo3DOptions = {
   shaderBody: string;
   /** 'drag' (default): parallax only while dragging. 'hover': follow the pointer, ease back when it leaves. */
@@ -37,7 +39,6 @@ const F1 = 1248.0;
 const INVZMIN = 0.1282;
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
-const FPS_SAMPLE_MS = 1000;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -231,8 +232,8 @@ export const mountPhoto3D = (
   let running = false;
   let renderActive = true;
   let maxRenderFps = MAX_RENDER_FPS;
-  let frameClockTime = performance.now();
-  let activeFrameLimit = maxRenderFps;
+  const frameLimiter = createFrameLimiter(MAX_RENDER_FPS);
+  const fpsSampler = createFpsSampler();
   let dragging = false;
   let pointerActive = false;
   let smoothX = config.offsetX;
@@ -240,8 +241,6 @@ export const mountPhoto3D = (
   let mx = 0;
   let my = 0;
   let fps = 0;
-  let fpsSamples: number[] = [];
-  let lastFpsUpdateTime = performance.now();
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
   const textures: Record<string, WebGLTexture | null> = {};
 
@@ -467,29 +466,19 @@ export const mountPhoto3D = (
     canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
   }
 
-  const resetFpsSamples = (nowMs = performance.now()) => {
-    fpsSamples = [];
-    lastFpsUpdateTime = nowMs;
-  };
-
   const recordFpsSample = (nowMs: number) => {
-    fpsSamples.push(nowMs);
-    const cutoff = nowMs - FPS_SAMPLE_MS;
-    while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
-
-    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_MS || fpsSamples.length < 2) return;
-    const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
-    if (elapsed > 0) {
-      fps = ((fpsSamples.length - 1) * 1000) / elapsed;
+    const nextFps = fpsSampler.record(nowMs);
+    if (nextFps !== fps) {
+      fps = nextFps;
       updateStats();
     }
-    lastFpsUpdateTime = nowMs;
   };
 
-  const resetFrameLimiter = (nowMs = performance.now()) => {
-    activeFrameLimit = maxRenderFps;
-    frameClockTime = nowMs - (1000 / maxRenderFps);
-    resetFpsSamples(nowMs);
+  const resetFrameTiming = (nowMs = performance.now()) => {
+    fps = 0;
+    frameLimiter.reset(nowMs, maxRenderFps);
+    fpsSampler.reset(nowMs);
+    updateStats();
   };
 
   const queueFrame = () => {
@@ -498,14 +487,7 @@ export const mountPhoto3D = (
   };
 
   const shouldRenderFrame = (time: number) => {
-    if (maxRenderFps !== activeFrameLimit) resetFrameLimiter(time);
-
-    const frameInterval = 1000 / maxRenderFps;
-    const elapsed = time - frameClockTime;
-    if (elapsed < frameInterval) return false;
-
-    frameClockTime = time - (elapsed % frameInterval);
-    return true;
+    return frameLimiter.shouldRender(time, maxRenderFps);
   };
 
   const stopLoop = () => {
@@ -517,7 +499,7 @@ export const mountPhoto3D = (
   const startLoop = () => {
     if (running || !renderActive) return;
     running = true;
-    resetFrameLimiter();
+    resetFrameTiming();
     queueFrame();
   };
 
@@ -537,7 +519,7 @@ export const mountPhoto3D = (
       const nextFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS));
       if (nextFps === maxRenderFps) return;
       maxRenderFps = nextFps;
-      if (running) resetFrameLimiter();
+      if (running) resetFrameTiming();
     },
     dispose() {
       stopLoop();
