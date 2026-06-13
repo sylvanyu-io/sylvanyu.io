@@ -139,30 +139,6 @@ export function createMacPowerOffOverlay(root: HTMLElement, actions: MacPowerOff
   slider.addEventListener('pointerup', endDrag, { signal: abort.signal });
   slider.addEventListener('pointercancel', endDrag, { signal: abort.signal });
 
-  slider.addEventListener('keydown', (event) => {
-    if (!visible || exiting) return;
-    measureSlider();
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      actions.onCancel();
-      return;
-    }
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      setSliderOffset(currentOffset + maxOffset * 0.18);
-      return;
-    }
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      setSliderOffset(currentOffset - maxOffset * 0.18);
-      return;
-    }
-    if (event.key === 'Enter' && currentOffset / maxOffset >= COMPLETE_THRESHOLD) {
-      event.preventDefault();
-      complete();
-    }
-  }, { signal: abort.signal });
-
   cancel.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();

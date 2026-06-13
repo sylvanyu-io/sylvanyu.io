@@ -673,11 +673,6 @@ export const mountPhoto3D = (
   };
 
   loadButton?.addEventListener('click', loadFromInput);
-  urlInput?.addEventListener('keydown', (event) => {
-    if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') return;
-    event.preventDefault();
-    loadFromInput();
-  });
 
   const init = async () => {
     setStatus('Loading app');
