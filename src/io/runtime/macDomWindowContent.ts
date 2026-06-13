@@ -1,6 +1,8 @@
 import { desktopCopy, desktopProjects, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
 import { mountPhoto3D, type Photo3DController } from '../../labs/photo3d/runtime';
+import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
+import type { CanvasDemoHandle } from './canvasDemoTypes';
 import { loadPhoto3DShader } from './macCanvas/photo3d';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
@@ -17,10 +19,20 @@ export type MacDomWindowRecord = {
   photoHud?: HTMLElement;
   photoNote?: HTMLElement;
   photo3dController?: Photo3DController | null;
+  canvasDemoHandle?: CanvasDemoHandle | null;
+  canvasDemoStatus?: HTMLElement;
+  canvasDemoHud?: HTMLElement;
+  canvasDemoMountToken?: number;
+  canvasDemoCleanup?: () => void;
 };
 
 const SHADER_URL = '/io-design/assets/photo3d.fs';
 const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
+const REFLECTION_DEMO_ID = 'planar-reflection';
+
+function showCanvasDemoDebug() {
+  return import.meta.env.DEV || new URLSearchParams(window.location.search).has('debugCanvas');
+}
 
 function div(className: string) {
   const element = document.createElement('div');
@@ -184,9 +196,39 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   record.body.append(stage, note);
 }
 
+function renderReflection(record: MacDomWindowRecord) {
+  if (record.canvasDemoStatus) return;
+
+  record.body.replaceChildren();
+
+  const stage = div('mac-demo__stage');
+  stage.dataset.macWindowCanvas = 'planar-reflection';
+  stage.dataset.canvasDemoStage = REFLECTION_DEMO_ID;
+  stage.setAttribute('aria-label', 'Planar reflection live render');
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'mac-demo__canvas';
+  canvas.dataset.canvasDemoCanvas = REFLECTION_DEMO_ID;
+
+  const status = document.createElement('p');
+  status.className = 'mac-demo__status';
+  status.dataset.canvasDemoStatus = REFLECTION_DEMO_ID;
+  status.textContent = 'Loading...';
+  record.canvasDemoStatus = status;
+
+  const hud = div('mac-demo__hud');
+  hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
+  hud.hidden = !showCanvasDemoDebug();
+  record.canvasDemoHud = hud;
+
+  stage.append(canvas, status, hud);
+  record.body.append(stage);
+}
+
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   if (record.id === 'readme') renderReadme(record, lang);
   if (record.id === 'photo') renderPhoto(record, lang);
+  if (record.id === 'reflection') renderReflection(record);
   if (record.id === 'worklog') renderWorklog(record, lang);
   if (record.id === 'projects') renderProjects(record, lang);
 }
@@ -202,6 +244,18 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     return;
   }
 
+  if (win.id === 'reflection') {
+    const demo = macCanvasDemos[REFLECTION_DEMO_ID];
+    const demoFps = record.canvasDemoHandle?.fps ?? 0;
+    const fpsText = demoFps > 0 ? Math.round(demoFps).toString().padStart(3, ' ') : '---';
+    setText(record.accessory, 'LIVE');
+    if (record.canvasDemoHud) {
+      record.canvasDemoHud.hidden = !showCanvasDemoDebug();
+      setText(record.canvasDemoHud, `FPS ${fpsText}    ${demo.engine}    ${demo.label}`);
+    }
+    return;
+  }
+
   if (win.id === 'projects') {
     setText(record.accessory, `${desktopProjects[state.lang].length} ITEMS`);
     return;
@@ -210,7 +264,69 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   setText(record.accessory, '');
 }
 
+async function mountReflectionDemo(record: MacDomWindowRecord) {
+  const canvas = record.body.querySelector('[data-canvas-demo-canvas]');
+  if (
+    !(canvas instanceof HTMLCanvasElement)
+    || record.canvasDemoHandle
+    || record.element.dataset.mountingDemo === 'true'
+  ) {
+    return;
+  }
+
+  const mountToken = (record.canvasDemoMountToken ?? 0) + 1;
+  record.canvasDemoMountToken = mountToken;
+  record.element.dataset.mountingDemo = 'true';
+  if (record.canvasDemoStatus) {
+    record.canvasDemoStatus.hidden = false;
+    record.canvasDemoStatus.textContent = 'Loading...';
+  }
+
+  try {
+    const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
+    const handle = await module.initScene(canvas);
+    if (record.canvasDemoMountToken !== mountToken || record.element.hidden) {
+      handle.destroy();
+      return;
+    }
+
+    record.canvasDemoHandle = handle;
+    handle.setMaxFps?.(60);
+    handle.resize?.();
+    if (record.element.dataset.active === 'true') handle.resume?.();
+    else handle.pause?.();
+
+    let disposed = false;
+    const cleanup = () => {
+      if (disposed) return;
+      disposed = true;
+      handle.destroy();
+    };
+    record.canvasDemoCleanup = cleanup;
+
+    if (record.canvasDemoStatus) {
+      record.canvasDemoStatus.textContent = 'Loaded';
+      record.canvasDemoStatus.hidden = !showCanvasDemoDebug();
+    }
+  } catch (error) {
+    console.warn('mac reflection demo:', error);
+    if (record.canvasDemoStatus) {
+      record.canvasDemoStatus.hidden = false;
+      record.canvasDemoStatus.textContent = 'Unable to load demo';
+    }
+  } finally {
+    delete record.element.dataset.mountingDemo;
+  }
+}
+
 export function ensureWindowContentMounted(record: MacDomWindowRecord) {
+  if (record.id === 'reflection') {
+    mountReflectionDemo(record).catch((error) => {
+      console.warn('mac reflection window:', error);
+    });
+    return;
+  }
+
   if (record.id !== 'photo') return;
 
   mountPhotoIsland(record).catch((error) => {
@@ -221,6 +337,28 @@ export function ensureWindowContentMounted(record: MacDomWindowRecord) {
 export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boolean) {
   if (record.photo3dController) {
     record.photo3dController.setActive(active);
+  }
+
+  if (record.canvasDemoHandle) {
+    if (active) {
+      record.canvasDemoHandle.setMaxFps?.(60);
+      record.canvasDemoHandle.resize?.();
+      record.canvasDemoHandle.resume?.();
+    } else {
+      record.canvasDemoHandle.pause?.();
+    }
+  }
+}
+
+export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
+  if (record.id !== 'reflection') return;
+  record.canvasDemoMountToken = (record.canvasDemoMountToken ?? 0) + 1;
+  record.canvasDemoCleanup?.();
+  record.canvasDemoCleanup = undefined;
+  record.canvasDemoHandle = null;
+  if (record.canvasDemoStatus) {
+    record.canvasDemoStatus.hidden = false;
+    record.canvasDemoStatus.textContent = 'Loading...';
   }
 }
 

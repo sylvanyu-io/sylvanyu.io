@@ -16,6 +16,7 @@ export const desktopCopy: Record<Lang, {
   photoNote: string;
   iconReadme: string;
   iconPhoto: string;
+  iconReflection: string;
   iconLog: string;
   iconProjects: string;
   iconMail: string;
@@ -36,6 +37,7 @@ export const desktopCopy: Record<Lang, {
     photoNote: 'One photo → layered RGBD → LDI parallax shader. Move the pointer. Same renderer as the wallpaper behind you.',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
+    iconReflection: 'Reflection.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
     iconMail: 'mail',
@@ -56,6 +58,7 @@ export const desktopCopy: Record<Lang, {
     photoNote: '单张照片 → 分层 RGBD → LDI 视差 shader。移动鼠标看看。和身后壁纸是同一个渲染器。',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
+    iconReflection: '平面反射.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
     iconMail: '邮件',

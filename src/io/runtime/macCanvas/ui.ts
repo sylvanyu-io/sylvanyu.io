@@ -28,7 +28,7 @@ export type MacCanvasState = {
   windows: WindowStateMap;
 };
 
-type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconLog' | 'iconProjects';
+type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects';
 
 export type IconCell = {
   id: WindowId | 'lang';
@@ -101,6 +101,7 @@ export type MacUiAssets = {
 const icons: IconDef[] = [
   { id: 'readme', icon: 'icon-readme.svg', labelKey: 'iconReadme' },
   { id: 'photo', icon: 'icon-photo3d.svg', labelKey: 'iconPhoto' },
+  { id: 'reflection', icon: 'icon-reflection.svg', labelKey: 'iconReflection' },
   { id: 'worklog', icon: 'icon-worklog.svg', labelKey: 'iconLog' },
   { id: 'projects', icon: 'icon-projects.svg', labelKey: 'iconProjects' },
 ];
@@ -140,6 +141,7 @@ export function createInitialMacCanvasState(): MacCanvasState {
     windows: {
       readme: { open: true, z: 11 },
       photo: { open: true, z: 12 },
+      reflection: { open: false, z: 10 },
       worklog: { open: false, z: 10 },
       projects: { open: false, z: 13 },
     },
@@ -183,6 +185,15 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
       y: windowLayout.y + windowLayout.titleH + stageH,
       w: windowLayout.w,
       h: windowLayout.note?.h ?? 76,
+    };
+  }
+
+  if (windowLayout.id === 'reflection') {
+    windowLayout.stage = {
+      x: windowLayout.x,
+      y: windowLayout.y + windowLayout.titleH,
+      w: windowLayout.w,
+      h: Math.max(1, windowLayout.h - windowLayout.titleH),
     };
   }
 }
@@ -387,6 +398,18 @@ export function buildMacCanvasLayout(
     titleH,
   };
 
+  const reflection: WindowLayout = {
+    id: 'reflection',
+    title: 'PlanarReflection.app',
+    ...(mobile ? fullscreen : { x: 430, y: 118, w: 540, h: 360 }),
+    r: mobile ? 0 : 18,
+    z: state.windows.reflection.z,
+    titleH,
+    stage: mobile
+      ? { x: 0, y: titleH, w: width, h: Math.max(1, height - titleH) }
+      : { x: 430, y: 118 + titleH, w: 540, h: 360 - titleH },
+  };
+
   const projects: WindowLayout = {
     id: 'projects',
     title: '~/projects',
@@ -424,7 +447,7 @@ export function buildMacCanvasLayout(
     });
   });
 
-  [readme, photo, worklog, projects].forEach((windowLayout) => {
+  [readme, photo, reflection, worklog, projects].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
     placeWindow(state, windowLayout, mobile);
     windows.push(windowLayout);

@@ -4,6 +4,7 @@ import { MAC_WINDOW_IDS } from './macCanvas/ui';
 import {
   ensureWindowContentMounted,
   PHOTO_APP_HUD_HEIGHT,
+  releaseWindowCanvasDemo,
   type MacDomWindowRecord,
   renderWindowContent,
   syncWindowCanvasActivity,
@@ -205,7 +206,7 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
   if (record.appliedSig === signature) return;
   record.appliedSig = signature;
 
-  element.dataset.tone = win.id === 'worklog' ? 'dark' : 'light';
+  element.dataset.tone = win.id === 'worklog' || win.id === 'reflection' ? 'dark' : 'light';
   element.dataset.mobile = layout.mobile ? 'true' : 'false';
   element.style.width = `${Math.round(win.w)}px`;
   element.style.height = `${Math.round(win.h)}px`;
@@ -221,6 +222,11 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
     element.style.setProperty('--mac-photo-stage-h', `${Math.max(1, win.stage.h)}px`);
     element.style.setProperty('--mac-photo-hud-h', `${PHOTO_APP_HUD_HEIGHT}px`);
     element.style.setProperty('--mac-photo-note-h', `${win.note.h}px`);
+  }
+
+  if (win.id === 'reflection' && win.stage) {
+    element.style.setProperty('--mac-demo-stage-h', `${Math.max(1, win.stage.h)}px`);
+    record.canvasDemoHandle?.resize?.();
   }
 }
 
@@ -241,7 +247,8 @@ function activeWindowId(layout: MacCanvasLayout, state: MacCanvasState): WindowI
 
 function setWindowActive(record: MacDomWindowRecord, active: boolean) {
   const next = active ? 'true' : 'false';
-  if (record.element.dataset.active !== next) record.element.dataset.active = next;
+  if (record.element.dataset.active === next) return;
+  record.element.dataset.active = next;
   syncWindowCanvasActivity(record, active);
 }
 
@@ -358,6 +365,7 @@ export function createMacDomWindows(
       if (!isOpen) {
         if (!closing.has(id)) record.element.hidden = true;
         setWindowActive(record, false);
+        if (wasVisible) releaseWindowCanvasDemo(record);
         visible.set(id, false);
         return;
       }
@@ -385,6 +393,7 @@ export function createMacDomWindows(
     destroy() {
       animations.forEach((animation) => animation.cancel());
       records.forEach((record) => {
+        releaseWindowCanvasDemo(record);
         record.cleanup.forEach((cleanup) => cleanup());
       });
       layer.remove();

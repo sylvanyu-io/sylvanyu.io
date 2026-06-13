@@ -2,6 +2,7 @@ export type CanvasDemoHandle = {
   pause?: () => void;
   resume?: () => void;
   setMaxFps?: (fps: number) => void;
+  setStatsVisible?: (visible: boolean) => void;
   resize?: () => void;
   destroy: () => void;
   readonly fps?: number;

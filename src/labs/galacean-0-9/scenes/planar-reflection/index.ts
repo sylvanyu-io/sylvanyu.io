@@ -233,7 +233,9 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
     pause,
     resume,
     setMaxFps(fpsLimit: number) {
-      maxRenderFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS))
+      const nextFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS))
+      if (nextFps === maxRenderFps) return
+      maxRenderFps = nextFps
       frameLimiter.reset(performance.now(), maxRenderFps)
       fpsSampler.reset()
       fps = 0
