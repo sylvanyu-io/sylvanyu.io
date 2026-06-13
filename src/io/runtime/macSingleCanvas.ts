@@ -145,10 +145,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let cssWidth = 1;
   let cssHeight = 1;
 
-  function gyroControlLabel() {
-    return gyro.permissionState === 'insecure' ? 'HTTPS' : 'TILT';
-  }
-
   function shouldShowGyroApp() {
     const mobileViewport = cssWidth <= 700 || cssHeight > cssWidth * 1.18;
     const touchViewport = mobileViewport || window.matchMedia('(hover: none), (pointer: coarse)').matches;
@@ -156,12 +152,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
       && !gyro.active
       && gyro.permissionState !== 'denied'
       && gyro.permissionState !== 'granted'
+      && gyro.permissionState !== 'insecure'
       && gyro.permissionState !== 'unsupported';
   }
 
   function layoutOptions() {
     return {
-      gyroLabel: gyroControlLabel(),
+      gyroLabel: 'TILT',
       safeInsets,
       showGyroApp: shouldShowGyroApp(),
       photoAspect: PHOTO_APP_META.renderAspect,

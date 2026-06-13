@@ -558,13 +558,10 @@ function drawMenubar(
   ctx.restore();
 }
 
-// Procedural "translate" tile so the language toggle reads as one more app
-// icon on the mobile home screen.
-function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
+function drawTranslucentIconTile(ctx: CanvasRenderingContext2D, cell: IconCell) {
   const { imgX, imgY, imgSize } = cell;
   const radius = imgSize * 0.235;
 
-  ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,.34)';
   ctx.shadowBlur = 12;
   ctx.shadowOffsetY = 5;
@@ -586,6 +583,15 @@ function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.lineWidth = 1;
   ctx.stroke();
+}
+
+// Procedural "translate" tile so the language toggle reads as one more app
+// icon on the mobile home screen.
+function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
+  const { imgX, imgY, imgSize } = cell;
+
+  ctx.save();
+  drawTranslucentIconTile(ctx, cell);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -612,17 +618,16 @@ function drawGyroIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   const { imgX, imgY, imgSize } = cell;
   const centerX = imgX + imgSize * 0.5;
   const centerY = imgY + imgSize * 0.5;
-  const phoneW = imgSize * 0.46;
-  const phoneH = imgSize * 0.64;
+  const phoneW = imgSize * 0.42;
+  const phoneH = imgSize * 0.56;
 
   ctx.save();
+  drawTranslucentIconTile(ctx, cell);
+  ctx.shadowColor = 'transparent';
   ctx.translate(centerX, centerY);
   ctx.rotate(-0.18);
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctx.shadowBlur = 9;
-  ctx.shadowOffsetY = 4;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.lineWidth = Math.max(2.3, imgSize * 0.055);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.96)';
+  ctx.lineWidth = Math.max(2.2, imgSize * 0.05);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   roundRectPath(ctx, -phoneW * 0.5, -phoneH * 0.5, phoneW, phoneH, imgSize * 0.13);
@@ -636,8 +641,8 @@ function drawGyroIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   ctx.restore();
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.66)';
-  ctx.lineWidth = Math.max(1.6, imgSize * 0.035);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.58)';
+  ctx.lineWidth = Math.max(1.5, imgSize * 0.032);
   ctx.lineCap = 'round';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
   ctx.shadowBlur = 5;
