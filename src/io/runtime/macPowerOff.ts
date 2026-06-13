@@ -12,6 +12,7 @@ export type MacPowerOffOverlay = {
 };
 
 const COMPLETE_THRESHOLD = 0.88;
+const FADE_DURATION_MS = 260;
 const POWER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
   + '<path d="M12 3.5v8.2" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round"/>'
   + '<path d="M7.4 6.9a7.2 7.2 0 1 0 9.2 0" fill="none" stroke="currentColor" stroke-width="2.35" '
@@ -66,6 +67,7 @@ export function createMacPowerOffOverlay(root: HTMLElement, actions: MacPowerOff
   let startOffset = 0;
   let currentOffset = 0;
   let maxOffset = 1;
+  let hideTimer = 0;
 
   const setSliderOffset = (offset: number) => {
     currentOffset = clamp(offset, 0, maxOffset);
@@ -90,8 +92,15 @@ export function createMacPowerOffOverlay(root: HTMLElement, actions: MacPowerOff
     if (exiting) return;
     exiting = true;
     element.dataset.exiting = 'true';
+    element.dataset.visible = 'true';
     setSliderOffset(maxOffset);
     actions.onComplete();
+  };
+
+  const cancelHideTimer = () => {
+    if (!hideTimer) return;
+    window.clearTimeout(hideTimer);
+    hideTimer = 0;
   };
 
   const endDrag = (event: PointerEvent) => {
@@ -164,25 +173,41 @@ export function createMacPowerOffOverlay(root: HTMLElement, actions: MacPowerOff
   return {
     show() {
       if (visible) return;
+      cancelHideTimer();
       visible = true;
       exiting = false;
       element.hidden = false;
-      element.dataset.visible = 'true';
+      element.dataset.visible = 'false';
       element.dataset.exiting = 'false';
       element.setAttribute('aria-hidden', 'false');
       resetSlider();
+      void element.offsetWidth;
+      window.requestAnimationFrame(() => {
+        if (visible && !exiting) element.dataset.visible = 'true';
+      });
     },
     hide() {
       if (!visible) return;
+      cancelHideTimer();
       visible = false;
       exiting = false;
       element.dataset.visible = 'false';
       element.dataset.exiting = 'false';
       element.setAttribute('aria-hidden', 'true');
       resetSlider();
-      element.hidden = true;
+      hideTimer = window.setTimeout(() => {
+        hideTimer = 0;
+        if (!visible) element.hidden = true;
+      }, FADE_DURATION_MS);
     },
     setExiting(next) {
+      if (next) {
+        cancelHideTimer();
+        visible = true;
+        element.hidden = false;
+        element.dataset.visible = 'true';
+        element.setAttribute('aria-hidden', 'false');
+      }
       exiting = next;
       element.dataset.exiting = next ? 'true' : 'false';
     },
@@ -190,6 +215,7 @@ export function createMacPowerOffOverlay(root: HTMLElement, actions: MacPowerOff
       return visible;
     },
     destroy() {
+      cancelHideTimer();
       abort.abort();
       element.remove();
     },
