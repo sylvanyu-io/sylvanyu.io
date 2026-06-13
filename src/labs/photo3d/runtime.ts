@@ -37,8 +37,7 @@ const F1 = 1248.0;
 const INVZMIN = 0.1282;
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
-const FPS_SAMPLE_WINDOW_MS = 5000;
-const FPS_SAMPLE_UPDATE_MS = 500;
+const FPS_SAMPLE_MS = 1000;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -475,10 +474,10 @@ export const mountPhoto3D = (
 
   const recordFpsSample = (nowMs: number) => {
     fpsSamples.push(nowMs);
-    const cutoff = nowMs - FPS_SAMPLE_WINDOW_MS;
+    const cutoff = nowMs - FPS_SAMPLE_MS;
     while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
 
-    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_UPDATE_MS || fpsSamples.length < 2) return;
+    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_MS || fpsSamples.length < 2) return;
     const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
     if (elapsed > 0) {
       fps = ((fpsSamples.length - 1) * 1000) / elapsed;

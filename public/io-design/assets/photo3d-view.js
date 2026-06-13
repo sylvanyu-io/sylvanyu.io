@@ -22,8 +22,7 @@
   var INVZMIN = 0.1282;
   var MAX_EDGE = 2048;
   var MAX_FPS = 60;
-  var FPS_SAMPLE_WINDOW_MS = 5000;
-  var FPS_SAMPLE_UPDATE_MS = 500;
+  var FPS_SAMPLE_MS = 1000;
   var shaderCache = {};
 
   // When bundled into a standalone file, assets are inlined as blob URLs under window.__resources.
@@ -353,9 +352,9 @@
 
     _recordFpsSample(time) {
       this._fpsSamples.push(time);
-      var cutoff = time - FPS_SAMPLE_WINDOW_MS;
+      var cutoff = time - FPS_SAMPLE_MS;
       while (this._fpsSamples.length > 0 && this._fpsSamples[0] < cutoff) this._fpsSamples.shift();
-      if (time - this._lastFpsUpdate < FPS_SAMPLE_UPDATE_MS || this._fpsSamples.length < 2) return;
+      if (time - this._lastFpsUpdate < FPS_SAMPLE_MS || this._fpsSamples.length < 2) return;
 
       var elapsed = this._fpsSamples[this._fpsSamples.length - 1] - this._fpsSamples[0];
       if (elapsed > 0) this._fps = ((this._fpsSamples.length - 1) * 1000) / elapsed;

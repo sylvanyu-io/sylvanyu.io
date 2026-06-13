@@ -60,8 +60,7 @@ const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
 const BUSY_BACKGROUND_FPS = 30;
-const FPS_SAMPLE_WINDOW_MS = 5000;
-const FPS_SAMPLE_UPDATE_MS = 500;
+const FPS_SAMPLE_MS = 1000;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -607,10 +606,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function recordFpsSample(nowMs: number) {
     fpsSamples.push(nowMs);
-    const cutoff = nowMs - FPS_SAMPLE_WINDOW_MS;
+    const cutoff = nowMs - FPS_SAMPLE_MS;
     while (fpsSamples.length > 0 && fpsSamples[0] < cutoff) fpsSamples.shift();
 
-    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_UPDATE_MS || fpsSamples.length < 2) return;
+    if (nowMs - lastFpsUpdateTime < FPS_SAMPLE_MS || fpsSamples.length < 2) return;
     const elapsed = fpsSamples[fpsSamples.length - 1] - fpsSamples[0];
     if (elapsed > 0) state.fps = ((fpsSamples.length - 1) * 1000) / elapsed;
     lastFpsUpdateTime = nowMs;
