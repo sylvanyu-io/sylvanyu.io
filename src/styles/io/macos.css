@@ -59,6 +59,160 @@
     outline-offset: 3px;
   }
 
+  .mac-power-off {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: max(92px, calc(env(safe-area-inset-top, 0px) + 70px)) 22px max(34px, calc(env(safe-area-inset-bottom, 0px) + 30px));
+    color: rgba(255, 255, 255, .94);
+    background:
+      linear-gradient(155deg, rgba(14, 18, 43, .78), rgba(27, 77, 84, .72) 54%, rgba(17, 46, 104, .78));
+    backdrop-filter: blur(18px) saturate(1.06);
+    -webkit-backdrop-filter: blur(18px) saturate(1.06);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mac-power-off[hidden] {
+    display: none;
+  }
+
+  .mac-power-off__panel {
+    display: grid;
+    grid-template-rows: min-content 1fr min-content;
+    justify-items: center;
+    width: min(100%, 390px);
+    height: 100%;
+    min-height: 0;
+  }
+
+  .mac-power-off__slider {
+    position: relative;
+    grid-row: 1;
+    display: block;
+    width: min(100%, 360px);
+    height: 68px;
+    padding: 0;
+    overflow: hidden;
+    color: rgba(255, 255, 255, .92);
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 999px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .18));
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, .34),
+      inset 0 -18px 34px rgba(58, 76, 142, .24),
+      0 18px 44px rgba(0, 0, 0, .18);
+    appearance: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mac-power-off__slider:focus-visible,
+  .mac-power-off__cancel:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .82);
+    outline-offset: 4px;
+  }
+
+  .mac-power-off__label {
+    position: absolute;
+    inset: 0 26px 0 82px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, .92);
+    font-size: 23px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0;
+    text-align: center;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, .34);
+    transition: opacity .16s ease;
+    pointer-events: none;
+  }
+
+  .mac-power-off__knob {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    z-index: 1;
+    display: grid;
+    width: 60px;
+    height: 60px;
+    place-items: center;
+    color: rgba(255, 255, 255, .96);
+    border-radius: 999px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, .48), rgba(255, 255, 255, .2));
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, .65),
+      inset 0 -12px 18px rgba(82, 88, 118, .22),
+      0 2px 7px rgba(0, 0, 0, .18);
+    transform: translate3d(var(--mac-power-knob-x, 0px), 0, 0);
+    transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+    pointer-events: none;
+  }
+
+  .mac-power-off__slider[data-dragging="true"] .mac-power-off__knob {
+    transition: none;
+  }
+
+  .mac-power-off__knob svg {
+    width: 31px;
+    height: 31px;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .22));
+  }
+
+  .mac-power-off__cancel {
+    grid-row: 3;
+    display: grid;
+    width: 78px;
+    height: 78px;
+    margin-bottom: 8px;
+    padding: 0;
+    place-items: center;
+    color: rgba(255, 255, 255, .93);
+    border: 1px solid rgba(255, 255, 255, .24);
+    border-radius: 999px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .14));
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, .5),
+      inset 0 -16px 30px rgba(33, 70, 116, .24),
+      0 18px 42px rgba(0, 0, 0, .2);
+    appearance: none;
+    touch-action: manipulation;
+  }
+
+  .mac-power-off__cancel:active {
+    transform: scale(.96);
+  }
+
+  .mac-power-off__cancel svg {
+    width: 34px;
+    height: 34px;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .24));
+  }
+
+  .mac-power-off[data-exiting="true"] {
+    background: rgba(0, 0, 0, .94);
+    transition: background .22s ease;
+  }
+
+  .mac-power-off[data-exiting="true"] .mac-power-off__cancel {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mac-power-off[data-exiting="true"] .mac-power-off__slider {
+    opacity: .55;
+  }
+
   .mac-dom-windows {
     position: absolute;
     inset: 0;

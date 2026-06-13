@@ -5,6 +5,7 @@ import {
   type Photo3DPass,
 } from './macCanvas/photo3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
+import { createMacPowerOffOverlay } from './macPowerOff';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -93,6 +94,8 @@ const GYRO_CONTROL_W = 104;
 const GYRO_CONTROL_H = 32;
 const GYRO_CONTROL_GAP = 10;
 const MAC_APP_HISTORY_KEY = '__sylvanMacApp';
+const MAC_HOME_GUARD_HISTORY_KEY = '__sylvanMacHomeGuard';
+const MAC_POWER_HISTORY_KEY = '__sylvanMacPowerConfirm';
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
@@ -131,6 +134,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
   gyroButton.hidden = true;
   gyroButton.setAttribute('aria-label', 'Enable motion parallax');
   root.append(gyroButton);
+
+  const powerOffOverlay = createMacPowerOffOverlay(root, {
+    onCancel: cancelMobilePowerConfirm,
+    onComplete: completeMobilePowerOff,
+  });
 
   function readSafeInsets(): SafeInsets {
     const style = getComputedStyle(safeAreaProbe);
@@ -253,24 +261,116 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return MAC_WINDOW_IDS.includes(id as WindowId) ? id as WindowId : null;
   }
 
+  function mobileHistoryHasKey(value: unknown, key: string) {
+    return Boolean(value && typeof value === 'object' && (value as Record<string, unknown>)[key]);
+  }
+
+  function mobileHistoryBaseState() {
+    const stateValue = window.history.state;
+    const baseState = stateValue && typeof stateValue === 'object'
+      ? { ...(stateValue as Record<string, unknown>) }
+      : {};
+    delete baseState[MAC_APP_HISTORY_KEY];
+    delete baseState[MAC_HOME_GUARD_HISTORY_KEY];
+    delete baseState[MAC_POWER_HISTORY_KEY];
+    return baseState;
+  }
+
   function mobileAppHistoryUrl(id: WindowId) {
     const url = new URL(window.location.href);
     url.hash = `app=${encodeURIComponent(id)}`;
     return url;
   }
 
+  function mobileHomeHistoryUrl() {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    return url;
+  }
+
+  function mobilePowerHistoryUrl() {
+    const url = new URL(window.location.href);
+    url.hash = 'power-off';
+    return url;
+  }
+
   function pushMobileAppHistory(id: WindowId) {
     if (!layout.mobile || mobileHistoryAppId(window.history.state) === id) return;
-    const baseState = window.history.state && typeof window.history.state === 'object'
-      ? window.history.state
-      : {};
-    window.history.pushState({ ...baseState, [MAC_APP_HISTORY_KEY]: id }, '', mobileAppHistoryUrl(id));
+    window.history.pushState({ ...mobileHistoryBaseState(), [MAC_APP_HISTORY_KEY]: id }, '', mobileAppHistoryUrl(id));
+  }
+
+  function writeMobileHomeGuard(mode: 'push' | 'replace') {
+    if (!layout.mobile) return;
+    const nextState = { ...mobileHistoryBaseState(), [MAC_HOME_GUARD_HISTORY_KEY]: true };
+    if (mode === 'push') {
+      window.history.pushState(nextState, '', mobileHomeHistoryUrl());
+      return;
+    }
+    window.history.replaceState(nextState, '', mobileHomeHistoryUrl());
+  }
+
+  function pushMobilePowerConfirm() {
+    if (!layout.mobile || mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) return;
+    window.history.pushState({ ...mobileHistoryBaseState(), [MAC_POWER_HISTORY_KEY]: true }, '', mobilePowerHistoryUrl());
   }
 
   function requestMobileWindowClose(id: WindowId) {
     if (!layout.mobile || mobileHistoryAppId(window.history.state) !== id) return false;
     window.history.back();
     return true;
+  }
+
+  let mobileHistoryReady = false;
+  let mobilePowerExiting = false;
+
+  function ensureMobileHomeHistory() {
+    if (!layout.mobile || mobileHistoryReady) return;
+
+    const historyAppId = mobileHistoryAppId(window.history.state);
+    if (historyAppId) {
+      mobileHistoryReady = true;
+      openWindow(historyAppId, false);
+      return;
+    }
+
+    if (mobileHistoryHasKey(window.history.state, MAC_HOME_GUARD_HISTORY_KEY)) {
+      mobileHistoryReady = true;
+      return;
+    }
+
+    window.history.replaceState(mobileHistoryBaseState(), '', mobileHomeHistoryUrl());
+    writeMobileHomeGuard('push');
+    mobileHistoryReady = true;
+  }
+
+  function hideMobilePowerConfirm() {
+    root.dataset.macPowerConfirm = 'false';
+    powerOffOverlay.hide();
+  }
+
+  function showMobilePowerConfirm(updateHistory = true) {
+    if (!layout.mobile || topOpenWindowId() || mobilePowerExiting) return;
+    if (updateHistory) pushMobilePowerConfirm();
+    root.dataset.macPowerConfirm = 'true';
+    powerOffOverlay.show();
+  }
+
+  function cancelMobilePowerConfirm() {
+    hideMobilePowerConfirm();
+    if (layout.mobile) writeMobileHomeGuard('replace');
+  }
+
+  function completeMobilePowerOff() {
+    if (!layout.mobile || mobilePowerExiting) return;
+    mobilePowerExiting = true;
+    root.dataset.macPowerConfirm = 'exiting';
+    powerOffOverlay.setExiting(true);
+    window.setTimeout(() => {
+      window.history.go(mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY) ? -2 : -1);
+      window.setTimeout(() => {
+        if (!document.hidden) mobilePowerExiting = false;
+      }, 1200);
+    }, 160);
   }
 
   function openWindow(id: WindowId, updateHistory = true) {
@@ -350,6 +450,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     layoutDirty = false;
     root.dataset.macMobile = layout.mobile ? 'true' : 'false';
+    if (!layout.mobile) {
+      mobileHistoryReady = false;
+      hideMobilePowerConfirm();
+    }
 
     // The phone variant boots onto the "home screen": apps start closed and
     // open fullscreen from their icons instead of floating pre-opened.
@@ -366,6 +470,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     syncGyroButton();
+    ensureMobileHomeHistory();
   }
 
   function syncGyroButton() {
@@ -828,16 +933,33 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
 
   const onPopState = (event: PopStateEvent) => {
-    if (!layout.mobile) return;
+    if (!layout.mobile || mobilePowerExiting) return;
 
     const historyAppId = mobileHistoryAppId(event.state);
     if (historyAppId) {
+      hideMobilePowerConfirm();
       openWindow(historyAppId, false);
       return;
     }
 
+    if (mobileHistoryHasKey(event.state, MAC_POWER_HISTORY_KEY)) {
+      showMobilePowerConfirm(false);
+      return;
+    }
+
+    if (powerOffOverlay.isVisible()) {
+      hideMobilePowerConfirm();
+      writeMobileHomeGuard('push');
+      return;
+    }
+
     const activeId = topOpenWindowId();
-    if (activeId) domWindows.minimize(activeId);
+    if (activeId) {
+      domWindows.minimize(activeId);
+      return;
+    }
+
+    showMobilePowerConfirm();
   };
 
   const onRootPointerMove = (event: PointerEvent) => {
@@ -923,6 +1045,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       gyro.dispose();
       safeAreaProbe.remove();
       gyroButton.remove();
+      powerOffOverlay.destroy();
       disposeTargets();
       domWindows.destroy();
       glassPipeline.dispose();
