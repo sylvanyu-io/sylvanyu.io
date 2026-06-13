@@ -1,6 +1,6 @@
 import { desktopCopy, desktopProjects, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
-import { mountPhoto3D, type Photo3DController } from '../../labs/photo3d/runtime';
+import type { Photo3DController } from '../../labs/photo3d/runtime';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
 import { loadPhoto3DShader } from './macCanvas/photo3d';
@@ -140,8 +140,12 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
 
   root.dataset.mounting = 'true';
   try {
+    const [{ mountPhoto3D }, shaderBody] = await Promise.all([
+      import('../../labs/photo3d/runtime'),
+      loadPhoto3DShader(SHADER_URL),
+    ]);
     const controller = mountPhoto3D(root, {
-      shaderBody: await loadPhoto3DShader(SHADER_URL),
+      shaderBody,
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: true,
       fit: 'cover',
