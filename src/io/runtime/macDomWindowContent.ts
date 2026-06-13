@@ -50,6 +50,7 @@ function createAppLoader(label: string) {
   const text = document.createElement('span');
   text.className = 'mac-app-loader__text';
   text.dataset.appLoaderText = '';
+  text.textContent = label;
 
   loader.append(ring, text);
   return loader;
@@ -60,7 +61,7 @@ function setAppLoaderState(loader: Element | null | undefined, state: 'loading' 
   loader.hidden = state === 'ready';
   loader.dataset.state = state;
   loader.setAttribute('aria-label', label);
-  setText(loader.querySelector('[data-app-loader-text]'), state === 'error' ? label : '');
+  setText(loader.querySelector('[data-app-loader-text]'), state === 'ready' ? '' : label);
 }
 
 function setText(element: Element | null | undefined, value: string) {
@@ -162,6 +163,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   }
 
   root.dataset.mounting = 'true';
+  setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', 'Loading Photo3D shader');
   try {
     const [{ mountPhoto3D }, shaderBody] = await Promise.all([
       import('./photo3d/rawWebgl'),
@@ -300,10 +302,11 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
   record.canvasDemoMountToken = mountToken;
   record.element.dataset.mountingDemo = 'true';
   const loader = record.body.querySelector('[data-app-loader]');
-  setAppLoaderState(loader, 'loading', 'Loading Reflection app');
+  setAppLoaderState(loader, 'loading', 'Loading Reflection engine');
 
   try {
     const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
+    setAppLoaderState(loader, 'loading', 'Loading Reflection env');
     const handle = await module.initScene(canvas);
     if (record.canvasDemoMountToken !== mountToken || record.element.hidden) {
       handle.destroy();

@@ -129,7 +129,7 @@ export function mountPhoto3D(
     statusEl.hidden = false;
     statusEl.dataset.state = error ? 'error' : 'loading';
     statusEl.setAttribute('aria-label', message);
-    if (statusText) setText(statusText, error ? message : '');
+    if (statusText) setText(statusText, message);
     else statusEl.textContent = message;
     statusEl.classList.toggle('err', error);
     root.dataset.state = error ? 'error' : 'loading';
