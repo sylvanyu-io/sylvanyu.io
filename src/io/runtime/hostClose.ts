@@ -1,5 +1,9 @@
 type BridgeCloseStatus = 'requested' | 'unsupported';
 
+type HostCloseOptions = {
+  allowWindowClose?: boolean;
+};
+
 type WeixinJSBridgeApi = {
   call: (method: 'closeWindow') => void;
 };
@@ -90,7 +94,7 @@ function isEmbeddedBrowser(ua: string) {
   return embeddedBrowserPatterns.some((pattern) => pattern.test(ua));
 }
 
-export function requestHostClose(): BridgeCloseStatus {
+export function requestHostClose(options: HostCloseOptions = {}): BridgeCloseStatus {
   const host = window as HostWindow;
   const ua = window.navigator.userAgent;
 
@@ -135,7 +139,7 @@ export function requestHostClose(): BridgeCloseStatus {
   }
   if (host.mqq?.ui?.closeWebViews && callBridge(() => host.mqq?.ui?.closeWebViews?.())) return 'requested';
 
-  if (!isEmbeddedBrowser(ua)) return 'unsupported';
+  if (!isEmbeddedBrowser(ua) && !options.allowWindowClose) return 'unsupported';
   window.close();
   return 'requested';
 }

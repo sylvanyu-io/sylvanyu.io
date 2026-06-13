@@ -108,6 +108,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   if (!(rootInput instanceof HTMLElement) || rootInput.dataset.macSingleCanvasMounted === 'true') return;
   const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
+  const mobileHasExternalBackEntry = window.history.length > 1;
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
   if (!canvasEl) return;
@@ -284,12 +285,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return url;
   }
 
-  function mobileExitHistoryUrl() {
-    const url = new URL(window.location.href);
-    url.hash = '';
-    return url;
-  }
-
   function mobileHomeHistoryUrl() {
     const url = new URL(window.location.href);
     url.hash = 'home';
@@ -317,9 +312,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
     window.history.replaceState(nextState, '', mobileHomeHistoryUrl());
   }
 
+  function writeMobilePowerGuard(mode: 'push' | 'replace') {
+    if (!layout.mobile) return;
+    const nextState = { ...mobileHistoryBaseState(), [MAC_POWER_HISTORY_KEY]: true };
+    if (mode === 'push') {
+      window.history.pushState(nextState, '', mobilePowerHistoryUrl());
+      return;
+    }
+    window.history.replaceState(nextState, '', mobilePowerHistoryUrl());
+  }
+
   function pushMobilePowerConfirm() {
     if (!layout.mobile || mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) return;
-    window.history.pushState({ ...mobileHistoryBaseState(), [MAC_POWER_HISTORY_KEY]: true }, '', mobilePowerHistoryUrl());
+    writeMobilePowerGuard('push');
   }
 
   function requestMobileWindowClose(id: WindowId) {
@@ -341,7 +346,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
-    window.history.replaceState(mobileHistoryBaseState(), '', mobileExitHistoryUrl());
+    writeMobilePowerGuard('replace');
     writeMobileHomeGuard('push');
     mobileHistoryReady = true;
   }
@@ -360,7 +365,25 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function cancelMobilePowerConfirm() {
     hideMobilePowerConfirm();
-    if (layout.mobile) writeMobileHomeGuard('replace');
+    if (!layout.mobile) return;
+    if (mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) {
+      window.history.forward();
+      window.setTimeout(() => {
+        if (mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) writeMobileHomeGuard('replace');
+      }, 180);
+      return;
+    }
+    writeMobileHomeGuard('replace');
+  }
+
+  function resetMobilePowerExit() {
+    mobilePowerExiting = false;
+    root.dataset.macPowerConfirm = 'false';
+    powerOffOverlay.setExiting(false);
+    powerOffOverlay.hide();
+    if (layout.mobile && mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) {
+      writeMobileHomeGuard('replace');
+    }
   }
 
   function completeMobilePowerOff() {
@@ -368,16 +391,21 @@ export function mountMacSingleCanvas(rootInput: Element) {
     mobilePowerExiting = true;
     root.dataset.macPowerConfirm = 'exiting';
     powerOffOverlay.setExiting(true);
-    window.setTimeout(() => {
-      const closeRequested = requestHostClose() === 'requested';
+    const closeRequested = requestHostClose({ allowWindowClose: !mobileHasExternalBackEntry }) === 'requested';
+    if (!mobileHasExternalBackEntry) {
       window.setTimeout(() => {
-        if (document.hidden) return;
-        window.history.go(mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY) ? -2 : -1);
-        window.setTimeout(() => {
-          if (!document.hidden) mobilePowerExiting = false;
-        }, 1200);
-      }, closeRequested ? 900 : 0);
-    }, 160);
+        if (!document.hidden) resetMobilePowerExit();
+      }, closeRequested ? 1200 : 160);
+      return;
+    }
+
+    window.setTimeout(() => {
+      if (document.hidden) return;
+      window.history.go(-1);
+      window.setTimeout(() => {
+        if (!document.hidden) resetMobilePowerExit();
+      }, 1200);
+    }, closeRequested ? 900 : 160);
   }
 
   function openWindow(id: WindowId, updateHistory = true) {
