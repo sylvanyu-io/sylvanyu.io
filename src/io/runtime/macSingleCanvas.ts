@@ -6,7 +6,7 @@ import {
 } from './macCanvas/photo3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
 import { createMacPowerOffOverlay } from './macPowerOff';
-import { requestHostClose } from './hostClose';
+import { isEmbeddedBrowserHost, requestHostClose } from './hostClose';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -109,6 +109,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
   const mobileHasExternalBackEntry = window.history.length > 1;
+  const mobileUsesPowerGuard = isEmbeddedBrowserHost() && !mobileHasExternalBackEntry;
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
   if (!canvasEl) return;
@@ -323,7 +324,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function pushMobilePowerConfirm() {
-    if (!layout.mobile || mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) return;
+    if (!layout.mobile || !mobileUsesPowerGuard || mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) return;
     writeMobilePowerGuard('push');
   }
 
@@ -346,8 +347,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
-    writeMobilePowerGuard('replace');
-    writeMobileHomeGuard('push');
+    if (mobileUsesPowerGuard) {
+      writeMobilePowerGuard('replace');
+      writeMobileHomeGuard('push');
+    }
     mobileHistoryReady = true;
   }
 
@@ -357,7 +360,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function showMobilePowerConfirm(updateHistory = true) {
-    if (!layout.mobile || topOpenWindowId() || mobilePowerExiting) return;
+    if (!layout.mobile || !mobileUsesPowerGuard || topOpenWindowId() || mobilePowerExiting) return;
     if (updateHistory) pushMobilePowerConfirm();
     root.dataset.macPowerConfirm = 'true';
     powerOffOverlay.show();
