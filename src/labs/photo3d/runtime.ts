@@ -530,7 +530,7 @@ export const mountPhoto3D = (
     if (!renderActive) return;
     frameCount += 1;
     if (time - lastFpsTime >= 500) {
-      fps = (frameCount * 1000) / (time - lastFpsTime);
+      fps = Math.min(maxRenderFps, (frameCount * 1000) / (time - lastFpsTime));
       frameCount = 0;
       lastFpsTime = time;
       updateStats();

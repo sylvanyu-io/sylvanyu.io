@@ -364,7 +364,7 @@
 
       this._frameCount += 1;
       if (time - this._lastFps >= 500) {
-        this._fps = (this._frameCount * 1000) / (time - this._lastFps);
+        this._fps = Math.min(MAX_FPS, (this._frameCount * 1000) / (time - this._lastFps));
         this._frameCount = 0;
         this._lastFps = time;
         if (this._statsEl) {

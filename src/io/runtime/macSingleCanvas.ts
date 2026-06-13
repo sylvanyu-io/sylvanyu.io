@@ -542,9 +542,20 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function drawGyroControlOverlay(context: CanvasRenderingContext2D) {
     if (!gyroControlRect) return;
     const label = gyroControlLabel();
-    const iconCenterX = gyroControlRect.x + 25;
     const centerY = gyroControlRect.y + gyroControlRect.h * 0.5;
-    const labelX = gyroControlRect.x + 50;
+    const iconSize = 14;
+    const iconLabelGap = 13;
+
+    context.save();
+    context.font = '700 11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+    const labelMetrics = context.measureText(label);
+    const labelW = labelMetrics.width;
+    const groupW = iconSize + iconLabelGap + labelW;
+    const groupX = gyroControlRect.x + (gyroControlRect.w - groupW) * 0.5;
+    const iconCenterX = groupX + iconSize * 0.5;
+    const labelX = groupX + iconSize + iconLabelGap;
+    const labelBaselineY = centerY + ((labelMetrics.actualBoundingBoxAscent || 8) - (labelMetrics.actualBoundingBoxDescent || 2)) * 0.5;
+    context.restore();
 
     context.save();
     context.shadowColor = 'rgba(0, 0, 0, .45)';
@@ -554,7 +565,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     context.lineWidth = 2.2;
     context.translate(iconCenterX, centerY);
     context.rotate(-0.2);
-    roundedRectPath(context, { x: -7, y: -7, w: 14, h: 14 }, 4);
+    roundedRectPath(context, { x: -iconSize * 0.5, y: -iconSize * 0.5, w: iconSize, h: iconSize }, 4);
     context.stroke();
     context.beginPath();
     context.moveTo(-3.5, 3.5);
@@ -569,8 +580,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     context.fillStyle = 'rgba(255, 255, 255, .96)';
     context.font = '700 11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
     context.textAlign = 'left';
-    context.textBaseline = 'middle';
-    context.fillText(label, labelX, centerY);
+    context.textBaseline = 'alphabetic';
+    context.fillText(label, labelX, labelBaselineY);
     context.restore();
   }
 
@@ -592,15 +603,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return layout.mobile && layout.windows.length > 0;
   }
 
-  function windowCanvasHovered() {
+  function activeWindowHasCanvas() {
     if (layout.mobile) return false;
-    const windowCanvases = root.querySelectorAll<HTMLElement>('.mac-dom-window [data-mac-window-canvas]');
-    return Array.from(windowCanvases).some((element) => element.matches(':hover'));
+    return Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
   }
 
   function currentCanvasFpsLimit() {
     if (mobileWindowOpen()) return 0;
-    return windowCanvasHovered() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
+    return activeWindowHasCanvas() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
   }
 
   function suspend() {
@@ -638,7 +648,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     lastFrameMs = nowMs;
     frameCount += 1;
     if (nowMs - lastFpsTime > 500) {
-      state.fps = (frameCount * 1000) / (nowMs - lastFpsTime);
+      const fpsLimit = currentCanvasFpsLimit();
+      state.fps = Math.min(fpsLimit > 0 ? fpsLimit : MAX_CANVAS_FPS, (frameCount * 1000) / (nowMs - lastFpsTime));
       frameCount = 0;
       lastFpsTime = nowMs;
     }
