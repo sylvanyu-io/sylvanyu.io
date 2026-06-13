@@ -59,6 +59,7 @@ const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
 const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
+const BUSY_BACKGROUND_FPS = 30;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -221,6 +222,42 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   let gyroControlRect: Rect | null = null;
 
+  function markLayoutDirty() {
+    layoutDirty = true;
+    start();
+  }
+
+  function closeOtherWindows(activeId: WindowId) {
+    MAC_WINDOW_IDS.forEach((id) => {
+      if (id !== activeId) state.windows[id].open = false;
+    });
+  }
+
+  function topOpenWindowId() {
+    let activeId: WindowId | null = null;
+    let activeZ = -Infinity;
+
+    MAC_WINDOW_IDS.forEach((id) => {
+      const win = state.windows[id];
+      if (!win.open || win.z <= activeZ) return;
+      activeId = id;
+      activeZ = win.z;
+    });
+
+    return activeId;
+  }
+
+  function enforceMobileSingleWindow() {
+    if (!layout.mobile) return false;
+    const openCount = MAC_WINDOW_IDS.filter((id) => state.windows[id].open).length;
+    if (openCount <= 1) return false;
+
+    const activeId = topOpenWindowId();
+    if (!activeId) return false;
+    closeOtherWindows(activeId);
+    return true;
+  }
+
   function clampWindowPosition(id: WindowId, x: number, y: number) {
     const win = layout.windows.find((windowLayout) => windowLayout.id === id);
     const winW = win?.w ?? 320;
@@ -238,18 +275,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const domWindows = createMacDomWindows(root, {
     bringFront(id) {
       bringWindowFront(state, id);
-      layoutDirty = true;
+      markLayoutDirty();
     },
     setOpen(id, open) {
       state.windows[id].open = open;
+      if (open && layout.mobile) closeOtherWindows(id);
       if (open) bringWindowFront(state, id);
-      layoutDirty = true;
+      markLayoutDirty();
     },
     moveWindow(id, x, y) {
       const next = clampWindowPosition(id, x, y);
       state.windows[id].x = next.x;
       state.windows[id].y = next.y;
-      layoutDirty = true;
+      markLayoutDirty();
     },
   });
 
@@ -273,7 +311,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     layoutDirty = false;
     root.dataset.macMobile = layout.mobile ? 'true' : 'false';
-    syncGyroButton();
 
     // The phone variant boots onto the "home screen": apps start closed and
     // open fullscreen from their icons instead of floating pre-opened.
@@ -284,9 +321,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
           state.windows[id].open = false;
         });
         layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
-        syncGyroButton();
       }
+    } else if (enforceMobileSingleWindow()) {
+      layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     }
+
+    syncGyroButton();
   }
 
   function syncGyroButton() {
@@ -368,6 +408,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     glassPipeline.resize(backgroundWidth, backgroundHeight);
 
     rebuildLayout();
+    start();
   }
 
   function presentTexture(
@@ -541,6 +582,32 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let lastFrameMs = performance.now();
   const startTime = performance.now();
 
+  function clearQueuedFrame() {
+    cancelAnimationFrame(raf);
+    window.clearTimeout(frameTimer);
+    frameTimer = 0;
+  }
+
+  function mobileWindowOpen() {
+    return layout.mobile && layout.windows.length > 0;
+  }
+
+  function windowCanvasHovered() {
+    if (layout.mobile) return false;
+    const windowCanvases = root.querySelectorAll<HTMLElement>('.mac-dom-window [data-mac-window-canvas]');
+    return Array.from(windowCanvases).some((element) => element.matches(':hover'));
+  }
+
+  function currentCanvasFpsLimit() {
+    if (mobileWindowOpen()) return 0;
+    return windowCanvasHovered() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
+  }
+
+  function suspend() {
+    running = false;
+    clearQueuedFrame();
+  }
+
   function queueFrame(delayMs = 0) {
     if (!running) return;
     if (delayMs > 1) {
@@ -555,7 +622,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function queueNextFrame() {
-    const frameInterval = 1000 / MAX_CANVAS_FPS;
+    const fpsLimit = currentCanvasFpsLimit();
+    if (fpsLimit <= 0) {
+      suspend();
+      return;
+    }
+
+    const frameInterval = 1000 / fpsLimit;
     queueFrame(Math.max(0, frameInterval - (performance.now() - lastFrameMs)));
   }
 
@@ -633,7 +706,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function start() {
-    if (running) return;
+    if (running || document.hidden) return;
     running = true;
     frameCount = 0;
     lastFpsTime = performance.now();
@@ -643,10 +716,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function stop() {
     if (!running) return;
-    running = false;
-    cancelAnimationFrame(raf);
-    window.clearTimeout(frameTimer);
-    frameTimer = 0;
+    suspend();
   }
 
   function applyHitAction(action: HitTarget['action'] | undefined) {
@@ -654,7 +724,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (action.type === 'lang') {
       state.lang = action.lang;
-      layoutDirty = true;
+      markLayoutDirty();
       return;
     }
 
@@ -664,9 +734,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     domWindows.setRestoreOrigin(action.id, action.origin);
+    if (layout.mobile) closeOtherWindows(action.id);
     state.windows[action.id].open = true;
     bringWindowFront(state, action.id);
-    layoutDirty = true;
+    markLayoutDirty();
   }
 
   function eventPoint(event: PointerEvent | MouseEvent) {

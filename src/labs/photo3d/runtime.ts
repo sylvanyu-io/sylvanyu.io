@@ -8,6 +8,14 @@ type Photo3DOptions = {
   fit?: 'stretch' | 'contain' | 'cover';
 };
 
+export type Photo3DController = {
+  setActive: (active: boolean) => void;
+  setMaxFps: (fps: number) => void;
+  dispose: () => void;
+  readonly active: boolean;
+  readonly fps: number;
+};
+
 type Photo3DConfig = {
   offsetX: number;
   offsetY: number;
@@ -108,8 +116,9 @@ const createDisparityCanvas = (sourceCanvas: HTMLCanvasElement, remapR = false) 
 export const mountPhoto3D = (
   root: Element,
   { shaderBody, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
-) => {
-  if (!(root instanceof HTMLElement) || root.dataset.mounted === 'true') return;
+): Photo3DController | null => {
+  if (!(root instanceof HTMLElement)) return null;
+  if (root.dataset.mounted === 'true') return root.__photo3dController ?? null;
   root.dataset.mounted = 'true';
 
   const wrap = root.querySelector('[data-photo3d-wrap]');
@@ -121,7 +130,7 @@ export const mountPhoto3D = (
   const statusEl = root.querySelector('[data-photo3d-status]');
 
   if (!(wrap instanceof HTMLElement) || !(stage instanceof HTMLElement) || !(statusEl instanceof HTMLElement)) {
-    return;
+    return null;
   }
 
   const statEls = new Map<string, HTMLElement>();
@@ -184,7 +193,7 @@ export const mountPhoto3D = (
 
   if (!spriteUrl) {
     setStatus('Sprite unavailable', true);
-    return;
+    return null;
   }
 
   const config: Photo3DConfig = {
@@ -212,7 +221,7 @@ export const mountPhoto3D = (
 
   if (!gl) {
     setStatus('WebGL not available', true);
-    return;
+    return null;
   }
 
   let program: WebGLProgram;
@@ -220,6 +229,8 @@ export const mountPhoto3D = (
   let animationFrame = 0;
   let animationTimer = 0;
   let running = false;
+  let renderActive = true;
+  let maxRenderFps = MAX_RENDER_FPS;
   let dragging = false;
   let pointerActive = false;
   let smoothX = config.offsetX;
@@ -455,7 +466,7 @@ export const mountPhoto3D = (
   }
 
   const queueFrame = (delayMs = 0) => {
-    if (!running) return;
+    if (!running || !renderActive) return;
     if (delayMs > 1) {
       animationTimer = window.setTimeout(() => {
         animationTimer = 0;
@@ -468,7 +479,7 @@ export const mountPhoto3D = (
   };
 
   const queueNextFrame = (time: number) => {
-    queueFrame(Math.max(0, (1000 / MAX_RENDER_FPS) - (performance.now() - time)));
+    queueFrame(Math.max(0, (1000 / maxRenderFps) - (performance.now() - time)));
   };
 
   const stopLoop = () => {
@@ -480,14 +491,43 @@ export const mountPhoto3D = (
   };
 
   const startLoop = () => {
-    if (running) return;
+    if (running || !renderActive) return;
     running = true;
     frameCount = 0;
     lastFpsTime = performance.now();
     queueFrame();
   };
 
+  const controller: Photo3DController = {
+    setActive(active) {
+      if (renderActive === active) return;
+      renderActive = active;
+      root.dataset.renderActive = active ? 'true' : 'false';
+      if (active) {
+        resize();
+        startLoop();
+      } else {
+        stopLoop();
+      }
+    },
+    setMaxFps(fpsLimit) {
+      maxRenderFps = Math.max(1, Math.min(MAX_RENDER_FPS, Math.round(fpsLimit) || MAX_RENDER_FPS));
+    },
+    dispose() {
+      stopLoop();
+    },
+    get active() {
+      return renderActive;
+    },
+    get fps() {
+      return fps;
+    },
+  };
+  root.__photo3dController = controller;
+  root.dataset.renderActive = 'true';
+
   const frame = (time = performance.now()) => {
+    if (!renderActive) return;
     frameCount += 1;
     if (time - lastFpsTime >= 500) {
       fps = (frameCount * 1000) / (time - lastFpsTime);
@@ -691,11 +731,19 @@ export const mountPhoto3D = (
   resizeObserver.observe(stage);
   window.addEventListener('pagehide', () => {
     resizeObserver.disconnect();
-    stopLoop();
+    controller.dispose();
   }, { once: true });
 
   init().catch((error) => {
     console.error(error);
     setStatus(String(error.message || error), true);
   });
+
+  return controller;
 };
+
+declare global {
+  interface HTMLElement {
+    __photo3dController?: Photo3DController;
+  }
+}

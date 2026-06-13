@@ -6,6 +6,7 @@ import {
   PHOTO_APP_HUD_HEIGHT,
   type MacDomWindowRecord,
   renderWindowContent,
+  syncWindowCanvasActivity,
   updateWindowTexts,
 } from './macDomWindowContent';
 
@@ -223,6 +224,27 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
   }
 }
 
+function activeWindowId(layout: MacCanvasLayout, state: MacCanvasState): WindowId | null {
+  let activeId: WindowId | null = null;
+  let activeZ = -Infinity;
+
+  MAC_WINDOW_IDS.forEach((id) => {
+    if (!state.windows[id].open || !windowById(layout, id)) return;
+    if (state.windows[id].z > activeZ) {
+      activeId = id;
+      activeZ = state.windows[id].z;
+    }
+  });
+
+  return activeId;
+}
+
+function setWindowActive(record: MacDomWindowRecord, active: boolean) {
+  const next = active ? 'true' : 'false';
+  if (record.element.dataset.active !== next) record.element.dataset.active = next;
+  syncWindowCanvasActivity(record, active);
+}
+
 export function createMacDomWindows(
   root: HTMLElement,
   actions: MacDomWindowActions,
@@ -318,6 +340,7 @@ export function createMacDomWindows(
   function sync(layout: MacCanvasLayout, state: MacCanvasState) {
     latestLayout = layout;
     root.__macCanvasLayout = layout;
+    const activeId = activeWindowId(layout, state);
 
     if (lastLang !== state.lang) {
       records.forEach((record) => renderWindowContent(record, state.lang));
@@ -334,10 +357,13 @@ export function createMacDomWindows(
 
       if (!isOpen) {
         if (!closing.has(id)) record.element.hidden = true;
+        setWindowActive(record, false);
         visible.set(id, false);
         return;
       }
 
+      const isActive = id === activeId;
+      setWindowActive(record, isActive);
       updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);
       ensureWindowContentMounted(record);

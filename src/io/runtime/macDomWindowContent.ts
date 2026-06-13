@@ -1,6 +1,6 @@
 import { desktopCopy, desktopProjects, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
-import { mountPhoto3D } from '../../labs/photo3d/runtime';
+import { mountPhoto3D, type Photo3DController } from '../../labs/photo3d/runtime';
 import { loadPhoto3DShader } from './macCanvas/photo3d';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
@@ -16,6 +16,7 @@ export type MacDomWindowRecord = {
   appliedSig?: string;
   photoHud?: HTMLElement;
   photoNote?: HTMLElement;
+  photo3dController?: Photo3DController | null;
 };
 
 const SHADER_URL = '/io-design/assets/photo3d.fs';
@@ -127,12 +128,18 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
 
   root.dataset.mounting = 'true';
   try {
-    mountPhoto3D(root, {
+    const controller = mountPhoto3D(root, {
       shaderBody: await loadPhoto3DShader(SHADER_URL),
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: true,
       fit: 'cover',
     });
+    if (controller) {
+      record.photo3dController = controller;
+      controller.setMaxFps(60);
+      controller.setActive(record.element.dataset.active === 'true');
+      record.cleanup.push(() => controller.dispose());
+    }
   } finally {
     delete root.dataset.mounting;
   }
@@ -155,6 +162,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   wrap.dataset.photo3dWrap = '';
   const photoStage = div('mac-photo__canvas-stage');
   photoStage.dataset.photo3dStage = '';
+  photoStage.dataset.macWindowCanvas = 'photo';
   photoStage.setAttribute('aria-label', 'Photo3D live render');
   const status = document.createElement('p');
   status.className = 'mac-photo__status';
@@ -206,6 +214,12 @@ export function ensureWindowContentMounted(record: MacDomWindowRecord) {
   mountPhotoIsland(record).catch((error) => {
     console.warn('mac Photo3D window:', error);
   });
+}
+
+export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boolean) {
+  if (record.photo3dController) {
+    record.photo3dController.setActive(active);
+  }
 }
 
 export { PHOTO_APP_HUD_HEIGHT };

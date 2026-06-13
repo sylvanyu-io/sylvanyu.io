@@ -82,10 +82,28 @@
     backdrop-filter: blur(9px) saturate(1.05);
     -webkit-backdrop-filter: blur(9px) saturate(1.05);
     contain: layout style;
+    transition:
+      border-color .16s ease,
+      box-shadow .16s ease,
+      filter .16s ease,
+      opacity .16s ease;
   }
 
   .mac-dom-window[hidden] {
     display: none;
+  }
+
+  .mac-dom-window[data-active="true"] {
+    border-color: rgba(255, 255, 255, .9);
+    box-shadow: 0 20px 34px rgba(20, 28, 24, .32);
+    filter: none;
+    opacity: 1;
+  }
+
+  .mac-dom-window[data-active="false"] {
+    box-shadow: 0 12px 22px rgba(20, 28, 24, .2);
+    filter: saturate(.82) brightness(.9);
+    opacity: .88;
   }
 
   .mac-dom-window[data-tone="dark"] {
@@ -95,6 +113,15 @@
     box-shadow: 0 18px 34px rgba(0, 0, 0, .42);
     backdrop-filter: blur(12px) saturate(1.05);
     -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  }
+
+  .mac-dom-window[data-tone="dark"][data-active="true"] {
+    border-color: rgba(255, 255, 255, .34);
+    box-shadow: 0 20px 38px rgba(0, 0, 0, .48);
+  }
+
+  .mac-dom-window[data-tone="dark"][data-active="false"] {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, .34);
   }
 
   /* Fullscreen "app" sheets on mobile: no chrome, near-opaque background so
