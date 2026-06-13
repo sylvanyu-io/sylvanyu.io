@@ -94,8 +94,9 @@ const GYRO_CONTROL_H = 32;
 const GYRO_CONTROL_GAP = 10;
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
-  const dots = MAC_WINDOW_IDS.map((id) => (state.windows[id].open ? '1' : '0')).join('');
-  return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${dots}`;
+  const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
+  const dots = layout.dock.slots.map((slot) => (state.windows[slot.id].open ? '1' : '0')).join('');
+  return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${slotIds}:${dots}`;
 }
 
 export function mountMacSingleCanvas(rootInput: Element) {

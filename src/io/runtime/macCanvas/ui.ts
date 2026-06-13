@@ -105,6 +105,7 @@ const icons: IconDef[] = [
   { id: 'worklog', icon: 'icon-worklog.svg', labelKey: 'iconLog' },
   { id: 'projects', icon: 'icon-projects.svg', labelKey: 'iconProjects' },
 ];
+const dockIcons = icons.filter((icon) => icon.id !== 'reflection');
 
 export const MAC_MENUBAR_HEIGHT = 34;
 const MAC_MENUBAR_TEXT_Y = 17;
@@ -423,13 +424,13 @@ export function buildMacCanvasLayout(
   const dockGap = mobile ? 12 : 10;
   const dockPadX = mobile ? 14 : 13;
   const dockPadY = mobile ? 10 : 9;
-  const dockW = icons.length * dockIcon + (icons.length - 1) * dockGap + dockPadX * 2;
+  const dockW = dockIcons.length * dockIcon + (dockIcons.length - 1) * dockGap + dockPadX * 2;
   const dockH = dockIcon + dockPadY * 2 + 6;
   const dockX = Math.round((width - dockW) * 0.5);
   const dockY = Math.round(height - dockH - (mobile ? 14 + safeBottom : 14));
   const dock: DockLayout = {
     panel: { x: dockX, y: dockY, w: dockW, h: dockH, r: mobile ? 24 : 22, z: 220 },
-    slots: icons.map((icon, index) => ({
+    slots: dockIcons.map((icon, index) => ({
       id: icon.id,
       x: dockX + dockPadX + index * (dockIcon + dockGap),
       y: dockY + dockPadY,
