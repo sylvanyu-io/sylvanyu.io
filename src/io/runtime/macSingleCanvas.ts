@@ -58,6 +58,7 @@ const MAX_BACKGROUND_RENDER_EDGE = 2048;
 const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
 const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
+const MAX_CANVAS_FPS = 60;
 
 // Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
 // the selected segment.
@@ -533,11 +534,30 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   let raf = 0;
+  let frameTimer = 0;
   let running = false;
   let frameCount = 0;
   let lastFpsTime = performance.now();
   let lastFrameMs = performance.now();
   const startTime = performance.now();
+
+  function queueFrame(delayMs = 0) {
+    if (!running) return;
+    if (delayMs > 1) {
+      frameTimer = window.setTimeout(() => {
+        frameTimer = 0;
+        raf = requestAnimationFrame(frame);
+      }, delayMs);
+      return;
+    }
+
+    raf = requestAnimationFrame(frame);
+  }
+
+  function queueNextFrame() {
+    const frameInterval = 1000 / MAX_CANVAS_FPS;
+    queueFrame(Math.max(0, frameInterval - (performance.now() - lastFrameMs)));
+  }
 
   function frame(nowMs: number) {
     const time = (nowMs - startTime) / 1000;
@@ -609,7 +629,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       );
     }
 
-    if (running) raf = requestAnimationFrame(frame);
+    if (running) queueNextFrame();
   }
 
   function start() {
@@ -617,14 +637,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
     running = true;
     frameCount = 0;
     lastFpsTime = performance.now();
-    lastFrameMs = performance.now();
-    raf = requestAnimationFrame(frame);
+    lastFrameMs = performance.now() - (1000 / MAX_CANVAS_FPS);
+    queueFrame();
   }
 
   function stop() {
     if (!running) return;
     running = false;
     cancelAnimationFrame(raf);
+    window.clearTimeout(frameTimer);
+    frameTimer = 0;
   }
 
   function applyHitAction(action: HitTarget['action'] | undefined) {

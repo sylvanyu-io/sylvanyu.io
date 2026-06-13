@@ -28,6 +28,7 @@ const SPRITE_LAYOUT = '2x3';
 const F1 = 1248.0;
 const INVZMIN = 0.1282;
 const MAX_BACKING_EDGE = 2048;
+const MAX_RENDER_FPS = 60;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -217,6 +218,8 @@ export const mountPhoto3D = (
   let program: WebGLProgram;
   let transparentTextureRef: WebGLTexture | null = null;
   let animationFrame = 0;
+  let animationTimer = 0;
+  let running = false;
   let dragging = false;
   let pointerActive = false;
   let smoothX = config.offsetX;
@@ -451,6 +454,39 @@ export const mountPhoto3D = (
     canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
   }
 
+  const queueFrame = (delayMs = 0) => {
+    if (!running) return;
+    if (delayMs > 1) {
+      animationTimer = window.setTimeout(() => {
+        animationTimer = 0;
+        animationFrame = requestAnimationFrame(frame);
+      }, delayMs);
+      return;
+    }
+
+    animationFrame = requestAnimationFrame(frame);
+  };
+
+  const queueNextFrame = (time: number) => {
+    queueFrame(Math.max(0, (1000 / MAX_RENDER_FPS) - (performance.now() - time)));
+  };
+
+  const stopLoop = () => {
+    running = false;
+    cancelAnimationFrame(animationFrame);
+    window.clearTimeout(animationTimer);
+    animationFrame = 0;
+    animationTimer = 0;
+  };
+
+  const startLoop = () => {
+    if (running) return;
+    running = true;
+    frameCount = 0;
+    lastFpsTime = performance.now();
+    queueFrame();
+  };
+
   const frame = (time = performance.now()) => {
     frameCount += 1;
     if (time - lastFpsTime >= 500) {
@@ -516,7 +552,7 @@ export const mountPhoto3D = (
     ]));
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    animationFrame = requestAnimationFrame(frame);
+    queueNextFrame(time);
   };
 
   const bind = (id: string, key: NumericConfigKey, format: (value: number) => string) => {
@@ -648,14 +684,14 @@ export const mountPhoto3D = (
     });
 
     await loadSprite(spriteUrl);
-    frame();
+    startLoop();
   };
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(stage);
   window.addEventListener('pagehide', () => {
     resizeObserver.disconnect();
-    cancelAnimationFrame(animationFrame);
+    stopLoop();
   }, { once: true });
 
   init().catch((error) => {

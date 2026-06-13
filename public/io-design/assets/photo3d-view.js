@@ -21,6 +21,7 @@
   var F1 = 1248.0;
   var INVZMIN = 0.1282;
   var MAX_EDGE = 2048;
+  var MAX_FPS = 60;
   var shaderCache = {};
 
   // When bundled into a standalone file, assets are inlined as blob URLs under window.__resources.
@@ -158,6 +159,8 @@
       this._fps = 0; this._frameCount = 0; this._lastFps = performance.now();
       this._uniforms = {}; this._textures = {};
       this._raf = 0;
+      this._timer = 0;
+      this._lastFrameTime = 0;
       this._ready = false;
 
       var gl = this._canvas.getContext('webgl', { alpha: false, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: true });
@@ -195,6 +198,7 @@
 
     disconnectedCallback() {
       cancelAnimationFrame(this._raf);
+      clearTimeout(this._timer);
       if (this._ro) this._ro.disconnect();
       var target = this._track === 'window' ? window : this;
       if (this._onMove) {
@@ -331,12 +335,31 @@
       this._layout();
       this._ready = true;
       this.dataset.state = 'ready';
-      this._frame(performance.now());
+      this._scheduleFrame(0);
+    }
+
+    _scheduleFrame(delay) {
+      var self = this;
+      if (!this._mounted || !this._ready) return;
+      if (delay > 1) {
+        this._timer = window.setTimeout(function () {
+          self._timer = 0;
+          self._raf = requestAnimationFrame(function (t) { self._frame(t); });
+        }, delay);
+        return;
+      }
+
+      this._raf = requestAnimationFrame(function (t) { self._frame(t); });
+    }
+
+    _scheduleNextFrame() {
+      var delay = Math.max(0, (1000 / MAX_FPS) - (performance.now() - this._lastFrameTime));
+      this._scheduleFrame(delay);
     }
 
     _frame(time) {
-      var self = this;
-      this._raf = requestAnimationFrame(function (t) { self._frame(t); });
+      if (!this._mounted || !this._ready) return;
+      this._lastFrameTime = time;
       var gl = this._gl, cfg = this._cfg, u = this._uniforms;
 
       this._frameCount += 1;
@@ -385,6 +408,7 @@
       gl.uniform1fv(u['f1[0]'], new Float32Array([F1, F1, F1, 0]));
       gl.uniform2fv(u['iRes[0]'], new Float32Array([cfg.W, cfg.H, cfg.W, cfg.H, cfg.W, cfg.H, 1, 1]));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      this._scheduleNextFrame();
     }
   }
 
