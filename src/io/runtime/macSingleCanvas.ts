@@ -137,11 +137,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function shouldShowGyroApp() {
     const mobileViewport = cssWidth <= 700 || cssHeight > cssWidth * 1.18;
     const touchViewport = mobileViewport || window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    return touchViewport
-      && !gyro.active
+    if (!touchViewport) return false;
+    // In dev, keep the tile visible on touch/mobile even once permission is
+    // auto-granted, so the gyro flow stays testable; wide desktop still hides it.
+    if (import.meta.env.DEV) return true;
+    return !gyro.active
       && gyro.permissionState !== 'denied'
       && gyro.permissionState !== 'granted'
-      && (gyro.permissionState !== 'insecure' || import.meta.env.DEV)
+      && gyro.permissionState !== 'insecure'
       && gyro.permissionState !== 'unsupported';
   }
 
