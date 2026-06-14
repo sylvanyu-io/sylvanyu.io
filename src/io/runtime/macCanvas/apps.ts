@@ -1,6 +1,7 @@
 import type { WindowId, WindowStateMap } from './windowTypes';
 
-export type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects';
+export type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects' | 'iconLabs';
+export type FolderId = 'labs';
 
 export type MacAppDefinition = {
   id: WindowId;
@@ -10,6 +11,13 @@ export type MacAppDefinition = {
   dock: boolean;
   initialOpen: boolean;
   initialZ: number;
+};
+
+export type MacFolderDefinition = {
+  id: FolderId;
+  title: string;
+  labelKey: IconLabelKey;
+  items: WindowId[];
 };
 
 export const MAC_ASSET_BASE = '/io-design/assets/';
@@ -77,10 +85,29 @@ export const MAC_APPS: MacAppDefinition[] = [
   },
 ];
 
+export const LABS_FOLDER_ID: FolderId = 'labs';
+
+export const MAC_FOLDERS: MacFolderDefinition[] = [
+  {
+    id: LABS_FOLDER_ID,
+    title: 'Labs',
+    labelKey: 'iconLabs',
+    items: ['photo', 'reflection'],
+  },
+];
+
 export const DOCK_APPS = MAC_APPS.filter((app) => app.dock);
 
+export function appDefinition(id: WindowId) {
+  return MAC_APPS.find((app) => app.id === id) ?? null;
+}
+
 export function appTitle(id: WindowId) {
-  return MAC_APPS.find((app) => app.id === id)?.title ?? id;
+  return appDefinition(id)?.title ?? id;
+}
+
+export function folderDefinition(id: FolderId) {
+  return MAC_FOLDERS.find((folder) => folder.id === id) ?? null;
 }
 
 export function createInitialWindowState(): WindowStateMap {

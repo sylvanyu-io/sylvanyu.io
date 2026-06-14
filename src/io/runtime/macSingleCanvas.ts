@@ -12,6 +12,7 @@ import {
   createInitialMacCanvasState,
   drawMacDesktopIcons,
   drawMacDockOverlay,
+  drawMacFolderOverlay,
   drawMacMenubarOverlay,
   drawMacWidgetOverlay,
   hitTest,
@@ -29,6 +30,7 @@ import {
 } from './macCanvas/ui';
 import {
   createGlassPipeline,
+  createKawaseBlurPipeline,
   type GlassPanelInput,
 } from './macCanvas/glassPipeline';
 import {
@@ -51,6 +53,7 @@ import {
 } from './macCanvas/threeHelpers';
 import { createFpsSampler, createFrameLimiter } from './canvasTiming';
 import {
+  FOLDER_BACKDROP_BLUR,
   LANG_PILL_GLASS,
   LANG_THUMB_GLASS,
   LANG_THUMB_INSET,
@@ -62,6 +65,7 @@ import {
   PHOTO3D_SHADER_URL,
   PHOTO_APP_META,
   WALLPAPER_SPRITE,
+  type FolderId,
 } from './macCanvas/apps';
 
 const WINDOW_DRAG_LIMITS = {
@@ -69,6 +73,23 @@ const WINDOW_DRAG_LIMITS = {
   sideMargin: 80,
   bottomMargin: 60,
 } as const;
+
+const FOLDER_OPEN_DURATION_MS = 280;
+const FOLDER_CLOSE_DURATION_MS = 220;
+
+const blurredBackdropFragmentShader = `
+precision highp float;
+
+uniform sampler2D uScene;
+uniform float uAlpha;
+
+varying vec2 vUv;
+
+void main() {
+  vec3 color = texture2D(uScene, clamp(vUv, vec2(0.001), vec2(0.999))).rgb;
+  gl_FragColor = vec4(color, uAlpha);
+}
+`;
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
@@ -174,6 +195,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
   scene.add(passMesh);
 
   const glassPipeline = createGlassPipeline({ renderer, scene, camera, mesh: passMesh }, placeholder);
+  const folderBackdropBlur = createKawaseBlurPipeline(
+    { renderer, scene, camera, mesh: passMesh },
+    placeholder,
+    FOLDER_BACKDROP_BLUR,
+  );
 
   const coverUniforms = {
     uScene: { value: placeholder as THREE.Texture },
@@ -191,6 +217,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     uScene: { value: placeholder as THREE.Texture },
     uInputSize: { value: new THREE.Vector2(1, 1) },
     uSharpness: { value: MAC_RENDER_TUNING.baseUpscaleSharpness },
+  };
+  const blurredBackdropUniforms = {
+    uScene: { value: placeholder as THREE.Texture },
+    uAlpha: { value: 0 },
   };
 
   const coverMaterial = new THREE.ShaderMaterial({
@@ -215,17 +245,76 @@ export function mountMacSingleCanvas(rootInput: Element) {
     depthTest: false,
     depthWrite: false,
   });
+  const blurredBackdropMaterial = new THREE.ShaderMaterial({
+    uniforms: blurredBackdropUniforms,
+    vertexShader: screenVertexShader,
+    fragmentShader: blurredBackdropFragmentShader,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
 
   const iconsLayer = makeCanvasLayer();
   const widgetLayer = makeCanvasLayer();
+  const folderLayer = makeCanvasLayer();
   const dockLayer = makeCanvasLayer();
   const menubarLayer = makeCanvasLayer();
-  const allLayers = [iconsLayer, widgetLayer, dockLayer, menubarLayer];
+  const allLayers = [iconsLayer, widgetLayer, folderLayer, dockLayer, menubarLayer];
   if (allLayers.some((layer) => !layer)) return;
 
   function markLayoutDirty() {
     layoutDirty = true;
     start();
+  }
+
+  let folderAnimation: {
+    id: FolderId;
+    from: number;
+    to: number;
+    startMs: number;
+    durationMs: number;
+  } | null = null;
+
+  function setOpenFolder(id: FolderId | null) {
+    const nowMs = performance.now();
+    if (id) {
+      const from = state.folder === id ? state.folderProgress : 0;
+      state.folder = id;
+      state.folderProgress = from;
+      folderSnapshotDirty = true;
+      folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
+      markLayoutDirty();
+      return;
+    }
+
+    if (!state.folder) return;
+    folderAnimation = {
+      id: state.folder,
+      from: state.folderProgress,
+      to: 0,
+      startMs: nowMs,
+      durationMs: FOLDER_CLOSE_DURATION_MS,
+    };
+    markLayoutDirty();
+  }
+
+  function updateFolderAnimation(nowMs: number) {
+    if (!folderAnimation) return false;
+    const animation = folderAnimation;
+    const raw = Math.min(1, Math.max(0, (nowMs - animation.startMs) / animation.durationMs));
+    state.folder = animation.id;
+    state.folderProgress = animation.from + (animation.to - animation.from) * raw;
+
+    if (raw < 1) return true;
+
+    state.folderProgress = animation.to;
+    if (animation.to === 0) {
+      state.folder = null;
+      state.folderProgress = 0;
+      disposeFolderTargets();
+    }
+    folderAnimation = null;
+    return true;
   }
 
   function closeOtherWindows(activeId: WindowId) {
@@ -313,21 +402,33 @@ export function mountMacSingleCanvas(rootInput: Element) {
     openWindow,
     minimizeWindow: (id) => domWindows.minimize(id),
   });
-
   // backgroundTarget contains only the Photo3D wallpaper and its shade. It is
   // the single source for screen presentation and liquid-glass blur; all text
   // and icons are drawn later as crisp overlays.
   let backgroundTarget: THREE.WebGLRenderTarget | null = null;
+  let folderSnapshotTarget: THREE.WebGLRenderTarget | null = null;
+  let folderBlurTarget: THREE.WebGLRenderTarget | null = null;
+  let folderBackdropTexture: THREE.Texture | null = null;
+  let folderSnapshotDirty = true;
+
+  function disposeFolderTargets() {
+    disposeTarget(folderSnapshotTarget);
+    disposeTarget(folderBlurTarget);
+    folderSnapshotTarget = null;
+    folderBlurTarget = null;
+    folderBackdropTexture = null;
+    folderSnapshotDirty = true;
+  }
 
   function disposeTargets() {
     disposeTarget(backgroundTarget);
     backgroundTarget = null;
+    disposeFolderTargets();
   }
 
   function rebuildLayout() {
     layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     layoutDirty = false;
-    root.dataset.macMobile = layout.mobile ? 'true' : 'false';
     if (!layout.mobile) mobileNav.resetForDesktop();
 
     // The phone variant boots onto the "home screen": apps start closed and
@@ -344,6 +445,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
       layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     }
 
+    root.dataset.macMobile = layout.mobile ? 'true' : 'false';
+    root.dataset.macFolderOpen = layout.folder
+      && folderAnimation?.to !== 0
+      && (!layout.mobile || layout.windows.length === 0)
+      ? 'true'
+      : 'false';
     refreshLayerKeys();
     mobileNav.ensureHomeHistory();
   }
@@ -393,16 +500,29 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // frosted backdrop never needs full device-pixel detail.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
+    folderBackdropBlur.resize(backgroundWidth, backgroundHeight);
 
     layoutDirty = true;
     start();
   }
 
-  // Presents the already-screen-aspect background to the default framebuffer.
-  function presentBackground(texture: THREE.Texture) {
+  // Presents the already-screen-aspect background to the chosen framebuffer.
+  function presentBackground(texture: THREE.Texture, target: THREE.WebGLRenderTarget | null) {
     upscaleUniforms.uScene.value = texture;
     upscaleUniforms.uInputSize.value.set(baseWidth, baseHeight);
-    renderPass(renderer, scene, camera, passMesh, upscaleMaterial, null);
+    renderPass(renderer, scene, camera, passMesh, upscaleMaterial, target);
+  }
+
+  function presentBlurredBackdrop(texture: THREE.Texture, alpha: number) {
+    blurredBackdropUniforms.uScene.value = texture;
+    blurredBackdropUniforms.uAlpha.value = THREE.MathUtils.clamp(alpha, 0, 1);
+    renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, null);
+  }
+
+  function copyTextureToTarget(texture: THREE.Texture, target: THREE.WebGLRenderTarget) {
+    blurredBackdropUniforms.uScene.value = texture;
+    blurredBackdropUniforms.uAlpha.value = 1;
+    renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, target);
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
@@ -474,11 +594,107 @@ export function mountMacSingleCanvas(rootInput: Element) {
     );
   }
 
+  function folderOverlayRect(): Rect {
+    const folder = layout.folder;
+    if (!folder) return { x: 0, y: 0, w: 0, h: 0 };
+
+    const rects: Rect[] = [
+      folder.source,
+      folder.titleRect,
+      folder.finalPanel,
+      ...folder.items.flatMap((item) => [item.hit]),
+    ];
+    const minX = Math.min(...rects.map((rect) => rect.x));
+    const minY = Math.min(...rects.map((rect) => rect.y));
+    const maxX = Math.max(...rects.map((rect) => rect.x + rect.w));
+    const maxY = Math.max(...rects.map((rect) => rect.y + rect.h));
+    const pad = 24;
+    const x = Math.max(0, Math.floor(minX - pad));
+    const y = Math.max(0, Math.floor(minY - pad));
+    return {
+      x,
+      y,
+      w: Math.min(cssWidth - x, Math.ceil(maxX - minX + pad * 2)),
+      h: Math.min(cssHeight - y, Math.ceil(maxY - minY + pad * 2)),
+    };
+  }
+
+  function renderFolderOverlay(target: THREE.WebGLRenderTarget | null) {
+    if (!layout.folder) return;
+
+    const itemSig = layout.folder.items.map((item) => item.id).join(',');
+    drawRectLayer(
+      folderLayer as CanvasLayer,
+      folderOverlayRect(),
+      `folder:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}:${layout.folder.id}:${layout.folder.progress.toFixed(3)}:${itemSig}`,
+      (context) => drawMacFolderOverlay(context, layout, assets, state),
+      target,
+    );
+  }
+
+  function renderHomeScreen(target: THREE.WebGLRenderTarget | null, blurred: THREE.Texture, now: Date) {
+    if (!backgroundTarget) return;
+
+    presentBackground(backgroundTarget.texture, target);
+    glassPipeline.renderPanels(blurred, layout.glassPanels, cssWidth, cssHeight, target);
+    glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, target);
+
+    renderDesktopIcons(target);
+    drawRectLayer(
+      widgetLayer as CanvasLayer,
+      layout.widgetsRect ?? { x: 0, y: 0, w: 0, h: 0 },
+      `widget:${layout.width}:${layout.height}:${state.lang}:${frameSecondKey(now)}:${Math.round(state.fps)}`,
+      (context) => drawMacWidgetOverlay(context, layout, state, now),
+      target,
+    );
+    drawRectLayer(
+      dockLayer as CanvasLayer,
+      layout.dockRect,
+      dockCacheKey,
+      (context) => drawMacDockOverlay(context, layout, assets, state),
+      target,
+    );
+    drawRectLayer(
+      menubarLayer as CanvasLayer,
+      layout.menubarRect,
+      `menubar:${layout.width}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
+      (context) => drawMacMenubarOverlay(context, layout, state, now, langAnim),
+      target,
+    );
+  }
+
+  function ensureFolderTargets() {
+    const snapshotSizeMatches = folderSnapshotTarget
+      && folderSnapshotTarget.width === renderWidth
+      && folderSnapshotTarget.height === renderHeight;
+    const blurSizeMatches = folderBlurTarget
+      && folderBlurTarget.width === backgroundWidth
+      && folderBlurTarget.height === backgroundHeight;
+
+    if (snapshotSizeMatches && blurSizeMatches) return;
+
+    disposeFolderTargets();
+    folderSnapshotTarget = makeRenderTarget(renderWidth, renderHeight);
+    folderBlurTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
+  }
+
+  function captureFolderBackdrop(blurred: THREE.Texture, now: Date) {
+    ensureFolderTargets();
+    if (!folderSnapshotTarget || !folderBlurTarget) return;
+
+    renderHomeScreen(folderSnapshotTarget, blurred, now);
+    const snapshotBlurred = folderBackdropBlur.renderBlur(folderSnapshotTarget);
+    copyTextureToTarget(snapshotBlurred, folderBlurTarget);
+    folderBackdropTexture = folderBlurTarget.texture;
+    folderSnapshotDirty = false;
+  }
+
   // Reused across frames: the pill plus the lens thumb that slides to the
   // selected segment. Mutated in place so the animated toggle allocates nothing.
   const langPillPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_PILL_GLASS };
   const langThumbPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_THUMB_GLASS };
   const langPanels: GlassPanelInput[] = [langPillPanel, langThumbPanel];
+  const folderPanels: GlassPanelInput[] = [];
   const noPanels: GlassPanelInput[] = [];
 
   function langGlassPanels(): GlassPanelInput[] {
@@ -553,6 +769,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function frame(nowMs: number) {
+    if (updateFolderAnimation(nowMs)) layoutDirty = true;
+
     // Layout, window DOM sync, and the layout-stable cache keys only change on
     // interaction/resize. The steady-state frame skips all of it and the DOM
     // window HUD text is refreshed on its own 500ms cadence (see macDomWindows).
@@ -581,42 +799,29 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (useGyro) pointer.set(gyro.x, gyro.y);
 
     const now = new Date();
-    renderWallpaper(time, pointerActive || useGyro);
+    if (!layout.folder) renderWallpaper(time, pointerActive || useGyro);
 
     if (backgroundTarget) {
-      renderer.setRenderTarget(null);
-      presentBackground(backgroundTarget.texture);
+      if (layout.folder) {
+        if (folderSnapshotDirty || !folderBackdropTexture) {
+          // Freeze the current canvas home screen once, then blur that frozen
+          // frame. While the folder is open, the wallpaper/photo3d background
+          // does not keep refreshing behind it.
+          const liveBlurred = glassPipeline.renderBlur(backgroundTarget);
+          captureFolderBackdrop(liveBlurred, now);
+        }
 
-      // Glass samples only the Kawase-blurred scene so sharp source edges do
-      // not leak into frosted panels.
-      const blurred = glassPipeline.renderBlur(backgroundTarget);
-      glassPipeline.renderPanels(blurred, layout.glassPanels, cssWidth, cssHeight, null);
-      glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, null);
-
-      renderDesktopIcons(null);
-
-      drawRectLayer(
-        widgetLayer as CanvasLayer,
-        layout.widgetsRect ?? { x: 0, y: 0, w: 0, h: 0 },
-        `widget:${layout.width}:${layout.height}:${state.lang}:${frameSecondKey(now)}:${Math.round(state.fps)}`,
-        (context) => drawMacWidgetOverlay(context, layout, state, now),
-        null,
-      );
-      drawRectLayer(
-        dockLayer as CanvasLayer,
-        layout.dockRect,
-        dockCacheKey,
-        (context) => drawMacDockOverlay(context, layout, assets, state),
-        null,
-      );
-
-      drawRectLayer(
-        menubarLayer as CanvasLayer,
-        layout.menubarRect,
-        `menubar:${layout.width}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
-        (context) => drawMacMenubarOverlay(context, layout, state, now, langAnim),
-        null,
-      );
+        if (folderSnapshotTarget) presentBlurredBackdrop(folderSnapshotTarget.texture, 1);
+        const backdropTexture = folderBackdropTexture ?? folderSnapshotTarget?.texture ?? backgroundTarget.texture;
+        presentBlurredBackdrop(backdropTexture, layout.folder.progress);
+        folderPanels[0] = layout.folder.panel;
+        folderPanels.length = 1;
+        glassPipeline.renderPanels(backdropTexture, folderPanels, cssWidth, cssHeight, null);
+        renderFolderOverlay(null);
+      } else {
+        const blurred = glassPipeline.renderBlur(backgroundTarget);
+        renderHomeScreen(null, blurred, now);
+      }
     }
 
     if (running) queueFrame();
@@ -648,13 +853,28 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
+    if (action.type === 'folder') {
+      setOpenFolder(action.id);
+      return;
+    }
+
+    if (action.type === 'folder-close') {
+      setOpenFolder(null);
+      return;
+    }
+
     if (action.origin === 'dock' && state.windows[action.id].open) {
       domWindows.minimize(action.id);
       return;
     }
 
+    if (action.origin === 'folder' && state.folder) {
+      state.folderProgress = 1;
+      folderAnimation = null;
+    }
     domWindows.setRestoreOrigin(action.id, action.origin);
     openWindow(action.id);
+    if (action.origin === 'folder' && !layout.mobile) setOpenFolder(null);
   }
 
   function eventPoint(event: PointerEvent | MouseEvent) {
@@ -785,15 +1005,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
     gyro.dispose();
     safeAreaProbe.remove();
     mobileNav.destroy();
+    root.dataset.macFolderOpen = 'false';
     disposeTargets();
     domWindows.destroy();
     glassPipeline.dispose();
+    folderBackdropBlur.dispose();
     wallpaperPass?.dispose();
     placeholder.dispose();
     allLayers.forEach((layer) => layer?.texture.dispose());
     geometry.dispose();
     coverMaterial.dispose();
     uiRectMaterial.dispose();
+    blurredBackdropMaterial.dispose();
     renderer.dispose();
   };
 

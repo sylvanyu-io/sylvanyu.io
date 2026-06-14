@@ -19,6 +19,7 @@ export const desktopCopy: Record<Lang, {
   iconReflection: string;
   iconLog: string;
   iconProjects: string;
+  iconLabs: string;
   iconMail: string;
 }> = {
   en: {
@@ -40,6 +41,7 @@ export const desktopCopy: Record<Lang, {
     iconReflection: 'Reflection.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
+    iconLabs: 'Labs',
     iconMail: 'mail',
   },
   zh: {
@@ -61,6 +63,7 @@ export const desktopCopy: Record<Lang, {
     iconReflection: '平面反射.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
+    iconLabs: 'Labs',
     iconMail: '邮件',
   },
 };

@@ -25,7 +25,7 @@ type MacDomWindowController = {
   destroy: () => void;
 };
 
-type RestoreOrigin = 'desktop' | 'dock';
+type RestoreOrigin = 'desktop' | 'dock' | 'folder';
 
 type DragState = {
   id: WindowId;
@@ -89,7 +89,13 @@ function desktopTarget(layout: MacCanvasLayout, id: WindowId): Rect {
   return dockTarget(layout, id);
 }
 
+function folderTarget(layout: MacCanvasLayout, id: WindowId): Rect {
+  const item = layout.folder?.items.find((folderItem) => folderItem.id === id);
+  return item?.icon ?? desktopTarget(layout, id);
+}
+
 function restoreTarget(layout: MacCanvasLayout, id: WindowId, origin: RestoreOrigin): Rect {
+  if (origin === 'folder') return folderTarget(layout, id);
   return origin === 'desktop' ? desktopTarget(layout, id) : dockTarget(layout, id);
 }
 

@@ -1,12 +1,18 @@
 import { desktopCopy } from '../../data';
 import type { Lang } from '../../content/common';
 import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
+import { FOLDER_ICON_GLASS, FOLDER_PANEL_GLASS } from './tuning';
 import {
   DOCK_APPS,
+  LABS_FOLDER_ID,
   MAC_APPS,
   MAC_ASSET_BASE,
+  MAC_FOLDERS,
+  appDefinition,
   appTitle,
   createInitialWindowState,
+  folderDefinition,
+  type FolderId,
   type IconLabelKey,
 } from './apps';
 import {
@@ -24,9 +30,11 @@ export type { GlassPanel, Rect, WindowId, WindowLayout } from './windowTypes';
 
 export type HitTarget = Rect & {
   cursor: 'default' | 'pointer';
-  action:
+  action?:
     | { type: 'lang'; lang: Lang }
-    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' }
+    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' | 'folder' }
+    | { type: 'folder'; id: FolderId }
+    | { type: 'folder-close' }
     | { type: 'gyro' };
 };
 
@@ -35,10 +43,12 @@ export type MacCanvasState = {
   fps: number;
   bufferText: string;
   windows: WindowStateMap;
+  folder: FolderId | null;
+  folderProgress: number;
 };
 
 export type IconCell = {
-  id: WindowId | 'lang' | 'gyro';
+  id: WindowId | FolderId | 'lang' | 'gyro';
   labelKey?: IconLabelKey;
   label?: string;
   x: number;
@@ -55,6 +65,17 @@ export type IconCell = {
 type DockLayout = {
   panel: GlassPanel;
   slots: { id: WindowId; x: number; y: number; size: number }[];
+};
+
+export type FolderOverlayLayout = {
+  id: FolderId;
+  title: string;
+  source: Rect;
+  panel: GlassPanel;
+  finalPanel: GlassPanel;
+  titleRect: Rect;
+  progress: number;
+  items: { id: WindowId; icon: Rect; label: Rect; hit: Rect }[];
 };
 
 export type LangSwitchLayout = Rect & {
@@ -81,6 +102,7 @@ export type MacCanvasLayout = {
   hitTargets: HitTarget[];
   windows: WindowLayout[];
   iconCells: IconCell[];
+  folder: FolderOverlayLayout | null;
   dock: DockLayout;
   langSwitch: LangSwitchLayout | null;
   widgets: WidgetsLayout;
@@ -229,6 +251,8 @@ export function createInitialMacCanvasState(): MacCanvasState {
     fps: 0,
     bufferText: 'BUF --',
     windows: createInitialWindowState(),
+    folder: null,
+    folderProgress: 0,
   };
 }
 
@@ -297,6 +321,177 @@ function boundsOf(rects: Rect[]): Rect {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function easeFolderProgress(value: number) {
+  const t = clamp(value, 0, 1);
+  return 1 - (1 - t) ** 3;
+}
+
+function mixNumber(from: number, to: number, t: number) {
+  return from + (to - from) * t;
+}
+
+function mixRect(from: Rect, to: Rect, t: number): Rect {
+  return {
+    x: Math.round(mixNumber(from.x, to.x, t)),
+    y: Math.round(mixNumber(from.y, to.y, t)),
+    w: Math.round(mixNumber(from.w, to.w, t)),
+    h: Math.round(mixNumber(from.h, to.h, t)),
+  };
+}
+
+function buildFolderItemRects(panel: GlassPanel, mobile: boolean, items: WindowId[]) {
+  const paddingX = mobile ? 34 : 48;
+  const paddingTop = mobile ? 52 : 56;
+  const iconSize = mobile ? 68 : 72;
+  const colGap = mobile ? 18 : 28;
+  const rowGap = mobile ? 25 : 24;
+  const labelSpace = mobile ? 28 : 30;
+  const labelGap = mobile ? 9 : 10;
+  const gridW = Math.max(1, panel.w - paddingX * 2);
+  const colW = (gridW - colGap * 2) / 3;
+  const rowH = iconSize + labelSpace;
+
+  return items.map((id, index) => {
+    const col = index % 3;
+    const row = Math.floor(index / 3);
+    const cellX = panel.x + paddingX + col * (colW + colGap);
+    const cellY = panel.y + paddingTop + row * (rowH + rowGap);
+    const icon = {
+      x: Math.round(cellX + (colW - iconSize) * 0.5),
+      y: Math.round(cellY),
+      w: iconSize,
+      h: iconSize,
+    };
+    const labelW = Math.min(mobile ? 86 : 96, colW + 12);
+    const label = {
+      x: Math.round(icon.x + iconSize * 0.5 - labelW * 0.5),
+      y: Math.round(icon.y + iconSize + labelGap),
+      w: Math.round(labelW),
+      h: mobile ? 15 : 17,
+    };
+    return {
+      id,
+      icon,
+      label,
+      hit: {
+        x: Math.round(cellX),
+        y: Math.round(cellY - 8),
+        w: Math.round(colW),
+        h: Math.round(iconSize + labelGap + label.h + 16),
+      },
+    };
+  });
+}
+
+function folderPanelHeight(panelW: number, mobile: boolean, availableH: number) {
+  const paddingTop = mobile ? 52 : 56;
+  const paddingBottom = mobile ? 40 : 46;
+  const iconSize = mobile ? 68 : 72;
+  const rowGap = mobile ? 25 : 24;
+  const labelSpace = mobile ? 28 : 30;
+  const rows = 3;
+  const neededH = paddingTop + rows * (iconSize + labelSpace) + (rows - 1) * rowGap + paddingBottom;
+  const preferredH = mobile ? Math.max(neededH, Math.round(panelW * 1.02)) : Math.max(neededH, 456);
+  return Math.min(preferredH, availableH);
+}
+
+function buildFolderThumbRects(source: Rect, items: WindowId[]) {
+  const gridSize = source.w * 0.68;
+  const thumbGap = source.w * 0.045;
+  const thumbSize = (gridSize - thumbGap * 2) / 3;
+  const thumbX = source.x + (source.w - gridSize) * 0.5;
+  const thumbY = source.y + (source.h - gridSize) * 0.5;
+
+  return items.map((id, index) => {
+    const col = index % 3;
+    const row = Math.floor(index / 3);
+    const icon = {
+      x: Math.round(thumbX + col * (thumbSize + thumbGap)),
+      y: Math.round(thumbY + row * (thumbSize + thumbGap)),
+      w: Math.round(thumbSize),
+      h: Math.round(thumbSize),
+    };
+    return {
+      id,
+      icon,
+      label: { x: icon.x, y: icon.y + icon.h, w: icon.w, h: 1 },
+    };
+  });
+}
+
+function buildFolderOverlay(
+  width: number,
+  height: number,
+  mobile: boolean,
+  safeTop: number,
+  safeBottom: number,
+  iconCells: IconCell[],
+  folderId: FolderId,
+  progress = 1,
+): FolderOverlayLayout | null {
+  const folder = folderDefinition(folderId);
+  if (!folder) return null;
+
+  const sourceCell = iconCells.find((item) => item.id === folderId);
+  const source = sourceCell
+    ? { x: sourceCell.imgX, y: sourceCell.imgY, w: sourceCell.imgSize, h: sourceCell.imgSize }
+    : { x: Math.round(width * 0.5), y: Math.round(height * 0.38), w: 1, h: 1 };
+  const panelW = mobile ? Math.min(width - 42, 420) : 430;
+  const panelH = folderPanelHeight(panelW, mobile, height - safeTop - safeBottom - 160);
+  const minY = mobile ? safeTop + 96 : 86;
+  const maxY = Math.max(minY, height - panelH - (mobile ? safeBottom + 118 : 76));
+  const availableTop = mobile ? safeTop + 80 : 72;
+  const availableBottom = height - (mobile ? safeBottom + 118 : 72);
+  const centeredY = availableTop + Math.max(0, availableBottom - availableTop - panelH) * 0.5;
+  const finalPanel: GlassPanel = {
+    x: Math.round((width - panelW) * 0.5),
+    y: Math.round(clamp(centeredY, minY, maxY)),
+    w: Math.round(panelW),
+    h: Math.round(panelH),
+    r: mobile ? 38 : 42,
+    z: 240,
+    params: FOLDER_PANEL_GLASS,
+  };
+  const t = easeFolderProgress(progress);
+  const animatedRect = mixRect(source, finalPanel, t);
+  const panel: GlassPanel = {
+    ...finalPanel,
+    ...animatedRect,
+    r: mixNumber(source.w * 0.235, finalPanel.r, t),
+  };
+  const items = folder.items.slice(0, 9);
+  const finalItems = buildFolderItemRects(finalPanel, mobile, items);
+  const sourceItems = buildFolderThumbRects(source, items);
+
+  return {
+    id: folder.id,
+    title: folder.title,
+    source,
+    panel,
+    finalPanel,
+    titleRect: {
+      x: finalPanel.x,
+      y: Math.max(safeTop + 26, finalPanel.y - 58),
+      w: finalPanel.w,
+      h: 42,
+    },
+    progress: clamp(progress, 0, 1),
+    items: finalItems.map((item, index) => {
+      const sourceItem = sourceItems[index] ?? item;
+      return {
+        id: item.id,
+        icon: mixRect(sourceItem.icon, item.icon, t),
+        label: mixRect(sourceItem.label, item.label, t),
+        hit: item.hit,
+      };
+    }),
+  };
+}
+
 // iOS-style home screen grid: app icons in 4 columns plus optional utility
 // tiles, laid out below the widgets.
 function buildMobileIconCells(width: number, top: number, options: MacCanvasLayoutOptions): IconCell[] {
@@ -331,6 +526,13 @@ function buildMobileIconCells(width: number, top: number, options: MacCanvasLayo
     labelKey: app.labelKey,
     ...cellAt(index),
   }));
+  MAC_FOLDERS.forEach((folder) => {
+    cells.push({
+      id: folder.id,
+      labelKey: folder.labelKey,
+      ...cellAt(cells.length),
+    });
+  });
   if (options.showGyroApp) cells.push({ id: 'gyro', label: options.gyroLabel ?? 'TILT', ...cellAt(cells.length) });
   cells.push({ id: 'lang', ...cellAt(cells.length) });
   return cells;
@@ -359,6 +561,25 @@ function buildDesktopIconCells(options: MacCanvasLayoutOptions): IconCell[] {
       labelX: iconX + grid.labelXOffset,
       labelY: imgY + grid.imgSize + grid.labelGap,
     };
+  });
+
+  MAC_FOLDERS.forEach((folder, folderIndex) => {
+    const index = MAC_APPS.length + folderIndex;
+    const y = iconTop + index * (itemH + iconGap);
+    const imgY = y + grid.imgOffsetY;
+    cells.push({
+      id: folder.id,
+      labelKey: folder.labelKey,
+      x: iconX,
+      y,
+      w: grid.itemW,
+      h: itemH,
+      imgX: iconX + grid.imgOffsetX,
+      imgY,
+      imgSize: grid.imgSize,
+      labelX: iconX + grid.labelXOffset,
+      labelY: imgY + grid.imgSize + grid.labelGap,
+    });
   });
 
   if (options.showGyroApp) {
@@ -463,6 +684,21 @@ export function buildMacCanvasLayout(
 
   const iconsTop = mobile ? widgets.status.y + widgets.status.h + LAYOUT.widgets.iconGridGap : LAYOUT.desktopIconGrid.top;
   const iconCells = mobile ? buildMobileIconCells(width, iconsTop, options) : buildDesktopIconCells(options);
+  const folder = state.folder
+    ? buildFolderOverlay(width, height, mobile, safeTop, safeBottom, iconCells, state.folder, state.folderProgress)
+    : null;
+  const folderGlassPanels: GlassPanel[] = iconCells
+    .filter((cell) => cell.id === LABS_FOLDER_ID)
+    .map((cell) => ({
+      x: cell.imgX,
+      y: cell.imgY,
+      w: cell.imgSize,
+      h: cell.imgSize,
+      r: cell.imgSize * 0.235,
+      z: 18,
+      params: FOLDER_ICON_GLASS,
+    }));
+
   iconCells.forEach((cell) => {
     hitTargets.push({
       x: cell.x,
@@ -474,7 +710,9 @@ export function buildMacCanvasLayout(
         ? { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' }
         : cell.id === 'gyro'
           ? { type: 'gyro' }
-          : { type: 'open', id: cell.id, origin: 'desktop' },
+          : cell.id === LABS_FOLDER_ID
+            ? { type: 'folder', id: cell.id }
+            : { type: 'open', id: cell.id, origin: 'desktop' },
     });
   });
 
@@ -601,6 +839,31 @@ export function buildMacCanvasLayout(
     });
   });
 
+  if (folder) {
+    hitTargets.push({
+      x: 0,
+      y: 0,
+      w: width,
+      h: height,
+      cursor: 'default',
+      action: { type: 'folder-close' },
+    });
+    hitTargets.push({
+      x: folder.finalPanel.x,
+      y: folder.finalPanel.y,
+      w: folder.finalPanel.w,
+      h: folder.finalPanel.h,
+      cursor: 'default',
+    });
+    folder.items.forEach((item) => {
+      hitTargets.push({
+        ...item.hit,
+        cursor: 'pointer',
+        action: { type: 'open', id: item.id, origin: 'folder' },
+      });
+    });
+  }
+
   [readme, photo, reflection, worklog, projects].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
     placeWindow(state, windowLayout, mobile);
@@ -613,10 +876,11 @@ export function buildMacCanvasLayout(
     mobile,
     safeTop,
     safeBottom,
-    glassPanels: [...widgetGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
+    glassPanels: [...widgetGlassPanels, ...folderGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
     hitTargets,
     windows: [...windows].sort((a, b) => a.z - b.z),
     iconCells,
+    folder,
     dock,
     langSwitch,
     widgets,
@@ -783,6 +1047,116 @@ function drawGyroIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   ctx.restore();
 }
 
+function drawFolderIcon(ctx: CanvasRenderingContext2D, cell: IconCell, assets: MacUiAssets) {
+  const { imgX, imgY, imgSize } = cell;
+  const gridSize = imgSize * 0.68;
+  const thumbGap = imgSize * 0.045;
+  const thumbSize = (gridSize - thumbGap * 2) / 3;
+  const thumbX = imgX + (imgSize - gridSize) * 0.5;
+  const thumbY = imgY + (imgSize - gridSize) * 0.5;
+  const folder = folderDefinition(LABS_FOLDER_ID);
+  const itemIds = folder?.items.slice(0, 9) ?? [];
+
+  ctx.save();
+  itemIds.forEach((id, index) => {
+    const col = index % 3;
+    const row = Math.floor(index / 3);
+    const x = thumbX + col * (thumbSize + thumbGap);
+    const y = thumbY + row * (thumbSize + thumbGap);
+
+    ctx.save();
+    ctx.globalAlpha = 0.96;
+    ctx.shadowColor = 'rgba(0,0,0,.18)';
+    ctx.shadowBlur = 5;
+    roundRectPath(ctx, x, y, thumbSize, thumbSize, thumbSize * 0.24);
+    ctx.clip();
+    ctx.drawImage(assets.icons[id], x, y, thumbSize, thumbSize);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function smoothRange(value: number, start: number, end: number) {
+  const t = clamp((value - start) / Math.max(0.001, end - start), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+
+  const suffix = '...';
+  const suffixWidth = ctx.measureText(suffix).width;
+  let end = text.length;
+  while (end > 0 && ctx.measureText(text.slice(0, end)).width + suffixWidth > maxWidth) end -= 1;
+  return `${text.slice(0, Math.max(0, end))}${suffix}`;
+}
+
+function folderAppLabel(state: MacCanvasState, id: WindowId) {
+  const app = appDefinition(id);
+  if (!app) return id;
+  return desktopCopy[state.lang][app.labelKey].replace(/\.app$/i, '');
+}
+
+function drawFolderOverlay(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
+  const folder = layout.folder;
+  if (!folder) return;
+
+  const iconAlpha = smoothRange(folder.progress, 0.08, 0.58);
+  const titleAlpha = smoothRange(folder.progress, 0.48, 0.9);
+  const labelAlpha = smoothRange(folder.progress, 0.5, 0.94);
+  if (iconAlpha <= 0.001 && titleAlpha <= 0.001 && labelAlpha <= 0.001) return;
+
+  ctx.save();
+
+  if (titleAlpha > 0.001) {
+    ctx.save();
+    ctx.globalAlpha = titleAlpha;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.48)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = `700 ${layout.mobile ? 34 : 31}px ${sans}`;
+    ctx.fillText(folder.title, folder.titleRect.x, folder.titleRect.y);
+    ctx.restore();
+  }
+
+  folder.items.forEach((item) => {
+    const image = assets.icons[item.id];
+    const radius = item.icon.w * 0.24;
+
+    if (iconAlpha > 0.001) {
+      ctx.save();
+      ctx.globalAlpha = iconAlpha;
+      ctx.shadowColor = 'rgba(0,0,0,.24)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 6;
+      roundRectPath(ctx, item.icon.x, item.icon.y, item.icon.w, item.icon.h, radius);
+      ctx.clip();
+      ctx.drawImage(image, item.icon.x, item.icon.y, item.icon.w, item.icon.h);
+      ctx.restore();
+    }
+
+    if (labelAlpha > 0.001) {
+      const label = folderAppLabel(state, item.id);
+      ctx.save();
+      ctx.globalAlpha = labelAlpha;
+      ctx.font = `600 ${layout.mobile ? 12 : 14}px ${sans}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,.72)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = 'rgba(255,255,255,.94)';
+      ctx.fillText(truncateText(ctx, label, item.label.w), item.label.x + item.label.w * 0.5, item.label.y);
+      ctx.restore();
+    }
+  });
+
+  ctx.restore();
+}
+
 function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
   const copy = desktopCopy[state.lang];
 
@@ -791,6 +1165,8 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
       drawLangIcon(ctx, cell);
     } else if (cell.id === 'gyro') {
       drawGyroIcon(ctx, cell);
+    } else if (cell.id === LABS_FOLDER_ID) {
+      drawFolderIcon(ctx, cell, assets);
     } else {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.34)';
@@ -804,7 +1180,9 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
       ? (state.lang === 'en' ? '中文' : 'English')
       : cell.id === 'gyro'
         ? cell.label ?? 'TILT'
-      : copy[cell.labelKey as IconLabelKey];
+        : cell.id === LABS_FOLDER_ID
+          ? copy.iconLabs
+          : copy[cell.labelKey as IconLabelKey];
 
     ctx.save();
     ctx.font = `500 11px ${mono}`;
@@ -920,6 +1298,15 @@ export function drawMacDockOverlay(
   state: MacCanvasState,
 ) {
   if (assets) drawDock(ctx, layout, assets, state);
+}
+
+export function drawMacFolderOverlay(
+  ctx: CanvasRenderingContext2D,
+  layout: MacCanvasLayout,
+  assets: MacUiAssets | null,
+  state: MacCanvasState,
+) {
+  if (assets) drawFolderOverlay(ctx, layout, assets, state);
 }
 
 export function drawMacMenubarOverlay(
