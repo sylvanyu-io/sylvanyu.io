@@ -115,6 +115,6 @@ export const FOLDER_PANEL_GLASS: Partial<GlassParams> = {
 // runs only when the snapshot is dirty, not on every animation frame.
 export const FOLDER_BACKDROP_BLUR: Pick<GlassParams, 'kawasePasses' | 'kawaseOffset' | 'kawaseDownsample'> = {
   kawasePasses: 3,
-  kawaseOffset: 3,
+  kawaseOffset: 2,
   kawaseDownsample: 2,
 };
