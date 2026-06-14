@@ -87,7 +87,6 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     uOffset: { value: 1 },
   };
   const glassUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
     uBlurredScene: { value: placeholder as THREE.Texture },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
@@ -233,7 +232,6 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
   }
 
   function renderPanels(
-    sceneTexture: THREE.Texture,
     blurredTexture: THREE.Texture,
     panels: GlassPanelInput[],
     viewportWidth: number,
@@ -242,7 +240,6 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
   ) {
     if (panels.length === 0) return;
 
-    glassUniforms.uScene.value = sceneTexture;
     glassUniforms.uBlurredScene.value = blurredTexture;
     glassUniforms.uResolution.value.set(viewportWidth, viewportHeight);
     glassUniforms.uViewport.value.set(viewportWidth, viewportHeight);

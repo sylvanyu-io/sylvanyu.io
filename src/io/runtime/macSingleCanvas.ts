@@ -606,9 +606,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
       renderer.clear();
       presentToScreen(baseTarget.texture);
 
-      // Glass refracts the sharp base scene and a Kawase-blurred copy of it.
+      // Glass samples only the Kawase-blurred scene so sharp source edges do
+      // not leak into frosted panels.
       const blurred = glassPipeline.renderBlur(baseTarget);
-      glassPipeline.renderPanels(baseTarget.texture, blurred, layout.glassPanels, cssWidth, cssHeight, null);
+      glassPipeline.renderPanels(blurred, layout.glassPanels, cssWidth, cssHeight, null);
 
       drawRectLayer(
         widgetLayer as CanvasLayer,
@@ -625,7 +626,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
         null,
       );
 
-      glassPipeline.renderPanels(baseTarget.texture, blurred, langGlassPanels(), cssWidth, cssHeight, null);
+      glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, null);
 
       drawRectLayer(
         menubarLayer as CanvasLayer,

@@ -159,7 +159,6 @@ void main() {
 export const liquidGlassFragmentShader = `
 precision highp float;
 
-uniform sampler2D uScene;
 uniform sampler2D uBlurredScene;
 uniform vec2 uResolution;
 uniform vec4 uPanel;
@@ -196,10 +195,6 @@ float domeGradient(float position, float halfSize, float depth) {
   float edgeSlope = edgePosition / max(sqrt(max(radius * radius - edgePosition * edgePosition, 0.0001)), 0.0001);
   float slope = positionClamped / max(sqrt(max(radius * radius - positionClamped * positionClamped, 0.0001)), 0.0001);
   return slope / max(edgeSlope, 0.001);
-}
-
-vec3 sampleScene(vec2 uv) {
-  return texture2D(uScene, clamp(uv, 0.001, 0.999)).rgb;
 }
 
 vec3 sampleBlurredScene(vec2 uv) {
@@ -260,17 +255,11 @@ void main() {
   vec2 offset = vec2(offsetPx.x / max(uResolution.x, 1.0), -offsetPx.y / max(uResolution.y, 1.0));
   float chromaSpread = 0.18 * uChroma;
 
-  vec3 sharp = vec3(
-    sampleScene(uv + offset * (1.0 + chromaSpread)).r,
-    sampleScene(uv + offset).g,
-    sampleScene(uv + offset * (1.0 - chromaSpread)).b
-  );
-  vec3 soft = vec3(
+  vec3 glass = vec3(
     sampleBlurredScene(uv + offset * (1.0 + chromaSpread * 1.28)).r,
     sampleBlurredScene(uv + offset).g,
     sampleBlurredScene(uv + offset * (1.0 - chromaSpread * 1.28)).b
   );
-  vec3 glass = mix(sharp, soft, clamp(0.64 + uBlurLevel * 0.22 + uFrost * 0.12, 0.0, 0.92));
 
   float glassLum = lumaOf(glass);
   glass = mix(glass, vec3(glassLum), uFrost * 0.14);
