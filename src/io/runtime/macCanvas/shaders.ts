@@ -70,11 +70,13 @@ export const uiRectFragmentShader = `
 precision highp float;
 
 uniform sampler2D uUi;
+uniform float uAlpha;
 
 varying vec2 vUv;
 
 void main() {
-  gl_FragColor = texture2D(uUi, vUv);
+  vec4 color = texture2D(uUi, vUv);
+  gl_FragColor = vec4(color.rgb, color.a * uAlpha);
 }
 `;
 

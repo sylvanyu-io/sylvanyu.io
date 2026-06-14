@@ -75,7 +75,7 @@ export type FolderOverlayLayout = {
   finalPanel: GlassPanel;
   titleRect: Rect;
   progress: number;
-  items: { id: WindowId; icon: Rect; label: Rect; hit: Rect }[];
+  items: { id: WindowId; icon: Rect; label: Rect; finalIcon: Rect; finalLabel: Rect; hit: Rect }[];
 };
 
 export type LangSwitchLayout = Rect & {
@@ -486,6 +486,8 @@ function buildFolderOverlay(
         id: item.id,
         icon: mixRect(sourceItem.icon, item.icon, t),
         label: mixRect(sourceItem.label, item.label, t),
+        finalIcon: item.icon,
+        finalLabel: item.label,
         hit: item.hit,
       };
     }),
@@ -1097,13 +1099,20 @@ function folderAppLabel(state: MacCanvasState, id: WindowId) {
   return desktopCopy[state.lang][app.labelKey].replace(/\.app$/i, '');
 }
 
-function drawFolderOverlay(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, assets: MacUiAssets, state: MacCanvasState) {
+function drawFolderOverlay(
+  ctx: CanvasRenderingContext2D,
+  layout: MacCanvasLayout,
+  assets: MacUiAssets,
+  state: MacCanvasState,
+  staticContent = false,
+) {
   const folder = layout.folder;
   if (!folder) return;
 
-  const iconAlpha = smoothRange(folder.progress, 0.08, 0.58);
-  const titleAlpha = smoothRange(folder.progress, 0.48, 0.9);
-  const labelAlpha = smoothRange(folder.progress, 0.5, 0.94);
+  const progress = staticContent ? 1 : folder.progress;
+  const iconAlpha = smoothRange(progress, 0.08, 0.58);
+  const titleAlpha = smoothRange(progress, 0.48, 0.9);
+  const labelAlpha = smoothRange(progress, 0.5, 0.94);
   if (iconAlpha <= 0.001 && titleAlpha <= 0.001 && labelAlpha <= 0.001) return;
 
   ctx.save();
@@ -1124,7 +1133,9 @@ function drawFolderOverlay(ctx: CanvasRenderingContext2D, layout: MacCanvasLayou
 
   folder.items.forEach((item) => {
     const image = assets.icons[item.id];
-    const radius = item.icon.w * 0.24;
+    const icon = staticContent ? item.finalIcon : item.icon;
+    const labelRect = staticContent ? item.finalLabel : item.label;
+    const radius = icon.w * 0.24;
 
     if (iconAlpha > 0.001) {
       ctx.save();
@@ -1132,9 +1143,9 @@ function drawFolderOverlay(ctx: CanvasRenderingContext2D, layout: MacCanvasLayou
       ctx.shadowColor = 'rgba(0,0,0,.24)';
       ctx.shadowBlur = 12;
       ctx.shadowOffsetY = 6;
-      roundRectPath(ctx, item.icon.x, item.icon.y, item.icon.w, item.icon.h, radius);
+      roundRectPath(ctx, icon.x, icon.y, icon.w, icon.h, radius);
       ctx.clip();
-      ctx.drawImage(image, item.icon.x, item.icon.y, item.icon.w, item.icon.h);
+      ctx.drawImage(image, icon.x, icon.y, icon.w, icon.h);
       ctx.restore();
     }
 
@@ -1149,7 +1160,7 @@ function drawFolderOverlay(ctx: CanvasRenderingContext2D, layout: MacCanvasLayou
       ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 1;
       ctx.fillStyle = 'rgba(255,255,255,.94)';
-      ctx.fillText(truncateText(ctx, label, item.label.w), item.label.x + item.label.w * 0.5, item.label.y);
+      ctx.fillText(truncateText(ctx, label, labelRect.w), labelRect.x + labelRect.w * 0.5, labelRect.y);
       ctx.restore();
     }
   });
@@ -1305,8 +1316,9 @@ export function drawMacFolderOverlay(
   layout: MacCanvasLayout,
   assets: MacUiAssets | null,
   state: MacCanvasState,
+  staticContent = false,
 ) {
-  if (assets) drawFolderOverlay(ctx, layout, assets, state);
+  if (assets) drawFolderOverlay(ctx, layout, assets, state, staticContent);
 }
 
 export function drawMacMenubarOverlay(

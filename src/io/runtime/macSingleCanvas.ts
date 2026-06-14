@@ -217,6 +217,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
   const uiUniforms = {
     uUi: { value: placeholder as THREE.Texture },
+    uAlpha: { value: 1 },
     uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     uViewport: { value: new THREE.Vector2(1, 1) },
   };
@@ -586,8 +587,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     cacheKey: string,
     draw: (context: CanvasRenderingContext2D) => void,
     target: THREE.WebGLRenderTarget | null,
+    presentRect: Rect = rect,
+    alpha = 1,
   ) {
-    if (rect.w <= 0 || rect.h <= 0) return;
+    if (rect.w <= 0 || rect.h <= 0 || presentRect.w <= 0 || presentRect.h <= 0 || alpha <= 0) return;
 
     syncCanvasLayerRect(layer, rect, pixelRatio);
 
@@ -603,7 +606,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     uiUniforms.uUi.value = layer.texture;
-    uiUniforms.uRect.value.set(layer.rect.x, layer.rect.y, layer.rect.w, layer.rect.h);
+    uiUniforms.uAlpha.value = THREE.MathUtils.clamp(alpha, 0, 1);
+    uiUniforms.uRect.value.set(presentRect.x, presentRect.y, presentRect.w, presentRect.h);
     uiUniforms.uViewport.value.set(cssWidth, cssHeight);
     renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
   }
@@ -623,7 +627,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (!folder) return { x: 0, y: 0, w: 0, h: 0 };
 
     const rects: Rect[] = [
-      folder.source,
       folder.titleRect,
       folder.finalPanel,
       ...folder.items.flatMap((item) => [item.hit]),
@@ -643,16 +646,42 @@ export function mountMacSingleCanvas(rootInput: Element) {
     };
   }
 
+  function folderOverlayPresentRect(finalRect: Rect): Rect {
+    const folder = layout.folder;
+    if (!folder) return finalRect;
+
+    const scaleX = folder.panel.w / Math.max(folder.finalPanel.w, 1);
+    const scaleY = folder.panel.h / Math.max(folder.finalPanel.h, 1);
+    return {
+      x: folder.panel.x + (finalRect.x - folder.finalPanel.x) * scaleX,
+      y: folder.panel.y + (finalRect.y - folder.finalPanel.y) * scaleY,
+      w: finalRect.w * scaleX,
+      h: finalRect.h * scaleY,
+    };
+  }
+
+  function folderOverlayAlpha() {
+    const progress = layout.folder?.progress ?? 0;
+    const t = THREE.MathUtils.clamp((progress - 0.08) / 0.52, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
   function renderFolderOverlay(target: THREE.WebGLRenderTarget | null) {
     if (!layout.folder) return;
 
     const itemSig = layout.folder.items.map((item) => item.id).join(',');
+    const finalRect = folderOverlayRect();
+    // The folder's icon/title atlas is rasterized once at the final layout.
+    // Opening/closing only changes this quad's transform and alpha, avoiding a
+    // Canvas2D redraw plus texture upload on every animation frame.
     drawRectLayer(
       folderLayer as CanvasLayer,
-      folderOverlayRect(),
-      `folder:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}:${layout.folder.id}:${layout.folder.progress.toFixed(3)}:${itemSig}`,
-      (context) => drawMacFolderOverlay(context, layout, assets, state),
+      finalRect,
+      `folder:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}:${layout.folder.id}:${itemSig}`,
+      (context) => drawMacFolderOverlay(context, layout, assets, state, true),
       target,
+      folderOverlayPresentRect(finalRect),
+      folderOverlayAlpha(),
     );
   }
 
