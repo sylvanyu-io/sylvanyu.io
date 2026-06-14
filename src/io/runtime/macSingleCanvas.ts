@@ -43,7 +43,6 @@ import {
 import {
   disposeTarget,
   frameMinuteKey,
-  frameSecondKey,
   makeCanvasLayer,
   makePlaceholderTexture,
   makeRenderTarget,
@@ -695,14 +694,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (!backgroundTarget) return;
 
     presentBackground(backgroundTarget.texture, target);
-    glassPipeline.renderPanels(blurred, layout.glassPanels, cssWidth, cssHeight, target);
-    glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, target);
+    glassPipeline.renderPanels(blurred, collectHomeGlassPanels(), cssWidth, cssHeight, target);
 
     renderDesktopIcons(target);
     drawRectLayer(
       widgetLayer as CanvasLayer,
       layout.widgetsRect ?? { x: 0, y: 0, w: 0, h: 0 },
-      `widget:${layout.width}:${layout.height}:${state.lang}:${frameSecondKey(now)}:${Math.round(state.fps)}`,
+      `widget:${layout.width}:${layout.height}:${state.lang}:${frameMinuteKey(now)}:${Math.round(state.fps)}`,
       (context) => drawMacWidgetOverlay(context, layout, state, now),
       target,
     );
@@ -786,6 +784,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const langPillPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_PILL_GLASS };
   const langThumbPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_THUMB_GLASS };
   const langPanels: GlassPanelInput[] = [langPillPanel, langThumbPanel];
+  const homeGlassPanels: GlassPanelInput[] = [];
   const folderPanels: GlassPanelInput[] = [];
   const noPanels: GlassPanelInput[] = [];
 
@@ -805,6 +804,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     langThumbPanel.h = thumbH;
     langThumbPanel.r = thumbH * 0.5;
     return langPanels;
+  }
+
+  function collectHomeGlassPanels() {
+    homeGlassPanels.length = 0;
+    layout.glassPanels.forEach((panel) => homeGlassPanels.push(panel));
+    langGlassPanels().forEach((panel) => homeGlassPanels.push(panel));
+    return homeGlassPanels;
   }
 
   let raf = 0;

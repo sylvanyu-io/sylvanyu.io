@@ -16,6 +16,14 @@ export const macCanvasDemos = {
   },
 } satisfies Record<CanvasDemoId, CanvasDemoDefinition>;
 
+const demoModuleCache = new Map<CanvasDemoId, Promise<CanvasDemoModule>>();
+
 export function loadCanvasDemo(id: CanvasDemoId) {
-  return macCanvasDemos[id].load();
+  let cached = demoModuleCache.get(id);
+  if (!cached) {
+    cached = macCanvasDemos[id].load();
+    cached.catch(() => demoModuleCache.delete(id));
+    demoModuleCache.set(id, cached);
+  }
+  return cached;
 }
