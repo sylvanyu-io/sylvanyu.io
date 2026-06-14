@@ -12,10 +12,30 @@ import {
 } from '../photo3d/core';
 
 const photo3dVertexShader = `
+uniform vec2 outputResolution;
+uniform float aspect;
+uniform float outputOverscan;
+
 varying vec2 vTextureCoord;
+varying vec2 vScreenUv;
+
+vec2 coverUv(vec2 uv) {
+  float screenAspect = outputResolution.x / max(outputResolution.y, 1.0);
+  float imageAspect = max(aspect, 0.001);
+  vec2 mapped = uv;
+
+  if (screenAspect > imageAspect) {
+    mapped.y = (uv.y - 0.5) * (imageAspect / screenAspect) + 0.5;
+  } else {
+    mapped.x = (uv.x - 0.5) * (screenAspect / imageAspect) + 0.5;
+  }
+
+  return (mapped - 0.5) / max(outputOverscan, 0.001) + 0.5;
+}
 
 void main() {
-  vTextureCoord = uv;
+  vScreenUv = uv;
+  vTextureCoord = coverUv(uv);
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }
 `;
@@ -29,9 +49,35 @@ type RenderOptions = {
   idleDrift: boolean;
   baseX?: number;
   baseY?: number;
+  overscan?: number;
+  shadeHeight?: number;
+  shadeStrength?: number;
   offsetZ?: number;
   focus?: number;
 };
+
+function createPhoto3DWallpaperShader(shaderBody: string) {
+  return `
+uniform vec2 outputResolution;
+uniform vec2 outputShade;
+
+varying vec2 vScreenUv;
+
+#define main photo3DMain
+${shaderBody}
+#undef main
+
+void main(void) {
+  photo3DMain();
+
+  if (outputShade.x > 0.5) {
+    float yPx = (1.0 - vScreenUv.y) * outputResolution.y;
+    float fade = 1.0 - clamp(yPx / outputShade.x, 0.0, 1.0);
+    gl_FragColor.rgb *= 1.0 - outputShade.y * fade * fade;
+  }
+}
+`;
+}
 
 function makeTexture(source: HTMLCanvasElement | THREE.DataTexture) {
   if (source instanceof THREE.DataTexture) {
@@ -98,6 +144,9 @@ export class Photo3DPass {
         offset: { value: new THREE.Vector3(PHOTO3D_DEFAULT_CONFIG.offsetX, PHOTO3D_DEFAULT_CONFIG.offsetY, PHOTO3D_DEFAULT_CONFIG.offsetZ) },
         focus: { value: PHOTO3D_DEFAULT_CONFIG.focus },
         aspect: { value: this.aspect },
+        outputResolution: { value: new THREE.Vector2(width, height) },
+        outputOverscan: { value: 1.0 },
+        outputShade: { value: new THREE.Vector2(0, 0) },
         layeredOutpaintingCrop: { value: PHOTO3D_DEFAULT_CONFIG.crop },
         maskFeatherWidth: { value: PHOTO3D_DEFAULT_CONFIG.feather },
         maskSharpness: { value: PHOTO3D_DEFAULT_CONFIG.sharpness },
@@ -129,7 +178,7 @@ export class Photo3DPass {
         rgb3: { value: textures.rgb3 },
       },
       vertexShader: photo3dVertexShader,
-      fragmentShader: shaderBody,
+      fragmentShader: createPhoto3DWallpaperShader(shaderBody),
       depthTest: false,
       depthWrite: false,
     });
@@ -146,6 +195,9 @@ export class Photo3DPass {
     this.smoothY += (offset.y - this.smoothY) * 0.055;
     this.material.uniforms.offset.value.set(this.smoothX, this.smoothY, offsetZ);
     this.material.uniforms.focus.value = focus;
+    this.material.uniforms.outputResolution.value.set(target.width, target.height);
+    this.material.uniforms.outputOverscan.value = options.overscan ?? 1.0;
+    this.material.uniforms.outputShade.value.set(options.shadeHeight ?? 0, options.shadeStrength ?? 0);
 
     renderer.setRenderTarget(target);
     renderer.clear();

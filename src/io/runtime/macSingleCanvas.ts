@@ -59,8 +59,6 @@ const PHOTO_APP_META = {
 };
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
-const WALLPAPER_SOURCE_MAX_HEIGHT = 900;
-const WALLPAPER_SOURCE_MIN_HEIGHT = 560;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
 const BUSY_BACKGROUND_FPS = 30;
@@ -321,18 +319,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     minimizeWindow: (id) => domWindows.minimize(id),
   });
 
-  // wallpaperSource holds the raw Photo3D parallax frame; baseTarget is the
-  // composited desktop scene (wallpaper + shade + icons) that gets presented to
-  // the screen, blurred, and refracted by the glass panels. The old
-  // wallpaperTarget/glassSourceTarget intermediates were pure copies and have
-  // been folded into the single cover pass that writes baseTarget.
-  let wallpaperSourceTarget: THREE.WebGLRenderTarget | null = null;
+  // baseTarget is the composited desktop scene (wallpaper + shade + icons) that
+  // gets presented to the screen, blurred, and refracted by the glass panels.
   let baseTarget: THREE.WebGLRenderTarget | null = null;
 
   function disposeTargets() {
-    disposeTarget(wallpaperSourceTarget);
     disposeTarget(baseTarget);
-    wallpaperSourceTarget = null;
     baseTarget = null;
   }
 
@@ -397,12 +389,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     disposeTargets();
 
-    const sourceAspect = wallpaperPass?.aspect ?? (1024 / 640);
-    const sourceH = Math.min(
-      WALLPAPER_SOURCE_MAX_HEIGHT,
-      Math.max(WALLPAPER_SOURCE_MIN_HEIGHT, Math.round(backgroundHeight * 0.72)),
-    );
-    wallpaperSourceTarget = makeRenderTarget(Math.max(1, Math.round(sourceH * sourceAspect)), sourceH);
     baseTarget = makeRenderTarget(renderWidth, renderHeight);
     // Blur targets stay at background resolution (capped at MAX_BACKGROUND_RENDER_EDGE);
     // the frosted backdrop never needs full device-pixel detail.
@@ -424,15 +410,30 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
-    if (!wallpaperPass || !wallpaperSourceTarget) return;
-    wallpaperPass.render(renderer, wallpaperSourceTarget, {
-      time,
-      pointer,
-      pointerActive: parallaxActive,
-      strength: 0.045,
-      maxOffset: 0.018,
-      idleDrift: true,
-    });
+    if (!baseTarget) return;
+
+    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
+    if (wallpaperPass) {
+      wallpaperPass.render(renderer, baseTarget, {
+        time,
+        pointer,
+        pointerActive: parallaxActive,
+        strength: 0.045,
+        maxOffset: 0.018,
+        idleDrift: true,
+        overscan: 1.08,
+        shadeHeight: shadeHeightPx,
+        shadeStrength: WALLPAPER_SHADE_STRENGTH,
+      });
+      return;
+    }
+
+    coverUniforms.uScene.value = placeholder;
+    coverUniforms.uImageAspect.value = 1;
+    coverUniforms.uOverscan.value = 1.0;
+    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
+    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
+    renderPass(renderer, scene, camera, passMesh, coverMaterial, baseTarget);
   }
 
   function drawRectLayer(
@@ -463,26 +464,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
   }
 
-  // Composites the desktop scene the glass panels refract: the live wallpaper
-  // (cover-fit with parallax overscan and the top shade baked in) plus the
-  // desktop icons. A single cover pass straight into baseTarget replaces the
-  // former wallpaper→base→glassSource copy chain.
+  // Adds desktop icons over the wallpaper already rendered into baseTarget.
   function renderBase() {
     if (!baseTarget) return;
-
-    if (wallpaperPass && wallpaperSourceTarget) {
-      coverUniforms.uScene.value = wallpaperSourceTarget.texture;
-      coverUniforms.uImageAspect.value = wallpaperPass.aspect;
-      coverUniforms.uOverscan.value = 1.08;
-    } else {
-      coverUniforms.uScene.value = placeholder;
-      coverUniforms.uImageAspect.value = 1;
-      coverUniforms.uOverscan.value = 1.0;
-    }
-    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
-    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, baseTarget);
 
     drawRectLayer(
       iconsLayer as CanvasLayer,
