@@ -5,8 +5,7 @@ import {
   type Photo3DPass,
 } from './macCanvas/photo3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
-import { createMacPowerOffOverlay } from './macPowerOff';
-import { isEmbeddedBrowserHost, requestHostClose } from './hostClose';
+import { createMacMobileNav } from './macMobileNav';
 import {
   buildMacCanvasLayout,
   bringWindowFront,
@@ -91,9 +90,6 @@ const LANG_THUMB_GLASS: Partial<GlassParams> = {
   edge: 0.7,
 };
 const LANG_THUMB_INSET = 2;
-const MAC_APP_HISTORY_KEY = '__sylvanMacApp';
-const MAC_HOME_GUARD_HISTORY_KEY = '__sylvanMacHomeGuard';
-const MAC_POWER_HISTORY_KEY = '__sylvanMacPowerConfirm';
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
@@ -105,8 +101,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   if (!(rootInput instanceof HTMLElement) || rootInput.dataset.macSingleCanvasMounted === 'true') return;
   const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
-  const mobileHasExternalBackEntry = window.history.length > 1;
-  const mobileUsesPowerGuard = mobileHasExternalBackEntry || isEmbeddedBrowserHost();
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
   if (!canvasEl) return;
@@ -127,11 +121,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   safeAreaProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
     + 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
   root.append(safeAreaProbe);
-
-  const powerOffOverlay = createMacPowerOffOverlay(root, {
-    onCancel: cancelMobilePowerConfirm,
-    onComplete: completeMobilePowerOff,
-  });
 
   function readSafeInsets(): SafeInsets {
     const style = getComputedStyle(safeAreaProbe);
@@ -263,164 +252,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return activeId;
   }
 
-  function mobileHistoryAppId(value: unknown): WindowId | null {
-    if (!value || typeof value !== 'object') return null;
-    const id = (value as Record<string, unknown>)[MAC_APP_HISTORY_KEY];
-    return MAC_WINDOW_IDS.includes(id as WindowId) ? id as WindowId : null;
-  }
-
-  function mobileHistoryHasKey(value: unknown, key: string) {
-    return Boolean(value && typeof value === 'object' && (value as Record<string, unknown>)[key]);
-  }
-
-  function mobileHistoryBaseState() {
-    const stateValue = window.history.state;
-    const baseState = stateValue && typeof stateValue === 'object'
-      ? { ...(stateValue as Record<string, unknown>) }
-      : {};
-    delete baseState[MAC_APP_HISTORY_KEY];
-    delete baseState[MAC_HOME_GUARD_HISTORY_KEY];
-    delete baseState[MAC_POWER_HISTORY_KEY];
-    return baseState;
-  }
-
-  function mobileAppHistoryUrl(id: WindowId) {
-    const url = new URL(window.location.href);
-    url.hash = `app=${encodeURIComponent(id)}`;
-    return url;
-  }
-
-  function mobileHomeHistoryUrl() {
-    const url = new URL(window.location.href);
-    url.hash = 'home';
-    return url;
-  }
-
-  function mobilePowerHistoryUrl() {
-    const url = new URL(window.location.href);
-    url.hash = 'power-off';
-    return url;
-  }
-
-  function pushMobileAppHistory(id: WindowId) {
-    if (!layout.mobile || mobileHistoryAppId(window.history.state) === id) return;
-    window.history.pushState({ ...mobileHistoryBaseState(), [MAC_APP_HISTORY_KEY]: id }, '', mobileAppHistoryUrl(id));
-  }
-
-  function writeMobileHomeGuard(mode: 'push' | 'replace') {
-    if (!layout.mobile) return;
-    const nextState = { ...mobileHistoryBaseState(), [MAC_HOME_GUARD_HISTORY_KEY]: true };
-    if (mode === 'push') {
-      window.history.pushState(nextState, '', mobileHomeHistoryUrl());
-      return;
-    }
-    window.history.replaceState(nextState, '', mobileHomeHistoryUrl());
-  }
-
-  function writeMobilePowerGuard(mode: 'push' | 'replace') {
-    if (!layout.mobile) return;
-    const nextState = { ...mobileHistoryBaseState(), [MAC_POWER_HISTORY_KEY]: true };
-    if (mode === 'push') {
-      window.history.pushState(nextState, '', mobilePowerHistoryUrl());
-      return;
-    }
-    window.history.replaceState(nextState, '', mobilePowerHistoryUrl());
-  }
-
-  function pushMobilePowerConfirm() {
-    if (!layout.mobile || !mobileUsesPowerGuard || mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) return;
-    writeMobilePowerGuard('push');
-  }
-
-  function requestMobileWindowClose(id: WindowId) {
-    if (!layout.mobile || mobileHistoryAppId(window.history.state) !== id) return false;
-    window.history.back();
-    return true;
-  }
-
-  let mobileHistoryReady = false;
-  let mobilePowerExiting = false;
-
-  function ensureMobileHomeHistory() {
-    if (!layout.mobile || mobileHistoryReady) return;
-
-    const historyAppId = mobileHistoryAppId(window.history.state);
-    if (historyAppId) {
-      mobileHistoryReady = true;
-      openWindow(historyAppId, false);
-      return;
-    }
-
-    if (mobileUsesPowerGuard) {
-      writeMobilePowerGuard('replace');
-      writeMobileHomeGuard('push');
-    }
-    mobileHistoryReady = true;
-  }
-
-  function hideMobilePowerConfirm() {
-    root.dataset.macPowerConfirm = 'false';
-    powerOffOverlay.hide();
-  }
-
-  function showMobilePowerConfirm(updateHistory = true) {
-    if (!layout.mobile || !mobileUsesPowerGuard || topOpenWindowId() || mobilePowerExiting) return;
-    if (updateHistory) pushMobilePowerConfirm();
-    root.dataset.macPowerConfirm = 'true';
-    powerOffOverlay.show();
-  }
-
-  function cancelMobilePowerConfirm() {
-    hideMobilePowerConfirm();
-    if (!layout.mobile) return;
-    if (mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) {
-      window.history.forward();
-      window.setTimeout(() => {
-        if (mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) writeMobileHomeGuard('replace');
-      }, 180);
-      return;
-    }
-    writeMobileHomeGuard('replace');
-  }
-
-  function resetMobilePowerExit() {
-    mobilePowerExiting = false;
-    root.dataset.macPowerConfirm = 'false';
-    powerOffOverlay.setExiting(false);
-    powerOffOverlay.hide();
-    if (layout.mobile && mobileHistoryHasKey(window.history.state, MAC_POWER_HISTORY_KEY)) {
-      writeMobileHomeGuard('replace');
-    }
-  }
-
-  function completeMobilePowerOff() {
-    if (!layout.mobile || mobilePowerExiting) return;
-    mobilePowerExiting = true;
-    root.dataset.macPowerConfirm = 'exiting';
-    powerOffOverlay.setExiting(true);
-    if (mobileHasExternalBackEntry) {
-      window.setTimeout(() => {
-        if (document.hidden) return;
-        window.history.go(-1);
-        window.setTimeout(() => {
-          if (!document.hidden) resetMobilePowerExit();
-        }, 1200);
-      }, 160);
-      return;
-    }
-
-    const closeRequested = requestHostClose({ allowWindowClose: true }) === 'requested';
-    window.setTimeout(() => {
-      if (!document.hidden) resetMobilePowerExit();
-    }, closeRequested ? 1200 : 160);
-  }
-
   function openWindow(id: WindowId, updateHistory = true) {
     if (layout.mobile) closeOtherWindows(id);
     state.windows[id].open = true;
     bringWindowFront(state, id);
     markLayoutDirty();
-    if (updateHistory) pushMobileAppHistory(id);
+    if (updateHistory) mobileNav.pushAppHistory(id);
   }
 
   function enforceMobileSingleWindow() {
@@ -468,8 +305,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
       markLayoutDirty();
     },
     requestClose(id) {
-      return requestMobileWindowClose(id);
+      return mobileNav.requestWindowClose(id);
     },
+  });
+
+  // Owns the phone back-button / power-off history state machine and overlay.
+  const mobileNav = createMacMobileNav({
+    root,
+    isMobile: () => layout.mobile,
+    topOpenWindowId,
+    openWindow,
+    minimizeWindow: (id) => domWindows.minimize(id),
   });
 
   // wallpaperSource holds the raw Photo3D parallax frame; baseTarget is the
@@ -491,10 +337,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     layoutDirty = false;
     root.dataset.macMobile = layout.mobile ? 'true' : 'false';
-    if (!layout.mobile) {
-      mobileHistoryReady = false;
-      hideMobilePowerConfirm();
-    }
+    if (!layout.mobile) mobileNav.resetForDesktop();
 
     // The phone variant boots onto the "home screen": apps start closed and
     // open fullscreen from their icons instead of floating pre-opened.
@@ -511,7 +354,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     refreshLayerKeys();
-    ensureMobileHomeHistory();
+    mobileNav.ensureHomeHistory();
   }
 
   function refreshLayerKeys() {
@@ -872,42 +715,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     else start();
   };
 
-  const onPopState = (event: PopStateEvent) => {
-    if (!layout.mobile || mobilePowerExiting) return;
-
-    const historyAppId = mobileHistoryAppId(event.state);
-    if (historyAppId) {
-      hideMobilePowerConfirm();
-      openWindow(historyAppId, false);
-      return;
-    }
-
-    if (mobileHistoryHasKey(event.state, MAC_POWER_HISTORY_KEY)) {
-      showMobilePowerConfirm(false);
-      return;
-    }
-
-    if (mobileHistoryHasKey(event.state, MAC_HOME_GUARD_HISTORY_KEY)) {
-      hideMobilePowerConfirm();
-      const activeId = topOpenWindowId();
-      if (activeId) domWindows.minimize(activeId);
-      return;
-    }
-
-    if (powerOffOverlay.isVisible()) {
-      hideMobilePowerConfirm();
-      writeMobileHomeGuard('push');
-      return;
-    }
-
-    const activeId = topOpenWindowId();
-    if (activeId) {
-      domWindows.minimize(activeId);
-      return;
-    }
-
-    showMobilePowerConfirm();
-  };
+  const onPopState = mobileNav.handlePopState;
 
   const onRootPointerMove = (event: PointerEvent) => {
     updatePointer(eventPoint(event));
@@ -990,7 +798,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     window.removeEventListener('pagehide', onPageHide);
     gyro.dispose();
     safeAreaProbe.remove();
-    powerOffOverlay.destroy();
+    mobileNav.destroy();
     disposeTargets();
     domWindows.destroy();
     glassPipeline.dispose();
