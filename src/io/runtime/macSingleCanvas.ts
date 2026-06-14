@@ -319,13 +319,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     minimizeWindow: (id) => domWindows.minimize(id),
   });
 
-  // baseTarget is the composited desktop scene (wallpaper + shade + icons) that
-  // gets presented to the screen, blurred, and refracted by the glass panels.
-  let baseTarget: THREE.WebGLRenderTarget | null = null;
+  // backgroundTarget contains only the Photo3D wallpaper and its shade. It is
+  // the single source for screen presentation and liquid-glass blur; all text
+  // and icons are drawn later as crisp overlays.
+  let backgroundTarget: THREE.WebGLRenderTarget | null = null;
 
   function disposeTargets() {
-    disposeTarget(baseTarget);
-    baseTarget = null;
+    disposeTarget(backgroundTarget);
+    backgroundTarget = null;
   }
 
   function rebuildLayout() {
@@ -389,18 +390,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     disposeTargets();
 
-    baseTarget = makeRenderTarget(renderWidth, renderHeight);
     // Blur targets stay at background resolution (capped at MAX_BACKGROUND_RENDER_EDGE);
     // the frosted backdrop never needs full device-pixel detail.
+    backgroundTarget = makeRenderTarget(renderWidth, renderHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
 
     layoutDirty = true;
     start();
   }
 
-  // Blits the already-screen-aspect base scene to the default framebuffer.
-  // baseTarget shares the viewport aspect, so cover-fit collapses to identity.
-  function presentToScreen(texture: THREE.Texture) {
+  // Presents the already-screen-aspect background to the default framebuffer.
+  function presentBackground(texture: THREE.Texture) {
     coverUniforms.uScene.value = texture;
     coverUniforms.uResolution.value.set(renderWidth, renderHeight);
     coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
@@ -410,11 +410,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
-    if (!baseTarget) return;
+    if (!backgroundTarget) return;
 
     const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
     if (wallpaperPass) {
-      wallpaperPass.render(renderer, baseTarget, {
+      wallpaperPass.render(renderer, backgroundTarget, {
         time,
         pointer,
         pointerActive: parallaxActive,
@@ -433,7 +433,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     coverUniforms.uOverscan.value = 1.0;
     coverUniforms.uResolution.value.set(renderWidth, renderHeight);
     coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, baseTarget);
+    renderPass(renderer, scene, camera, passMesh, coverMaterial, backgroundTarget);
   }
 
   function drawRectLayer(
@@ -464,16 +464,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
   }
 
-  // Adds desktop icons over the wallpaper already rendered into baseTarget.
-  function renderBase() {
-    if (!baseTarget) return;
-
+  function renderDesktopIcons(target: THREE.WebGLRenderTarget | null) {
     drawRectLayer(
       iconsLayer as CanvasLayer,
       layout.iconsRect,
       iconsCacheKey,
       (context) => drawMacDesktopIcons(context, layout, assets, state),
-      baseTarget,
+      target,
     );
   }
 
@@ -583,17 +580,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     const now = new Date();
     renderWallpaper(time, pointerActive || useGyro);
-    renderBase();
 
-    if (baseTarget) {
+    if (backgroundTarget) {
       renderer.setRenderTarget(null);
       renderer.clear();
-      presentToScreen(baseTarget.texture);
+      presentBackground(backgroundTarget.texture);
 
       // Glass samples only the Kawase-blurred scene so sharp source edges do
       // not leak into frosted panels.
-      const blurred = glassPipeline.renderBlur(baseTarget);
+      const blurred = glassPipeline.renderBlur(backgroundTarget);
       glassPipeline.renderPanels(blurred, layout.glassPanels, cssWidth, cssHeight, null);
+      glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, null);
+
+      renderDesktopIcons(null);
 
       drawRectLayer(
         widgetLayer as CanvasLayer,
@@ -609,8 +608,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
         (context) => drawMacDockOverlay(context, layout, assets, state),
         null,
       );
-
-      glassPipeline.renderPanels(blurred, langGlassPanels(), cssWidth, cssHeight, null);
 
       drawRectLayer(
         menubarLayer as CanvasLayer,
