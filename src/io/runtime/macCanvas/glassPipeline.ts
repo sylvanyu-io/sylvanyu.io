@@ -7,26 +7,7 @@ import {
   screenVertexShader,
 } from './shaders';
 import { disposeTarget, makeRenderTarget, renderPass } from './threeHelpers';
-import { DEFAULT_GLASS_PARAMS, GLASS_PANEL_PAD } from './tuning';
-
-export type GlassParams = {
-  scale: number;
-  depth: number;
-  curvature: number;
-  splay: number;
-  chroma: number;
-  /** Number of Kawase downsample iterations. 1 means one downsample pass. */
-  kawasePasses: number;
-  /** Kawase sample distance in target texels. */
-  kawaseOffset: number;
-  /** Per-pass downsample divisor. 2 means each down pass renders at 1/2 size. */
-  kawaseDownsample: number;
-  frost: number;
-  tint: number;
-  glow: number;
-  edge: number;
-  specularAngle: number;
-};
+import { DEFAULT_GLASS_PARAMS, GLASS_PANEL_PAD, type GlassParams } from './tuning';
 
 export type GlassPanelInput = {
   x: number;
@@ -36,8 +17,6 @@ export type GlassPanelInput = {
   r: number;
   params?: Partial<GlassParams>;
 };
-
-export { DEFAULT_GLASS_PARAMS };
 
 type PassContext = {
   renderer: THREE.WebGLRenderer;

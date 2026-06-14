@@ -1,4 +1,21 @@
-import type { GlassParams } from './glassPipeline';
+export type GlassParams = {
+  scale: number;
+  depth: number;
+  curvature: number;
+  splay: number;
+  chroma: number;
+  /** Number of Kawase downsample iterations. 1 means one downsample pass. */
+  kawasePasses: number;
+  /** Kawase sample distance in target texels. */
+  kawaseOffset: number;
+  /** Per-pass downsample divisor. 2 means each down pass renders at 1/2 size. */
+  kawaseDownsample: number;
+  frost: number;
+  tint: number;
+  glow: number;
+  edge: number;
+  specularAngle: number;
+};
 
 export const MAC_RENDER_TUNING = {
   maxDevicePixelRatio: 2,
