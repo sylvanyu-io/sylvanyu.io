@@ -104,18 +104,23 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     disposeTargets();
     if (skipBlur) return;
 
-    let targetW = Math.max(2, sourceWidth);
-    let targetH = Math.max(2, sourceHeight);
+    const sourceW = Math.max(2, sourceWidth);
+    const sourceH = Math.max(2, sourceHeight);
+    let targetW = sourceW;
+    let targetH = sourceH;
     for (let i = 0; i < kawasePasses; i += 1) {
       targetW = Math.max(2, Math.round(targetW / kawaseDownsample));
       targetH = Math.max(2, Math.round(targetH / kawaseDownsample));
       downTargets.push(makeRenderTarget(targetW, targetH));
     }
 
-    for (let i = 0; i < downTargets.length - 1; i += 1) {
+    // A single Kawase level should still be a full down/up blur, not just a
+    // half-chain downsample that looks nearly unchanged.
+    for (let i = downTargets.length - 2; i >= 0; i -= 1) {
       const target = downTargets[i];
       upTargets.push(makeRenderTarget(target.width, target.height));
     }
+    upTargets.push(makeRenderTarget(sourceW, sourceH));
   }
 
   function blurPass(
@@ -140,11 +145,10 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
       current = target;
     });
 
-    for (let i = upTargets.length - 1; i >= 0; i -= 1) {
-      const target = upTargets[i];
+    upTargets.forEach((target) => {
       blurPass(upMaterial, upUniforms, current, kawaseOffset, target);
       current = target;
-    }
+    });
 
     return current.texture;
   }
