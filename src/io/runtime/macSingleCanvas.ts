@@ -281,7 +281,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
       const from = state.folder === id ? state.folderProgress : 0;
       state.folder = id;
       state.folderProgress = from;
-      folderSnapshotDirty = true;
       folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
       markLayoutDirty();
       return;
@@ -311,7 +310,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (animation.to === 0) {
       state.folder = null;
       state.folderProgress = 0;
-      disposeFolderTargets();
     }
     folderAnimation = null;
     return true;
@@ -409,6 +407,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let folderSnapshotTarget: THREE.WebGLRenderTarget | null = null;
   let folderBlurTarget: THREE.WebGLRenderTarget | null = null;
   let folderBackdropTexture: THREE.Texture | null = null;
+  // Folder blur is visually abstract enough that the first valid snapshot can
+  // be reused across repeated open/close cycles. Resize/destroy are the only
+  // times we deliberately throw these render targets away.
   let folderSnapshotDirty = true;
 
   function disposeFolderTargets() {

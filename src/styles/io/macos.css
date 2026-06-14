@@ -238,6 +238,8 @@
     pointer-events: none;
   }
 
+  /* Home/folder interactions are canvas hit targets; DOM windows only take
+     pointer events again once an app window is active. */
   .mac-page[data-mac-folder-open="true"] .mac-dom-window {
     pointer-events: none;
   }
