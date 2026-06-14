@@ -78,6 +78,54 @@ void main() {
 }
 `;
 
+export const baseUpscaleFragmentShader = `
+precision highp float;
+
+uniform sampler2D uScene;
+uniform vec2 uInputSize;
+uniform float uSharpness;
+
+varying vec2 vUv;
+
+vec3 sampleScene(vec2 uv) {
+  return texture2D(uScene, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
+}
+
+float lumaOf(vec3 color) {
+  return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+void main() {
+  vec2 srcPos = vUv * uInputSize - 0.5;
+  vec2 basePos = floor(srcPos);
+  vec2 f = srcPos - basePos;
+  vec2 texel = 1.0 / max(uInputSize, vec2(1.0));
+  vec2 uv00 = (basePos + vec2(0.5, 0.5)) * texel;
+  vec2 uv10 = uv00 + vec2(texel.x, 0.0);
+  vec2 uv01 = uv00 + vec2(0.0, texel.y);
+  vec2 uv11 = uv00 + texel;
+
+  vec3 c00 = sampleScene(uv00);
+  vec3 c10 = sampleScene(uv10);
+  vec3 c01 = sampleScene(uv01);
+  vec3 c11 = sampleScene(uv11);
+  vec3 bilinear = mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+
+  vec3 cL = sampleScene(vUv - vec2(texel.x, 0.0));
+  vec3 cR = sampleScene(vUv + vec2(texel.x, 0.0));
+  vec3 cU = sampleScene(vUv + vec2(0.0, texel.y));
+  vec3 cD = sampleScene(vUv - vec2(0.0, texel.y));
+  float edgeX = abs(lumaOf(cR) - lumaOf(cL));
+  float edgeY = abs(lumaOf(cU) - lumaOf(cD));
+  float edge = clamp((edgeX + edgeY) * 4.0, 0.0, 1.0);
+
+  vec3 blur = (cL + cR + cU + cD) * 0.25;
+  vec3 sharpened = bilinear + (bilinear - blur) * uSharpness * edge;
+
+  gl_FragColor = vec4(clamp(sharpened, 0.0, 1.0), 1.0);
+}
+`;
+
 export const photoRectFragmentShader = `
 precision highp float;
 

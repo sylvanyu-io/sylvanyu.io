@@ -32,6 +32,7 @@ import {
   type GlassParams,
 } from './macCanvas/glassPipeline';
 import {
+  baseUpscaleFragmentShader,
   coverFragmentShader,
   rectVertexShader,
   screenVertexShader,
@@ -59,6 +60,10 @@ const PHOTO_APP_META = {
 };
 const MAX_DEVICE_PIXEL_RATIO = 2;
 const MAX_BACKGROUND_RENDER_EDGE = 2048;
+// A/B result: background upscale is visually close enough here and showed a
+// clear performance lift on both desktop and mobile.
+const BASE_RENDER_SCALE = 0.67;
+const BASE_UPSCALE_SHARPNESS = 0.18;
 const WALLPAPER_SHADE_STRENGTH = 0.16;
 const MAX_CANVAS_FPS = 60;
 const BUSY_BACKGROUND_FPS = 30;
@@ -168,6 +173,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let backgroundPixelRatio = 1;
   let renderWidth = 1;
   let renderHeight = 1;
+  let baseWidth = 1;
+  let baseHeight = 1;
   let backgroundWidth = 1;
   let backgroundHeight = 1;
 
@@ -204,6 +211,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
     uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     uViewport: { value: new THREE.Vector2(1, 1) },
   };
+  const upscaleUniforms = {
+    uScene: { value: placeholder as THREE.Texture },
+    uInputSize: { value: new THREE.Vector2(1, 1) },
+    uSharpness: { value: BASE_UPSCALE_SHARPNESS },
+  };
 
   const coverMaterial = new THREE.ShaderMaterial({
     uniforms: coverUniforms,
@@ -217,6 +229,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     vertexShader: rectVertexShader,
     fragmentShader: uiRectFragmentShader,
     transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const upscaleMaterial = new THREE.ShaderMaterial({
+    uniforms: upscaleUniforms,
+    vertexShader: screenVertexShader,
+    fragmentShader: baseUpscaleFragmentShader,
     depthTest: false,
     depthWrite: false,
   });
@@ -374,6 +393,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     );
     renderWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
     renderHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
+    baseWidth = Math.max(1, Math.round(renderWidth * BASE_RENDER_SCALE));
+    baseHeight = Math.max(1, Math.round(renderHeight * BASE_RENDER_SCALE));
     backgroundWidth = Math.max(1, Math.round(cssWidth * backgroundPixelRatio));
     backgroundHeight = Math.max(1, Math.round(cssHeight * backgroundPixelRatio));
 
@@ -386,13 +407,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
       layer.dirty = true;
     });
 
-    state.bufferText = `BUF ${renderWidth}x${renderHeight}`;
+    state.bufferText = `BUF ${baseWidth}x${baseHeight}->${renderWidth}x${renderHeight}`;
 
     disposeTargets();
 
-    // Blur targets stay at background resolution (capped at MAX_BACKGROUND_RENDER_EDGE);
-    // the frosted backdrop never needs full device-pixel detail.
-    backgroundTarget = makeRenderTarget(renderWidth, renderHeight);
+    // backgroundTarget renders the wallpaper at BASE_RENDER_SCALE and is
+    // upscaled to the screen; the glass blur owns a separate chain sized to
+    // backgroundWidth/Height (capped at MAX_BACKGROUND_RENDER_EDGE), since the
+    // frosted backdrop never needs full device-pixel detail.
+    backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
 
     layoutDirty = true;
@@ -401,18 +424,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   // Presents the already-screen-aspect background to the default framebuffer.
   function presentBackground(texture: THREE.Texture) {
-    coverUniforms.uScene.value = texture;
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
-    coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
-    coverUniforms.uOverscan.value = 1.0;
-    coverUniforms.uShade.value.set(0, 0);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, null);
+    upscaleUniforms.uScene.value = texture;
+    upscaleUniforms.uInputSize.value.set(baseWidth, baseHeight);
+    renderPass(renderer, scene, camera, passMesh, upscaleMaterial, null);
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
     if (!backgroundTarget) return;
 
-    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
+    const basePixelRatio = baseHeight / Math.max(cssHeight, 1);
+    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * basePixelRatio;
     if (wallpaperPass) {
       wallpaperPass.render(renderer, backgroundTarget, {
         time,
@@ -431,7 +452,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     coverUniforms.uScene.value = placeholder;
     coverUniforms.uImageAspect.value = 1;
     coverUniforms.uOverscan.value = 1.0;
-    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
+    coverUniforms.uResolution.value.set(baseWidth, baseHeight);
     coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
     renderPass(renderer, scene, camera, passMesh, coverMaterial, backgroundTarget);
   }
