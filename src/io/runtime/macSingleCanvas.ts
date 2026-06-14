@@ -179,6 +179,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let baseHeight = 1;
   let backgroundWidth = 1;
   let backgroundHeight = 1;
+  let folderBackdropWidth = 1;
+  let folderBackdropHeight = 1;
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -427,7 +429,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   // and icons are drawn later as crisp overlays.
   let backgroundTarget: THREE.WebGLRenderTarget | null = null;
   let folderSnapshotTarget: THREE.WebGLRenderTarget | null = null;
-  let folderBlurTarget: THREE.WebGLRenderTarget | null = null;
   let folderBackdropTexture: THREE.Texture | null = null;
   // Folder blur is visually abstract enough that the first valid snapshot can
   // be reused across repeated open/close cycles. Resize/destroy are the only
@@ -437,9 +438,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   function disposeFolderTargets() {
     cancelFolderBackdropPreheat();
     disposeTarget(folderSnapshotTarget);
-    disposeTarget(folderBlurTarget);
     folderSnapshotTarget = null;
-    folderBlurTarget = null;
     folderBackdropTexture = null;
     folderSnapshotDirty = true;
   }
@@ -504,6 +503,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     baseHeight = Math.max(1, Math.round(renderHeight * MAC_RENDER_TUNING.baseRenderScale));
     backgroundWidth = Math.max(1, Math.round(cssWidth * backgroundPixelRatio));
     backgroundHeight = Math.max(1, Math.round(cssHeight * backgroundPixelRatio));
+    const folderBackdropPixelRatio = Math.min(
+      pixelRatio * MAC_RENDER_TUNING.folderBackdropScale,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssWidth,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssHeight,
+    );
+    folderBackdropWidth = Math.max(1, Math.round(cssWidth * folderBackdropPixelRatio));
+    folderBackdropHeight = Math.max(1, Math.round(cssHeight * folderBackdropPixelRatio));
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
@@ -524,7 +530,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // frosted backdrop never needs full device-pixel detail.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
-    folderBackdropBlur.resize(backgroundWidth, backgroundHeight);
+    folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
 
     layoutDirty = true;
     start();
@@ -541,12 +547,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     blurredBackdropUniforms.uScene.value = texture;
     blurredBackdropUniforms.uAlpha.value = THREE.MathUtils.clamp(alpha, 0, 1);
     renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, null);
-  }
-
-  function copyTextureToTarget(texture: THREE.Texture, target: THREE.WebGLRenderTarget) {
-    blurredBackdropUniforms.uScene.value = texture;
-    blurredBackdropUniforms.uAlpha.value = 1;
-    renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, target);
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
@@ -689,27 +689,21 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function ensureFolderTargets() {
     const snapshotSizeMatches = folderSnapshotTarget
-      && folderSnapshotTarget.width === renderWidth
-      && folderSnapshotTarget.height === renderHeight;
-    const blurSizeMatches = folderBlurTarget
-      && folderBlurTarget.width === backgroundWidth
-      && folderBlurTarget.height === backgroundHeight;
+      && folderSnapshotTarget.width === folderBackdropWidth
+      && folderSnapshotTarget.height === folderBackdropHeight;
 
-    if (snapshotSizeMatches && blurSizeMatches) return;
+    if (snapshotSizeMatches) return;
 
     disposeFolderTargets();
-    folderSnapshotTarget = makeRenderTarget(renderWidth, renderHeight);
-    folderBlurTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
+    folderSnapshotTarget = makeRenderTarget(folderBackdropWidth, folderBackdropHeight);
   }
 
   function captureFolderBackdrop(blurred: THREE.Texture, now: Date) {
     ensureFolderTargets();
-    if (!folderSnapshotTarget || !folderBlurTarget) return;
+    if (!folderSnapshotTarget) return;
 
     renderHomeScreen(folderSnapshotTarget, blurred, now);
-    const snapshotBlurred = folderBackdropBlur.renderBlur(folderSnapshotTarget);
-    copyTextureToTarget(snapshotBlurred, folderBlurTarget);
-    folderBackdropTexture = folderBlurTarget.texture;
+    folderBackdropTexture = folderBackdropBlur.renderBlur(folderSnapshotTarget);
     folderSnapshotDirty = false;
   }
 
