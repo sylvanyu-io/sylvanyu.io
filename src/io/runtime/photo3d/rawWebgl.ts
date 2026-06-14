@@ -182,6 +182,10 @@ export function mountPhoto3D(
   const uniforms = Object.fromEntries(
     PHOTO3D_UNIFORM_NAMES.map((name) => [name, gl.getUniformLocation(program, name)]),
   ) as Record<Photo3DUniformName, WebGLUniformLocation | null>;
+  const invZMinUniform = new Float32Array([PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, 0]);
+  const invZMaxUniform = new Float32Array([0, 0, 0, 0]);
+  const focalUniform = new Float32Array([PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, 0]);
+  const inputResolutionUniform = new Float32Array(8);
   const textures: Record<string, WebGLTexture | null> = {};
   let transparentTextureRef: WebGLTexture | null = null;
   let animationFrame = 0;
@@ -312,11 +316,41 @@ export function mountPhoto3D(
       gl.bindTexture(gl.TEXTURE_2D, textures[key]);
       gl.uniform1i(uniforms[key as Photo3DUniformName], unit);
     }
+    syncStaticUniforms();
 
     resize();
     root.dataset.state = 'ready';
     hideStatus();
     updateStats();
+  };
+
+  const syncStaticUniforms = () => {
+    inputResolutionUniform.set([
+      config.sourceWidth,
+      config.sourceHeight,
+      config.sourceWidth,
+      config.sourceHeight,
+      config.sourceWidth,
+      config.sourceHeight,
+      1,
+      1,
+    ]);
+
+    gl.uniform1f(uniforms.aspect, config.sourceWidth / config.sourceHeight);
+    gl.uniform1f(uniforms.layeredOutpaintingCrop, config.crop);
+    gl.uniform1f(uniforms.maskFeatherWidth, config.feather);
+    gl.uniform1f(uniforms.maskSharpness, config.sharpness);
+    gl.uniform1f(uniforms.focusHighlightIntensity, config.highlight ? 1.0 : 0.0);
+    gl.uniform1i(uniforms.originalWidthPx, config.sourceWidth);
+    gl.uniform1i(uniforms.originalHeightPx, config.sourceHeight);
+    gl.uniform1i(uniforms.numberOfLayers, Math.max(1, Math.min(config.layers, PHOTO3D_MAX_LAYERS)));
+    gl.uniform1f(uniforms.roll1, 0.0);
+    gl.uniform2f(uniforms.sk1, 0, 0);
+    gl.uniform2f(uniforms.sl1, 0, 0);
+    gl.uniform1fv(uniforms['invZmin[0]'], invZMinUniform);
+    gl.uniform1fv(uniforms['invZmax[0]'], invZMaxUniform);
+    gl.uniform1fv(uniforms['f1[0]'], focalUniform);
+    gl.uniform2fv(uniforms['iRes[0]'], inputResolutionUniform);
   };
 
   const stopCanvasGesture = (event: Event) => {
@@ -502,30 +536,6 @@ function drawFrame(
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.uniform3f(uniforms.offset, offsetX, offsetY, config.offsetZ);
   gl.uniform1f(uniforms.focus, config.focus);
-  gl.uniform1f(uniforms.aspect, config.sourceWidth / config.sourceHeight);
-  gl.uniform1f(uniforms.layeredOutpaintingCrop, config.crop);
-  gl.uniform1f(uniforms.maskFeatherWidth, config.feather);
-  gl.uniform1f(uniforms.maskSharpness, config.sharpness);
-  gl.uniform1f(uniforms.focusHighlightIntensity, config.highlight ? 1.0 : 0.0);
-  gl.uniform1i(uniforms.originalWidthPx, config.sourceWidth);
-  gl.uniform1i(uniforms.originalHeightPx, config.sourceHeight);
-  gl.uniform1i(uniforms.numberOfLayers, Math.max(1, Math.min(config.layers, PHOTO3D_MAX_LAYERS)));
-  gl.uniform1f(uniforms.roll1, 0.0);
-  gl.uniform2f(uniforms.sk1, 0, 0);
-  gl.uniform2f(uniforms.sl1, 0, 0);
-  gl.uniform1fv(uniforms['invZmin[0]'], new Float32Array([PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, 0]));
-  gl.uniform1fv(uniforms['invZmax[0]'], new Float32Array([0, 0, 0, 0]));
-  gl.uniform1fv(uniforms['f1[0]'], new Float32Array([PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, 0]));
-  gl.uniform2fv(uniforms['iRes[0]'], new Float32Array([
-    config.sourceWidth,
-    config.sourceHeight,
-    config.sourceWidth,
-    config.sourceHeight,
-    config.sourceWidth,
-    config.sourceHeight,
-    1,
-    1,
-  ]));
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

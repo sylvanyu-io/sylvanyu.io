@@ -401,7 +401,10 @@ export function createMacDomWindows(
       setWindowActive(record, isActive);
       updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);
-      ensureWindowContentMounted(record);
+      // Canvas apps are expensive to download and initialize. Keep inactive
+      // windows as DOM shells, and mount their live canvas only when they own
+      // focus; syncWindowCanvasActivity() will pause them again on blur.
+      if (isActive) ensureWindowContentMounted(record);
 
       if (!wasVisible && !closing.has(id)) {
         playRestore(record, win as WindowLayout, layout);

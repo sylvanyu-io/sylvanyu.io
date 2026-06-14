@@ -76,7 +76,10 @@ export function syncCanvasLayerRect(layer: CanvasLayer, rect: LayerRect, pixelRa
     layer.dirty = true;
   }
 
-  layer.rect = { x: rect.x, y: rect.y, w: deviceW / pixelRatio, h: deviceH / pixelRatio };
+  layer.rect.x = rect.x;
+  layer.rect.y = rect.y;
+  layer.rect.w = deviceW / pixelRatio;
+  layer.rect.h = deviceH / pixelRatio;
 }
 
 export function disposeTarget(target: THREE.WebGLRenderTarget | null) {
