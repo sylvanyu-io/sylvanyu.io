@@ -15,6 +15,8 @@ export type GlassParams = {
   splay: number;
   chroma: number;
   blur: number;
+  /** Shared Kawase chain pass count. Supported tiers are 4, 6, and 8. */
+  kawasePasses: number;
   frost: number;
   tint: number;
   glow: number;
@@ -38,6 +40,7 @@ export const DEFAULT_GLASS_PARAMS: GlassParams = {
   splay: 1,
   chroma: 0.2,
   blur: 1,
+  kawasePasses: 4,
   frost: 0.08,
   tint: 0.05,
   glow: 0.1,
@@ -60,10 +63,18 @@ function smoothstep01(edge1: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
+function normalizeKawasePasses(value: number) {
+  const passes = Math.max(4, Math.round(value) || 4);
+  if (passes >= 8) return 8;
+  if (passes >= 6) return 6;
+  return 4;
+}
+
 export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture) {
   const blurAmount = THREE.MathUtils.clamp(DEFAULT_GLASS_PARAMS.blur, 0, 6);
-  const useDeepBlur = blurAmount > 2.4;
-  const useTinyBlur = blurAmount > 3;
+  const kawasePasses = normalizeKawasePasses(DEFAULT_GLASS_PARAMS.kawasePasses);
+  const useDeepBlur = kawasePasses >= 6;
+  const useTinyBlur = kawasePasses >= 8;
   const skipBlur = blurAmount <= 0.01;
 
   // The chain config is compile-time constant, so offsets are computed once.
