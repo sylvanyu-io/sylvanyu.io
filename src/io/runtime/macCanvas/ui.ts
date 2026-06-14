@@ -827,7 +827,7 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   const statusW = status.w - 36;
   // Two columns spread across wider mobile widgets; the desktop rail keeps 100.
   const statColGap = status.w > 260 ? Math.round(statusW * 0.5) : 100;
-  const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const date = now.toISOString().slice(0, 10).replace(/-/g, '.');
 
   ctx.save();
