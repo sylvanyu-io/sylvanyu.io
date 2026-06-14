@@ -168,6 +168,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   let layout = buildMacCanvasLayout(1, 1, state, layoutOptions());
   let layoutDirty = true;
+  // Cache keys for the layout-stable canvas layers (icons, dock). They only
+  // change when the layout, language, window-open state, or assets change, so
+  // they are rebuilt on rebuildLayout() instead of every frame.
+  let iconsCacheKey = '';
+  let dockCacheKey = '';
   let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
   let backgroundPixelRatio = 1;
@@ -467,19 +472,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
     },
   });
 
+  // wallpaperSource holds the raw Photo3D parallax frame; baseTarget is the
+  // composited desktop scene (wallpaper + shade + icons) that gets presented to
+  // the screen, blurred, and refracted by the glass panels. The old
+  // wallpaperTarget/glassSourceTarget intermediates were pure copies and have
+  // been folded into the single cover pass that writes baseTarget.
   let wallpaperSourceTarget: THREE.WebGLRenderTarget | null = null;
-  let wallpaperTarget: THREE.WebGLRenderTarget | null = null;
-  let glassSourceTarget: THREE.WebGLRenderTarget | null = null;
   let baseTarget: THREE.WebGLRenderTarget | null = null;
 
   function disposeTargets() {
     disposeTarget(wallpaperSourceTarget);
-    disposeTarget(wallpaperTarget);
-    disposeTarget(glassSourceTarget);
     disposeTarget(baseTarget);
     wallpaperSourceTarget = null;
-    wallpaperTarget = null;
-    glassSourceTarget = null;
     baseTarget = null;
   }
 
@@ -506,7 +510,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
       layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     }
 
+    refreshLayerKeys();
     ensureMobileHomeHistory();
+  }
+
+  function refreshLayerKeys() {
+    const assetFlag = assets ? 1 : 0;
+    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.label ?? ''}`).join(',');
+    iconsCacheKey = `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assetFlag}:${iconSig}`;
+    dockCacheKey = dockStateKey(layout, state, assets);
   }
 
   function resize() {
@@ -545,50 +557,36 @@ export function mountMacSingleCanvas(rootInput: Element) {
       Math.max(WALLPAPER_SOURCE_MIN_HEIGHT, Math.round(backgroundHeight * 0.72)),
     );
     wallpaperSourceTarget = makeRenderTarget(Math.max(1, Math.round(sourceH * sourceAspect)), sourceH);
-    wallpaperTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
-    glassSourceTarget = makeRenderTarget(backgroundWidth, backgroundHeight);
     baseTarget = makeRenderTarget(renderWidth, renderHeight);
+    // Blur targets stay at background resolution (capped at MAX_BACKGROUND_RENDER_EDGE);
+    // the frosted backdrop never needs full device-pixel detail.
     glassPipeline.resize(backgroundWidth, backgroundHeight);
 
-    rebuildLayout();
+    layoutDirty = true;
     start();
   }
 
-  function presentTexture(
-    texture: THREE.Texture,
-    target: THREE.WebGLRenderTarget | null,
-    targetWidth = renderWidth,
-    targetHeight = renderHeight,
-    shadeHeightPx = 0,
-  ) {
+  // Blits the already-screen-aspect base scene to the default framebuffer.
+  // baseTarget shares the viewport aspect, so cover-fit collapses to identity.
+  function presentToScreen(texture: THREE.Texture) {
     coverUniforms.uScene.value = texture;
-    coverUniforms.uResolution.value.set(targetWidth, targetHeight);
+    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
     coverUniforms.uImageAspect.value = cssWidth / Math.max(cssHeight, 1);
     coverUniforms.uOverscan.value = 1.0;
-    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, target);
+    coverUniforms.uShade.value.set(0, 0);
+    renderPass(renderer, scene, camera, passMesh, coverMaterial, null);
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean) {
-    if (!wallpaperSourceTarget || !wallpaperTarget) return;
-
-    if (wallpaperPass) {
-      wallpaperPass.render(renderer, wallpaperSourceTarget, {
-        time,
-        pointer,
-        pointerActive: parallaxActive,
-        strength: 0.045,
-        maxOffset: 0.018,
-        idleDrift: true,
-      });
-      coverUniforms.uScene.value = wallpaperSourceTarget.texture;
-      coverUniforms.uImageAspect.value = wallpaperPass.aspect;
-    }
-
-    coverUniforms.uResolution.value.set(backgroundWidth, backgroundHeight);
-    coverUniforms.uOverscan.value = wallpaperPass ? 1.08 : 1.0;
-    coverUniforms.uShade.value.set(0, 0);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, wallpaperTarget);
+    if (!wallpaperPass || !wallpaperSourceTarget) return;
+    wallpaperPass.render(renderer, wallpaperSourceTarget, {
+      time,
+      pointer,
+      pointerActive: parallaxActive,
+      strength: 0.045,
+      maxOffset: 0.018,
+      idleDrift: true,
+    });
   }
 
   function drawRectLayer(
@@ -619,41 +617,59 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
   }
 
-  // Wallpaper (with the top shade baked into the cover pass) plus desktop
-  // icons; this is the scene the glass panels refract.
+  // Composites the desktop scene the glass panels refract: the live wallpaper
+  // (cover-fit with parallax overscan and the top shade baked in) plus the
+  // desktop icons. A single cover pass straight into baseTarget replaces the
+  // former wallpaper→base→glassSource copy chain.
   function renderBase() {
-    if (!wallpaperTarget || !baseTarget || !glassSourceTarget) return;
+    if (!baseTarget) return;
 
+    if (wallpaperPass && wallpaperSourceTarget) {
+      coverUniforms.uScene.value = wallpaperSourceTarget.texture;
+      coverUniforms.uImageAspect.value = wallpaperPass.aspect;
+      coverUniforms.uOverscan.value = 1.08;
+    } else {
+      coverUniforms.uScene.value = placeholder;
+      coverUniforms.uImageAspect.value = 1;
+      coverUniforms.uOverscan.value = 1.0;
+    }
     const shadeHeightPx = Math.max(120, cssHeight * 0.18) * pixelRatio;
-    presentTexture(wallpaperTarget.texture, baseTarget, renderWidth, renderHeight, shadeHeightPx);
+    coverUniforms.uResolution.value.set(renderWidth, renderHeight);
+    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
+    renderPass(renderer, scene, camera, passMesh, coverMaterial, baseTarget);
 
     drawRectLayer(
       iconsLayer as CanvasLayer,
       layout.iconsRect,
-      `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assets ? 1 : 0}:${layout.iconCells.map((cell) => `${cell.id}:${cell.label ?? ''}`).join(',')}`,
+      iconsCacheKey,
       (context) => drawMacDesktopIcons(context, layout, assets, state),
       baseTarget,
     );
-
-    presentTexture(baseTarget.texture, glassSourceTarget, backgroundWidth, backgroundHeight);
   }
+
+  // Reused across frames: the pill plus the lens thumb that slides to the
+  // selected segment. Mutated in place so the animated toggle allocates nothing.
+  const langPillPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_PILL_GLASS };
+  const langThumbPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_THUMB_GLASS };
+  const langPanels: GlassPanelInput[] = [langPillPanel, langThumbPanel];
+  const noPanels: GlassPanelInput[] = [];
 
   function langGlassPanels(): GlassPanelInput[] {
     const lang = layout.langSwitch;
-    if (!lang) return [];
+    if (!lang) return noPanels;
 
     const thumbH = lang.h - LANG_THUMB_INSET * 2;
-    return [
-      { x: lang.x, y: lang.y, w: lang.w, h: lang.h, r: lang.h * 0.5, params: LANG_PILL_GLASS },
-      {
-        x: lang.x + LANG_THUMB_INSET + langAnim * lang.segW,
-        y: lang.y + LANG_THUMB_INSET,
-        w: lang.segW - LANG_THUMB_INSET * 2,
-        h: thumbH,
-        r: thumbH * 0.5,
-        params: LANG_THUMB_GLASS,
-      },
-    ];
+    langPillPanel.x = lang.x;
+    langPillPanel.y = lang.y;
+    langPillPanel.w = lang.w;
+    langPillPanel.h = lang.h;
+    langPillPanel.r = lang.h * 0.5;
+    langThumbPanel.x = lang.x + LANG_THUMB_INSET + langAnim * lang.segW;
+    langThumbPanel.y = lang.y + LANG_THUMB_INSET;
+    langThumbPanel.w = lang.segW - LANG_THUMB_INSET * 2;
+    langThumbPanel.h = thumbH;
+    langThumbPanel.r = thumbH * 0.5;
+    return langPanels;
   }
 
   let raf = 0;
@@ -709,6 +725,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function frame(nowMs: number) {
+    // Layout, window DOM sync, and the layout-stable cache keys only change on
+    // interaction/resize. The steady-state frame skips all of it and the DOM
+    // window HUD text is refreshed on its own 500ms cadence (see macDomWindows).
     if (layoutDirty) {
       rebuildLayout();
       domWindows.sync(layout, state);
@@ -723,7 +742,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const dt = frameLimiter.consumeDelta(nowMs);
     const sampledFps = fpsSampler.record(nowMs);
     if (sampledFps > 0) state.fps = sampledFps;
-    domWindows.sync(layout, state);
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
     langAnim += (langTarget - langAnim) * (1 - Math.exp(-dt * 14));
@@ -737,13 +755,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderWallpaper(time, pointerActive || useGyro);
     renderBase();
 
-    if (baseTarget && glassSourceTarget) {
+    if (baseTarget) {
       renderer.setRenderTarget(null);
       renderer.clear();
-      presentTexture(baseTarget.texture, null);
+      presentToScreen(baseTarget.texture);
 
-      const blurred = glassPipeline.renderBlur(glassSourceTarget);
-      glassPipeline.renderPanels(glassSourceTarget.texture, blurred, layout.glassPanels, cssWidth, cssHeight, null);
+      // Glass refracts the sharp base scene and a Kawase-blurred copy of it.
+      const blurred = glassPipeline.renderBlur(baseTarget);
+      glassPipeline.renderPanels(baseTarget.texture, blurred, layout.glassPanels, cssWidth, cssHeight, null);
 
       drawRectLayer(
         widgetLayer as CanvasLayer,
@@ -755,12 +774,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
       drawRectLayer(
         dockLayer as CanvasLayer,
         layout.dockRect,
-        dockStateKey(layout, state, assets),
+        dockCacheKey,
         (context) => drawMacDockOverlay(context, layout, assets, state),
         null,
       );
 
-      glassPipeline.renderPanels(glassSourceTarget.texture, blurred, langGlassPanels(), cssWidth, cssHeight, null);
+      glassPipeline.renderPanels(baseTarget.texture, blurred, langGlassPanels(), cssWidth, cssHeight, null);
 
       drawRectLayer(
         menubarLayer as CanvasLayer,
@@ -937,6 +956,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   Promise.all([
     loadMacUiAssets().then((loaded) => {
       assets = loaded;
+      // Icons/dock cache keys fold in an "assets ready" flag; rebuild so the
+      // freshly-loaded glyphs actually rasterize into their layers.
+      markLayoutDirty();
     }),
     createPhoto3DPass(SHADER_URL, WALLPAPER_SPRITE, 2).then((pass) => {
       wallpaperPass = pass;
