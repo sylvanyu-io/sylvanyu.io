@@ -666,6 +666,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return t * t * (3 - 2 * t);
   }
 
+  function folderBackdropAlpha() {
+    const progress = layout.folder?.progress ?? 0;
+    const t = THREE.MathUtils.clamp(progress / 0.55, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
   function renderFolderOverlay(target: THREE.WebGLRenderTarget | null) {
     if (!layout.folder) return;
 
@@ -889,16 +895,25 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (backgroundTarget) {
       if (layout.folder) {
+        const backdropAlpha = folderBackdropAlpha();
+        let liveBlurred: THREE.Texture | null = null;
+        if (folderSnapshotDirty || !folderBackdropTexture || backdropAlpha < 0.999) {
+          liveBlurred = glassPipeline.renderBlur(backgroundTarget);
+        }
+
         if (folderSnapshotDirty || !folderBackdropTexture) {
           // Freeze the current canvas home screen once, then blur that frozen
           // frame. While the folder is open, the wallpaper/photo3d background
           // does not keep refreshing behind it.
-          ensureFolderBackdrop(now);
+          captureFolderBackdrop(liveBlurred ?? glassPipeline.renderBlur(backgroundTarget), now);
         }
 
-        if (folderSnapshotTarget) presentBlurredBackdrop(folderSnapshotTarget.texture, 1);
         const backdropTexture = folderBackdropTexture ?? folderSnapshotTarget?.texture ?? backgroundTarget.texture;
-        presentBlurredBackdrop(backdropTexture, layout.folder.progress);
+        // Crossfade from the normal home screen to the blurred cached backdrop.
+        // Do not show the low-resolution sharp snapshot directly; that causes a
+        // visible flash before the blur reaches full opacity.
+        if (backdropAlpha < 0.999) renderHomeScreen(null, liveBlurred ?? glassPipeline.renderBlur(backgroundTarget), now);
+        presentBlurredBackdrop(backdropTexture, backdropAlpha);
         folderPanels[0] = layout.folder.panel;
         folderPanels.length = 1;
         glassPipeline.renderPanels(backdropTexture, folderPanels, cssWidth, cssHeight, null);
