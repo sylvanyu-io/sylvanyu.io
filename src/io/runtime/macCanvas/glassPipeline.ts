@@ -14,9 +14,12 @@ export type GlassParams = {
   curvature: number;
   splay: number;
   chroma: number;
-  blur: number;
-  /** Shared Kawase chain pass count. Supported tiers are 4, 6, and 8. */
+  /** Number of Kawase downsample iterations. 1 means one downsample pass. */
   kawasePasses: number;
+  /** Kawase sample distance in target texels. */
+  kawaseOffset: number;
+  /** Per-pass downsample divisor. 2 means each down pass renders at 1/2 size. */
+  kawaseDownsample: number;
   frost: number;
   tint: number;
   glow: number;
@@ -39,8 +42,9 @@ export const DEFAULT_GLASS_PARAMS: GlassParams = {
   curvature: 40,
   splay: 1,
   chroma: 0.2,
-  blur: 1,
-  kawasePasses: 4,
+  kawasePasses: 1,
+  kawaseOffset: 2,
+  kawaseDownsample: 2,
   frost: 0.08,
   tint: 0.05,
   glow: 0.1,
@@ -63,29 +67,11 @@ function smoothstep01(edge1: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
-function normalizeKawasePasses(value: number) {
-  const passes = Math.max(4, Math.round(value) || 4);
-  if (passes >= 8) return 8;
-  if (passes >= 6) return 6;
-  return 4;
-}
-
 export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture) {
-  const blurAmount = THREE.MathUtils.clamp(DEFAULT_GLASS_PARAMS.blur, 0, 6);
-  const kawasePasses = normalizeKawasePasses(DEFAULT_GLASS_PARAMS.kawasePasses);
-  const useDeepBlur = kawasePasses >= 6;
-  const useTinyBlur = kawasePasses >= 8;
-  const skipBlur = blurAmount <= 0.01;
-
-  // The chain config is compile-time constant, so offsets are computed once.
-  const downOffset = 0.9 + blurAmount * 0.55;
-  const deepDownOffset = 1.05 + blurAmount * 0.86;
-  const deeperDownOffset = 1.15 + blurAmount * 1.18;
-  const tinyDownOffset = 1.25 + blurAmount * 1.55;
-  const tinyUpOffset = 1.1 + blurAmount * 1.35 + DEFAULT_GLASS_PARAMS.frost * 0.35;
-  const deepUpOffset = 0.95 + blurAmount * 1.22 + DEFAULT_GLASS_PARAMS.frost * 0.45;
-  const upOffset = 0.85 + blurAmount * 1.02 + DEFAULT_GLASS_PARAMS.frost * 0.5;
-  const finalUpOffset = 0.75 + blurAmount * 0.82;
+  const kawasePasses = Math.max(0, Math.round(DEFAULT_GLASS_PARAMS.kawasePasses) || 0);
+  const kawaseOffset = Math.max(0, DEFAULT_GLASS_PARAMS.kawaseOffset);
+  const kawaseDownsample = Math.max(1, DEFAULT_GLASS_PARAMS.kawaseDownsample || 1);
+  const skipBlur = kawasePasses <= 0;
 
   const downUniforms = {
     uInput: { value: placeholder as THREE.Texture },
@@ -141,51 +127,31 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     depthWrite: false,
   });
 
-  let halfDown: THREE.WebGLRenderTarget | null = null;
-  let quarterDown: THREE.WebGLRenderTarget | null = null;
-  let eighthDown: THREE.WebGLRenderTarget | null = null;
-  let sixteenthDown: THREE.WebGLRenderTarget | null = null;
-  let eighthUp: THREE.WebGLRenderTarget | null = null;
-  let quarterUp: THREE.WebGLRenderTarget | null = null;
-  let halfUp: THREE.WebGLRenderTarget | null = null;
-  let blurOut: THREE.WebGLRenderTarget | null = null;
+  let downTargets: THREE.WebGLRenderTarget[] = [];
+  let upTargets: THREE.WebGLRenderTarget[] = [];
 
   function disposeTargets() {
-    [halfDown, quarterDown, eighthDown, sixteenthDown, eighthUp, quarterUp, halfUp, blurOut].forEach(disposeTarget);
-    halfDown = null;
-    quarterDown = null;
-    eighthDown = null;
-    sixteenthDown = null;
-    eighthUp = null;
-    quarterUp = null;
-    halfUp = null;
-    blurOut = null;
+    downTargets.forEach(disposeTarget);
+    upTargets.forEach(disposeTarget);
+    downTargets = [];
+    upTargets = [];
   }
 
   function resize(sourceWidth: number, sourceHeight: number) {
     disposeTargets();
     if (skipBlur) return;
 
-    const halfW = Math.max(2, Math.round(sourceWidth * 0.5));
-    const halfH = Math.max(2, Math.round(sourceHeight * 0.5));
-    const quarterW = Math.max(2, Math.round(halfW * 0.5));
-    const quarterH = Math.max(2, Math.round(halfH * 0.5));
-    halfDown = makeRenderTarget(halfW, halfH);
-    quarterDown = makeRenderTarget(quarterW, quarterH);
-    halfUp = makeRenderTarget(halfW, halfH);
-    blurOut = makeRenderTarget(halfW, halfH);
+    let targetW = Math.max(2, sourceWidth);
+    let targetH = Math.max(2, sourceHeight);
+    for (let i = 0; i < kawasePasses; i += 1) {
+      targetW = Math.max(2, Math.round(targetW / kawaseDownsample));
+      targetH = Math.max(2, Math.round(targetH / kawaseDownsample));
+      downTargets.push(makeRenderTarget(targetW, targetH));
+    }
 
-    // Deeper mips only exist when the configured blur strength reaches them.
-    if (useDeepBlur || useTinyBlur) {
-      const eighthW = Math.max(2, Math.round(quarterW * 0.5));
-      const eighthH = Math.max(2, Math.round(quarterH * 0.5));
-      eighthDown = makeRenderTarget(eighthW, eighthH);
-      quarterUp = makeRenderTarget(quarterW, quarterH);
-
-      if (useTinyBlur) {
-        sixteenthDown = makeRenderTarget(Math.max(2, Math.round(eighthW * 0.5)), Math.max(2, Math.round(eighthH * 0.5)));
-        eighthUp = makeRenderTarget(eighthW, eighthH);
-      }
+    for (let i = 0; i < downTargets.length - 1; i += 1) {
+      const target = downTargets[i];
+      upTargets.push(makeRenderTarget(target.width, target.height));
     }
   }
 
@@ -203,27 +169,21 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
   }
 
   function renderBlur(source: THREE.WebGLRenderTarget): THREE.Texture {
-    if (skipBlur || !halfDown || !quarterDown || !halfUp || !blurOut) return source.texture;
+    if (skipBlur || downTargets.length === 0) return source.texture;
 
-    blurPass(downMaterial, downUniforms, source, downOffset, halfDown);
-    blurPass(downMaterial, downUniforms, halfDown, deepDownOffset, quarterDown);
+    let current = source;
+    downTargets.forEach((target) => {
+      blurPass(downMaterial, downUniforms, current, kawaseOffset, target);
+      current = target;
+    });
 
-    if (useTinyBlur && eighthDown && sixteenthDown && eighthUp && quarterUp) {
-      blurPass(downMaterial, downUniforms, quarterDown, deeperDownOffset, eighthDown);
-      blurPass(downMaterial, downUniforms, eighthDown, tinyDownOffset, sixteenthDown);
-      blurPass(upMaterial, upUniforms, sixteenthDown, tinyUpOffset, eighthUp);
-      blurPass(upMaterial, upUniforms, eighthUp, deepUpOffset, quarterUp);
-      blurPass(upMaterial, upUniforms, quarterUp, upOffset, halfUp);
-    } else if (useDeepBlur && eighthDown && quarterUp) {
-      blurPass(downMaterial, downUniforms, quarterDown, deeperDownOffset, eighthDown);
-      blurPass(upMaterial, upUniforms, eighthDown, deepUpOffset, quarterUp);
-      blurPass(upMaterial, upUniforms, quarterUp, upOffset, halfUp);
-    } else {
-      blurPass(upMaterial, upUniforms, quarterDown, upOffset, halfUp);
+    for (let i = upTargets.length - 1; i >= 0; i -= 1) {
+      const target = upTargets[i];
+      blurPass(upMaterial, upUniforms, current, kawaseOffset, target);
+      current = target;
     }
 
-    blurPass(upMaterial, upUniforms, halfUp, finalUpOffset, blurOut);
-    return blurOut.texture;
+    return current.texture;
   }
 
   function applyPanelParams(params: GlassParams) {
@@ -233,7 +193,7 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     glassUniforms.uCurveMix.value = THREE.MathUtils.clamp(params.curvature / 80, 0, 1);
     glassUniforms.uSplay.value = THREE.MathUtils.clamp(params.splay, 0, 1);
     glassUniforms.uChroma.value = THREE.MathUtils.clamp(params.chroma, 0, 1);
-    glassUniforms.uBlurLevel.value = smoothstep01(6, THREE.MathUtils.clamp(params.blur, 0, 6));
+    glassUniforms.uBlurLevel.value = smoothstep01(6, THREE.MathUtils.clamp(params.kawaseOffset, 0, 6));
     glassUniforms.uFrost.value = THREE.MathUtils.clamp(params.frost, 0, 1);
     glassUniforms.uTintEase.value = Math.pow(THREE.MathUtils.clamp(params.tint, 0, 1), 1.15);
     glassUniforms.uGlow.value = THREE.MathUtils.clamp(params.glow, 0, 1);

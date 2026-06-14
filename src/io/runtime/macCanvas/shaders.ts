@@ -154,7 +154,7 @@ void main() {
 `;
 
 // Per-fragment-constant work (uniform clamps, pow, trig) lives on the CPU:
-// uCurveMix = clamp(curvature / 80, 0, 1), uBlurLevel = smoothstep(0, 6, blur),
+// uCurveMix = clamp(curvature / 80, 0, 1), uBlurLevel = smoothstep(0, 6, kawaseOffset),
 // uTintEase = pow(clamp(tint, 0, 1), 1.15), uLightDir = (cos a, sin a).
 export const liquidGlassFragmentShader = `
 precision highp float;
