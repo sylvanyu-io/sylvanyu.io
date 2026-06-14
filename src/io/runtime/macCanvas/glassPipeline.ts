@@ -18,22 +18,39 @@ export type GlassPanelInput = {
   params?: Partial<GlassParams>;
 };
 
-type PassContext = {
+export type GlassPassContext = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.Camera;
   mesh: THREE.Mesh;
 };
 
+export type KawaseBlurParams = Pick<GlassParams, 'kawasePasses' | 'kawaseOffset' | 'kawaseDownsample'>;
+
 function smoothstep01(edge1: number, value: number) {
   const t = THREE.MathUtils.clamp(value / edge1, 0, 1);
   return t * t * (3 - 2 * t);
 }
 
-export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture) {
-  const kawasePasses = Math.max(0, Math.round(DEFAULT_GLASS_PARAMS.kawasePasses) || 0);
-  const kawaseOffset = Math.max(0, DEFAULT_GLASS_PARAMS.kawaseOffset);
-  const kawaseDownsample = Math.max(1, DEFAULT_GLASS_PARAMS.kawaseDownsample || 1);
+function resolveKawaseParams(params: Partial<KawaseBlurParams> = {}) {
+  return {
+    kawasePasses: params.kawasePasses ?? DEFAULT_GLASS_PARAMS.kawasePasses,
+    kawaseOffset: params.kawaseOffset ?? DEFAULT_GLASS_PARAMS.kawaseOffset,
+    kawaseDownsample: params.kawaseDownsample ?? DEFAULT_GLASS_PARAMS.kawaseDownsample,
+  };
+}
+
+// Kept separate from the glass material so folder backdrops can reuse the same
+// Kawase chain without touching per-panel uniforms.
+export function createKawaseBlurPipeline(
+  ctx: GlassPassContext,
+  placeholder: THREE.Texture,
+  params: Partial<KawaseBlurParams> = {},
+) {
+  const resolved = resolveKawaseParams(params);
+  const kawasePasses = Math.max(0, Math.round(resolved.kawasePasses) || 0);
+  const kawaseOffset = Math.max(0, resolved.kawaseOffset);
+  const kawaseDownsample = Math.max(1, resolved.kawaseDownsample || 1);
   const skipBlur = kawasePasses <= 0;
 
   const downUniforms = {
@@ -46,27 +63,6 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     uTexelSize: { value: new THREE.Vector2(1, 1) },
     uOffset: { value: 1 },
   };
-  const glassUniforms = {
-    uBlurredScene: { value: placeholder as THREE.Texture },
-    uResolution: { value: new THREE.Vector2(1, 1) },
-    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
-    uViewport: { value: new THREE.Vector2(1, 1) },
-    uPanel: { value: new THREE.Vector4(0, 0, 1, 1) },
-    uRadius: { value: 1 },
-    uScale: { value: 0 },
-    uDepth: { value: 0 },
-    uCurvature: { value: 0.01 },
-    uCurveMix: { value: 0 },
-    uSplay: { value: 1 },
-    uChroma: { value: 0 },
-    uBlurLevel: { value: 0 },
-    uFrost: { value: 0 },
-    uTintEase: { value: 0 },
-    uGlow: { value: 0 },
-    uEdge: { value: 0 },
-    uLightDir: { value: new THREE.Vector2(1, 0) },
-  };
-
   const downMaterial = new THREE.ShaderMaterial({
     uniforms: downUniforms,
     vertexShader: screenVertexShader,
@@ -78,14 +74,6 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     uniforms: upUniforms,
     vertexShader: screenVertexShader,
     fragmentShader: kawaseUpFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const glassMaterial = new THREE.ShaderMaterial({
-    uniforms: glassUniforms,
-    vertexShader: rectVertexShader,
-    fragmentShader: liquidGlassFragmentShader,
-    transparent: true,
     depthTest: false,
     depthWrite: false,
   });
@@ -153,6 +141,56 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
     return current.texture;
   }
 
+  function dispose() {
+    disposeTargets();
+    downMaterial.dispose();
+    upMaterial.dispose();
+  }
+
+  return { resize, renderBlur, dispose };
+}
+
+export function createGlassPipeline(ctx: GlassPassContext, placeholder: THREE.Texture) {
+  const blurPipeline = createKawaseBlurPipeline(ctx, placeholder);
+
+  const glassUniforms = {
+    uBlurredScene: { value: placeholder as THREE.Texture },
+    uResolution: { value: new THREE.Vector2(1, 1) },
+    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+    uViewport: { value: new THREE.Vector2(1, 1) },
+    uPanel: { value: new THREE.Vector4(0, 0, 1, 1) },
+    uRadius: { value: 1 },
+    uScale: { value: 0 },
+    uDepth: { value: 0 },
+    uCurvature: { value: 0.01 },
+    uCurveMix: { value: 0 },
+    uSplay: { value: 1 },
+    uChroma: { value: 0 },
+    uBlurLevel: { value: 0 },
+    uFrost: { value: 0 },
+    uTintEase: { value: 0 },
+    uGlow: { value: 0 },
+    uEdge: { value: 0 },
+    uLightDir: { value: new THREE.Vector2(1, 0) },
+  };
+
+  const glassMaterial = new THREE.ShaderMaterial({
+    uniforms: glassUniforms,
+    vertexShader: rectVertexShader,
+    fragmentShader: liquidGlassFragmentShader,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  function resize(sourceWidth: number, sourceHeight: number) {
+    blurPipeline.resize(sourceWidth, sourceHeight);
+  }
+
+  function renderBlur(source: THREE.WebGLRenderTarget): THREE.Texture {
+    return blurPipeline.renderBlur(source);
+  }
+
   function applyPanelParams(params: GlassParams) {
     glassUniforms.uScale.value = THREE.MathUtils.clamp(params.scale, 0, 1);
     glassUniforms.uDepth.value = Math.max(params.depth, 0);
@@ -197,9 +235,7 @@ export function createGlassPipeline(ctx: PassContext, placeholder: THREE.Texture
   }
 
   function dispose() {
-    disposeTargets();
-    downMaterial.dispose();
-    upMaterial.dispose();
+    blurPipeline.dispose();
     glassMaterial.dispose();
   }
 

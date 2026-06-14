@@ -4,7 +4,7 @@ export type GlassParams = {
   curvature: number;
   splay: number;
   chroma: number;
-  /** Number of Kawase downsample iterations. 1 means one downsample pass. */
+  /** Number of complete Kawase down/up levels. 1 means one effective blur level. */
   kawasePasses: number;
   /** Kawase sample distance in target texels. */
   kawaseOffset: number;
@@ -48,8 +48,8 @@ export const DEFAULT_GLASS_PARAMS: GlassParams = {
   splay: 1,
   chroma: 0.2,
   kawasePasses: 1,
-  kawaseOffset: 2,
-  kawaseDownsample: 2,
+  kawaseOffset: 1.5,
+  kawaseDownsample: 3,
   frost: 0.08,
   tint: 0.05,
   glow: 0.1,
@@ -84,3 +84,35 @@ export const LANG_THUMB_GLASS: Partial<GlassParams> = {
 };
 
 export const LANG_THUMB_INSET = 2;
+
+export const FOLDER_ICON_GLASS: Partial<GlassParams> = {
+  scale: 0.22,
+  depth: 7,
+  curvature: 30,
+  chroma: 0.22,
+  kawaseOffset: 2.8,
+  frost: 0.14,
+  tint: 0.34,
+  glow: 0.26,
+  edge: 0.48,
+};
+
+export const FOLDER_PANEL_GLASS: Partial<GlassParams> = {
+  scale: 0.16,
+  depth: 12,
+  curvature: 48,
+  chroma: 0.22,
+  kawaseOffset: 3.4,
+  frost: 0.18,
+  tint: 0.2,
+  glow: 0.28,
+  edge: 0.42,
+};
+
+// Folder open uses a frozen home-screen snapshot so this heavier Kawase chain
+// runs only when the snapshot is dirty, not on every animation frame.
+export const FOLDER_BACKDROP_BLUR: Pick<GlassParams, 'kawasePasses' | 'kawaseOffset' | 'kawaseDownsample'> = {
+  kawasePasses: 3,
+  kawaseOffset: 3,
+  kawaseDownsample: 2,
+};
