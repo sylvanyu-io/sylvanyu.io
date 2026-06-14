@@ -200,7 +200,6 @@ export class Photo3DPass {
     this.material.uniforms.outputShade.value.set(options.shadeHeight ?? 0, options.shadeStrength ?? 0);
 
     renderer.setRenderTarget(target);
-    renderer.clear();
     renderer.render(this.scene, this.camera);
   }
 

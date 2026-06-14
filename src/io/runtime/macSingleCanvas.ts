@@ -504,6 +504,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.maxCanvasFps);
   const fpsSampler = createFpsSampler();
   let activeCanvasFpsLimit = MAC_FPS_TUNING.maxCanvasFps;
+  let activeWindowHasCanvasCache = false;
   const startTime = performance.now();
 
   function clearQueuedFrame() {
@@ -514,14 +515,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return layout.mobile && layout.windows.length > 0;
   }
 
-  function activeWindowHasCanvas() {
-    if (layout.mobile) return false;
-    return Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
+  function refreshActiveWindowCanvasCache() {
+    activeWindowHasCanvasCache = !layout.mobile
+      && Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
   }
 
   function currentCanvasFpsLimit() {
     if (mobileWindowOpen()) return 0;
-    return activeWindowHasCanvas() ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
+    return activeWindowHasCanvasCache ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
 
   function resetFrameTiming(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
@@ -558,6 +559,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (layoutDirty) {
       rebuildLayout();
       domWindows.sync(layout, state);
+      refreshActiveWindowCanvasCache();
     }
 
     if (!shouldRenderFrame(nowMs)) {
@@ -583,7 +585,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (backgroundTarget) {
       renderer.setRenderTarget(null);
-      renderer.clear();
       presentBackground(backgroundTarget.texture);
 
       // Glass samples only the Kawase-blurred scene so sharp source edges do
