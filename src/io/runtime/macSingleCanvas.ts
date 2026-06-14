@@ -15,6 +15,7 @@ import {
   drawMacMenubarOverlay,
   drawMacWidgetOverlay,
   hitTest,
+  isMacMobileViewport,
   loadMacUiAssets,
   MAC_MENUBAR_HEIGHT,
   MAC_WINDOW_IDS,
@@ -29,7 +30,6 @@ import {
 import {
   createGlassPipeline,
   type GlassPanelInput,
-  type GlassParams,
 } from './macCanvas/glassPipeline';
 import {
   baseUpscaleFragmentShader,
@@ -50,49 +50,25 @@ import {
   type CanvasLayer,
 } from './macCanvas/threeHelpers';
 import { createFpsSampler, createFrameLimiter } from './canvasTiming';
+import {
+  LANG_PILL_GLASS,
+  LANG_THUMB_GLASS,
+  LANG_THUMB_INSET,
+  MAC_FPS_TUNING,
+  MAC_RENDER_TUNING,
+  MAC_WALLPAPER_MOTION,
+} from './macCanvas/tuning';
+import {
+  PHOTO3D_SHADER_URL,
+  PHOTO_APP_META,
+  WALLPAPER_SPRITE,
+} from './macCanvas/apps';
 
-const SHADER_URL = '/io-design/assets/photo3d.fs';
-const WALLPAPER_SPRITE = '/io-design/assets/sprite1.png';
-const PHOTO_APP_META = {
-  sourceFrameWidth: 472,
-  sourceFrameHeight: 1024,
-  renderAspect: 0.72,
-};
-const MAX_DEVICE_PIXEL_RATIO = 2;
-const MAX_BACKGROUND_RENDER_EDGE = 2048;
-// A/B result: background upscale is visually close enough here and showed a
-// clear performance lift on both desktop and mobile.
-const BASE_RENDER_SCALE = 0.67;
-const BASE_UPSCALE_SHARPNESS = 0.18;
-const WALLPAPER_SHADE_STRENGTH = 0.16;
-const MAX_CANVAS_FPS = 60;
-const BUSY_BACKGROUND_FPS = 30;
-
-// Lang switch: a quiet glass pill with a brighter liquid-glass lens sliding to
-// the selected segment.
-const LANG_PILL_GLASS: Partial<GlassParams> = {
-  scale: 0.05,
-  depth: 5,
-  curvature: 18,
-  chroma: 0.12,
-  kawaseOffset: 2.6,
-  frost: 0.2,
-  tint: 0.05,
-  glow: 0.08,
-  edge: 0.32,
-};
-const LANG_THUMB_GLASS: Partial<GlassParams> = {
-  scale: 0.3,
-  depth: 7,
-  curvature: 30,
-  chroma: 0.3,
-  kawaseOffset: 3.4,
-  frost: 0.16,
-  tint: 0.6,
-  glow: 0.5,
-  edge: 0.7,
-};
-const LANG_THUMB_INSET = 2;
+const WINDOW_DRAG_LIMITS = {
+  fallbackWidth: 320,
+  sideMargin: 80,
+  bottomMargin: 60,
+} as const;
 
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
@@ -138,7 +114,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let cssHeight = 1;
 
   function shouldShowGyroApp() {
-    const mobileViewport = cssWidth <= 700 || cssHeight > cssWidth * 1.18;
+    const mobileViewport = isMacMobileViewport(cssWidth, cssHeight);
     const touchViewport = mobileViewport || window.matchMedia('(hover: none), (pointer: coarse)').matches;
     if (!touchViewport) return false;
     // In dev, keep the tile visible on touch/mobile even once permission is
@@ -214,7 +190,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const upscaleUniforms = {
     uScene: { value: placeholder as THREE.Texture },
     uInputSize: { value: new THREE.Vector2(1, 1) },
-    uSharpness: { value: BASE_UPSCALE_SHARPNESS },
+    uSharpness: { value: MAC_RENDER_TUNING.baseUpscaleSharpness },
   };
 
   const coverMaterial = new THREE.ShaderMaterial({
@@ -293,11 +269,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function clampWindowPosition(id: WindowId, x: number, y: number) {
     const win = layout.windows.find((windowLayout) => windowLayout.id === id);
-    const winW = win?.w ?? 320;
-    const minX = Math.min(0, 80 - winW);
-    const maxX = Math.max(0, cssWidth - 80);
+    const winW = win?.w ?? WINDOW_DRAG_LIMITS.fallbackWidth;
+    const minX = Math.min(0, WINDOW_DRAG_LIMITS.sideMargin - winW);
+    const maxX = Math.max(0, cssWidth - WINDOW_DRAG_LIMITS.sideMargin);
     const minY = MAC_MENUBAR_HEIGHT;
-    const maxY = Math.max(minY, cssHeight - 60);
+    const maxY = Math.max(minY, cssHeight - WINDOW_DRAG_LIMITS.bottomMargin);
 
     return {
       x: Math.round(THREE.MathUtils.clamp(x, minX, maxX)),
@@ -384,17 +360,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
     cssWidth = Math.max(1, Math.round(bounds.width));
     cssHeight = Math.max(1, Math.round(bounds.height));
     safeInsets = readSafeInsets();
-    const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
+    const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAC_RENDER_TUNING.maxDevicePixelRatio);
     pixelRatio = desiredPixelRatio;
     backgroundPixelRatio = Math.min(
       desiredPixelRatio,
-      MAX_BACKGROUND_RENDER_EDGE / cssWidth,
-      MAX_BACKGROUND_RENDER_EDGE / cssHeight,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssWidth,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssHeight,
     );
     renderWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
     renderHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
-    baseWidth = Math.max(1, Math.round(renderWidth * BASE_RENDER_SCALE));
-    baseHeight = Math.max(1, Math.round(renderHeight * BASE_RENDER_SCALE));
+    baseWidth = Math.max(1, Math.round(renderWidth * MAC_RENDER_TUNING.baseRenderScale));
+    baseHeight = Math.max(1, Math.round(renderHeight * MAC_RENDER_TUNING.baseRenderScale));
     backgroundWidth = Math.max(1, Math.round(cssWidth * backgroundPixelRatio));
     backgroundHeight = Math.max(1, Math.round(cssHeight * backgroundPixelRatio));
 
@@ -411,9 +387,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     disposeTargets();
 
-    // backgroundTarget renders the wallpaper at BASE_RENDER_SCALE and is
+    // backgroundTarget renders the wallpaper at MAC_RENDER_TUNING.baseRenderScale and is
     // upscaled to the screen; the glass blur owns a separate chain sized to
-    // backgroundWidth/Height (capped at MAX_BACKGROUND_RENDER_EDGE), since the
+    // backgroundWidth/Height (capped at MAC_RENDER_TUNING.maxBackgroundRenderEdge), since the
     // frosted backdrop never needs full device-pixel detail.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
@@ -433,18 +409,21 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (!backgroundTarget) return;
 
     const basePixelRatio = baseHeight / Math.max(cssHeight, 1);
-    const shadeHeightPx = Math.max(120, cssHeight * 0.18) * basePixelRatio;
+    const shadeHeightPx = Math.max(
+      MAC_WALLPAPER_MOTION.shadeMinHeight,
+      cssHeight * MAC_WALLPAPER_MOTION.shadeHeightRatio,
+    ) * basePixelRatio;
     if (wallpaperPass) {
       wallpaperPass.render(renderer, backgroundTarget, {
         time,
         pointer,
         pointerActive: parallaxActive,
-        strength: 0.045,
-        maxOffset: 0.018,
+        strength: MAC_WALLPAPER_MOTION.strength,
+        maxOffset: MAC_WALLPAPER_MOTION.maxOffset,
         idleDrift: true,
-        overscan: 1.08,
+        overscan: MAC_WALLPAPER_MOTION.overscan,
         shadeHeight: shadeHeightPx,
-        shadeStrength: WALLPAPER_SHADE_STRENGTH,
+        shadeStrength: MAC_RENDER_TUNING.wallpaperShadeStrength,
       });
       return;
     }
@@ -453,7 +432,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     coverUniforms.uImageAspect.value = 1;
     coverUniforms.uOverscan.value = 1.0;
     coverUniforms.uResolution.value.set(baseWidth, baseHeight);
-    coverUniforms.uShade.value.set(shadeHeightPx, WALLPAPER_SHADE_STRENGTH);
+    coverUniforms.uShade.value.set(shadeHeightPx, MAC_RENDER_TUNING.wallpaperShadeStrength);
     renderPass(renderer, scene, camera, passMesh, coverMaterial, backgroundTarget);
   }
 
@@ -522,9 +501,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   let raf = 0;
   let running = false;
-  const frameLimiter = createFrameLimiter(MAX_CANVAS_FPS);
+  const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.maxCanvasFps);
   const fpsSampler = createFpsSampler();
-  let activeCanvasFpsLimit = MAX_CANVAS_FPS;
+  let activeCanvasFpsLimit = MAC_FPS_TUNING.maxCanvasFps;
   const startTime = performance.now();
 
   function clearQueuedFrame() {
@@ -542,7 +521,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function currentCanvasFpsLimit() {
     if (mobileWindowOpen()) return 0;
-    return activeWindowHasCanvas() ? BUSY_BACKGROUND_FPS : MAX_CANVAS_FPS;
+    return activeWindowHasCanvas() ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
 
   function resetFrameTiming(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
@@ -774,7 +753,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // freshly-loaded glyphs actually rasterize into their layers.
       markLayoutDirty();
     }),
-    createPhoto3DPass(SHADER_URL, WALLPAPER_SPRITE, 2).then((pass) => {
+    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_SPRITE, MAC_WALLPAPER_MOTION.layers).then((pass) => {
       wallpaperPass = pass;
       resize();
     }),

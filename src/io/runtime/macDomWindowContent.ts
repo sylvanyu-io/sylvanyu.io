@@ -6,6 +6,13 @@ import type { CanvasDemoHandle } from './canvasDemoTypes';
 import { loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
+import {
+  MAC_LOADING_COPY,
+  PHOTO3D_SHADER_URL,
+  PHOTO_APP_SPRITE,
+  REFLECTION_DEMO_ID,
+} from './macCanvas/apps';
+import { MAC_FPS_TUNING } from './macCanvas/tuning';
 
 export type MacDomWindowRecord = {
   id: WindowId;
@@ -24,12 +31,6 @@ export type MacDomWindowRecord = {
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
 };
-
-const SHADER_URL = '/io-design/assets/photo3d.fs';
-const PHOTO_APP_SPRITE = '/io-design/assets/sprite2.png';
-const REFLECTION_DEMO_ID = 'planar-reflection';
-const LOADING_APP = 'Loading app';
-const LOADING_ASSET = 'Loading asset';
 
 function div(className: string) {
   const element = document.createElement('div');
@@ -165,11 +166,11 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   }
 
   root.dataset.mounting = 'true';
-  setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', LOADING_APP);
+  setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', MAC_LOADING_COPY.app);
   try {
     const [{ mountPhoto3D }, shaderBody] = await Promise.all([
       import('./photo3d/rawWebgl'),
-      loadPhoto3DShader(SHADER_URL),
+      loadPhoto3DShader(PHOTO3D_SHADER_URL),
     ]);
     const controller = mountPhoto3D(root, {
       shaderBody,
@@ -179,7 +180,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
     });
     if (controller) {
       record.photo3dController = controller;
-      controller.setMaxFps(60);
+      controller.setMaxFps(MAC_FPS_TUNING.maxCanvasFps);
       controller.setActive(record.element.dataset.active === 'true');
       record.cleanup.push(() => controller.dispose());
     }
@@ -207,7 +208,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   photoStage.dataset.photo3dStage = '';
   photoStage.dataset.macWindowCanvas = 'photo';
   photoStage.setAttribute('aria-label', 'Photo3D live render');
-  const status = createAppLoader(LOADING_APP);
+  const status = createAppLoader(MAC_LOADING_COPY.app);
   status.classList.add('mac-photo__status');
   status.dataset.photo3dStatus = '';
 
@@ -232,7 +233,7 @@ function renderReflection(record: MacDomWindowRecord) {
   record.body.replaceChildren();
 
   const stage = div('mac-demo__stage');
-  stage.dataset.macWindowCanvas = 'planar-reflection';
+  stage.dataset.macWindowCanvas = REFLECTION_DEMO_ID;
   stage.dataset.canvasDemoStage = REFLECTION_DEMO_ID;
   stage.setAttribute('aria-label', 'Planar reflection live render');
 
@@ -240,7 +241,7 @@ function renderReflection(record: MacDomWindowRecord) {
   canvas.className = 'mac-demo__canvas';
   canvas.dataset.canvasDemoCanvas = REFLECTION_DEMO_ID;
 
-  const loader = createAppLoader(LOADING_APP);
+  const loader = createAppLoader(MAC_LOADING_COPY.app);
   const hud = div('mac-demo__hud');
   hud.dataset.canvasDemoHud = REFLECTION_DEMO_ID;
   record.canvasDemoHud = hud;
@@ -304,11 +305,11 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
   record.canvasDemoMountToken = mountToken;
   record.element.dataset.mountingDemo = 'true';
   const loader = record.body.querySelector('[data-app-loader]');
-  setAppLoaderState(loader, 'loading', LOADING_APP);
+  setAppLoaderState(loader, 'loading', MAC_LOADING_COPY.app);
 
   try {
     const module = await loadCanvasDemo(REFLECTION_DEMO_ID);
-    setAppLoaderState(loader, 'loading', LOADING_ASSET);
+    setAppLoaderState(loader, 'loading', MAC_LOADING_COPY.asset);
     const handle = await module.initScene(canvas);
     if (record.canvasDemoMountToken !== mountToken || record.element.hidden) {
       handle.destroy();
@@ -317,7 +318,7 @@ async function mountReflectionDemo(record: MacDomWindowRecord) {
 
     record.canvasDemoHandle = handle;
     setAppLoaderState(loader, 'ready', 'Reflection app loaded');
-    handle.setMaxFps?.(60);
+    handle.setMaxFps?.(MAC_FPS_TUNING.maxCanvasFps);
     handle.resize?.();
     if (record.element.dataset.active === 'true') handle.resume?.();
     else handle.pause?.();
@@ -360,7 +361,7 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
 
   if (record.canvasDemoHandle) {
     if (active) {
-      record.canvasDemoHandle.setMaxFps?.(60);
+      record.canvasDemoHandle.setMaxFps?.(MAC_FPS_TUNING.maxCanvasFps);
       record.canvasDemoHandle.resize?.();
       record.canvasDemoHandle.resume?.();
     } else {

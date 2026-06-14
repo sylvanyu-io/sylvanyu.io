@@ -2,6 +2,14 @@ import { desktopCopy } from '../../data';
 import type { Lang } from '../../content/common';
 import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
 import {
+  DOCK_APPS,
+  MAC_APPS,
+  MAC_ASSET_BASE,
+  appTitle,
+  createInitialWindowState,
+  type IconLabelKey,
+} from './apps';
+import {
   MAC_WINDOW_IDS,
   PHOTO_APP_HUD_HEIGHT,
   type GlassPanel,
@@ -28,8 +36,6 @@ export type MacCanvasState = {
   bufferText: string;
   windows: WindowStateMap;
 };
-
-type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects';
 
 export type IconCell = {
   id: WindowId | 'lang' | 'gyro';
@@ -92,31 +98,110 @@ export type MacCanvasLayoutOptions = {
   showGyroApp?: boolean;
 };
 
-type IconDef = {
-  id: WindowId;
-  icon: string;
-  labelKey: IconLabelKey;
-};
-
 export type MacUiAssets = {
   icons: Record<WindowId, HTMLImageElement>;
 };
 
-const icons: IconDef[] = [
-  { id: 'readme', icon: 'icon-readme.svg', labelKey: 'iconReadme' },
-  { id: 'photo', icon: 'icon-photo3d.svg', labelKey: 'iconPhoto' },
-  { id: 'reflection', icon: 'icon-reflection.svg', labelKey: 'iconReflection' },
-  { id: 'worklog', icon: 'icon-worklog.svg', labelKey: 'iconLog' },
-  { id: 'projects', icon: 'icon-projects.svg', labelKey: 'iconProjects' },
-];
-const dockIcons = icons.filter((icon) => icon.id !== 'reflection');
-
 export const MAC_MENUBAR_HEIGHT = 34;
 const MAC_MENUBAR_TEXT_Y = 17;
 const MAC_MENUBAR_CONTROL_Y = 7;
-const MIN_PHOTO_STAGE_ASPECT = 0.72;
-const MAX_PHOTO_STAGE_ASPECT = 2.6;
-const MOBILE_TITLEBAR_HEIGHT = 48;
+
+const LAYOUT = {
+  mobile: {
+    maxWidth: 700,
+    portraitRatio: 1.18,
+    titlebarHeight: 48,
+  },
+  mobileIconGrid: {
+    sidePad: 20,
+    columns: 4,
+    itemH: 92,
+    rowGap: 14,
+    imgSize: 56,
+    labelGap: 9,
+  },
+  desktopIconGrid: {
+    x: 18,
+    top: 56,
+    gap: 18,
+    itemW: 86,
+    itemH: 76,
+    imgOffsetX: 16,
+    imgOffsetY: 4,
+    imgSize: 54,
+    labelXOffset: 45,
+    labelGap: 8,
+  },
+  widgets: {
+    mobile: {
+      sidePad: 20,
+      top: 18,
+      clockH: 88,
+      statusH: 240,
+      gap: 12,
+      radius: 22,
+      z: 20,
+    },
+    desktop: {
+      right: 252,
+      top: 56,
+      clockW: 230,
+      clockH: 92,
+      statusTop: 160,
+      statusW: 230,
+      statusH: 244,
+      radius: 18,
+      z: 20,
+    },
+    iconGridGap: 26,
+  },
+  windows: {
+    radius: 18,
+    titlebarH: 34,
+    minPhotoStageAspect: 0.72,
+    maxPhotoStageAspect: 2.6,
+    defaultPhotoAspect: 0.75,
+    defaultNoteH: 76,
+    photoMobileNoteH: 88,
+    photoMobileMinStageH: 120,
+    photoDesktopMinStageH: 160,
+    photoBaseW: 320,
+    photoMinWindowH: 360,
+    photoHeightMargin: 116,
+    photoX: 600,
+    photoY: 58,
+    readme: { x: 130, y: 64, w: 430, h: 500 },
+    worklog: { x: 240, y: 130, w: 560, h: 408 },
+    reflection: { x: 430, y: 118, w: 540, h: 360 },
+    projects: { x: 180, y: 90, w: 600, h: 452 },
+  },
+  dock: {
+    mobileIcon: 54,
+    desktopIcon: 48,
+    mobileGap: 12,
+    desktopGap: 10,
+    mobilePadX: 14,
+    desktopPadX: 13,
+    mobilePadY: 10,
+    desktopPadY: 9,
+    extraH: 6,
+    bottom: 14,
+    mobileRadius: 24,
+    desktopRadius: 22,
+    z: 220,
+    hitExtraH: 10,
+  },
+  boundsPad: {
+    icons: 16,
+    widgets: 14,
+    dock: 24,
+    menubarExtraH: 10,
+  },
+} as const;
+
+export function isMacMobileViewport(width: number, height: number) {
+  return width <= LAYOUT.mobile.maxWidth || height > width * LAYOUT.mobile.portraitRatio;
+}
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -130,7 +215,7 @@ function loadImage(src: string) {
 
 export async function loadMacUiAssets(): Promise<MacUiAssets> {
   const entries = await Promise.all(
-    icons.map(async (icon) => [icon.id, await loadImage(`/io-design/assets/${icon.icon}`)] as const),
+    MAC_APPS.map(async (app) => [app.id, await loadImage(`${MAC_ASSET_BASE}${app.icon}`)] as const),
   );
 
   return {
@@ -143,13 +228,7 @@ export function createInitialMacCanvasState(): MacCanvasState {
     lang: 'en',
     fps: 0,
     bufferText: 'BUF --',
-    windows: {
-      readme: { open: true, z: 11 },
-      photo: { open: true, z: 12 },
-      reflection: { open: false, z: 10 },
-      worklog: { open: false, z: 10 },
-      projects: { open: false, z: 13 },
-    },
+    windows: createInitialWindowState(),
   };
 }
 
@@ -178,7 +257,10 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
   }
 
   if (windowLayout.id === 'photo') {
-    const stageH = windowLayout.stage?.h ?? Math.max(1, windowLayout.h - windowLayout.titleH - (windowLayout.note?.h ?? 76));
+    const stageH = windowLayout.stage?.h ?? Math.max(
+      1,
+      windowLayout.h - windowLayout.titleH - (windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH),
+    );
     windowLayout.stage = {
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH,
@@ -189,7 +271,7 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH + stageH,
       w: windowLayout.w,
-      h: windowLayout.note?.h ?? 76,
+      h: windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH,
     };
   }
 
@@ -218,12 +300,13 @@ function boundsOf(rects: Rect[]): Rect {
 // iOS-style home screen grid: app icons in 4 columns plus optional utility
 // tiles, laid out below the widgets.
 function buildMobileIconCells(width: number, top: number, options: MacCanvasLayoutOptions): IconCell[] {
-  const sidePad = 20;
-  const columns = 4;
+  const grid = LAYOUT.mobileIconGrid;
+  const sidePad = grid.sidePad;
+  const columns = grid.columns;
   const cellW = Math.floor((width - sidePad * 2) / columns);
-  const itemH = 92;
-  const rowGap = 14;
-  const imgSize = 56;
+  const itemH = grid.itemH;
+  const rowGap = grid.rowGap;
+  const imgSize = grid.imgSize;
 
   const cellAt = (index: number): Omit<IconCell, 'id' | 'labelKey'> => {
     const col = index % columns;
@@ -239,13 +322,13 @@ function buildMobileIconCells(width: number, top: number, options: MacCanvasLayo
       imgY: y,
       imgSize,
       labelX: x + Math.round(cellW * 0.5),
-      labelY: y + imgSize + 9,
+      labelY: y + imgSize + grid.labelGap,
     };
   };
 
-  const cells: IconCell[] = icons.map((icon, index) => ({
-    id: icon.id,
-    labelKey: icon.labelKey,
+  const cells: IconCell[] = MAC_APPS.map((app, index) => ({
+    id: app.id,
+    labelKey: app.labelKey,
     ...cellAt(index),
   }));
   if (options.showGyroApp) cells.push({ id: 'gyro', label: options.gyroLabel ?? 'TILT', ...cellAt(cells.length) });
@@ -254,44 +337,45 @@ function buildMobileIconCells(width: number, top: number, options: MacCanvasLayo
 }
 
 function buildDesktopIconCells(options: MacCanvasLayoutOptions): IconCell[] {
-  const iconX = 18;
-  const iconTop = 56;
-  const iconGap = 18;
-  const itemH = 76;
+  const grid = LAYOUT.desktopIconGrid;
+  const iconX = grid.x;
+  const iconTop = grid.top;
+  const iconGap = grid.gap;
+  const itemH = grid.itemH;
 
-  const cells: IconCell[] = icons.map((icon, index) => {
+  const cells: IconCell[] = MAC_APPS.map((app, index) => {
     const y = iconTop + index * (itemH + iconGap);
-    const imgY = y + 4;
+    const imgY = y + grid.imgOffsetY;
     return {
-      id: icon.id,
-      labelKey: icon.labelKey,
+      id: app.id,
+      labelKey: app.labelKey,
       x: iconX,
       y,
-      w: 86,
+      w: grid.itemW,
       h: itemH,
-      imgX: iconX + 16,
+      imgX: iconX + grid.imgOffsetX,
       imgY,
-      imgSize: 54,
-      labelX: iconX + 45,
-      labelY: imgY + 54 + 8,
+      imgSize: grid.imgSize,
+      labelX: iconX + grid.labelXOffset,
+      labelY: imgY + grid.imgSize + grid.labelGap,
     };
   });
 
   if (options.showGyroApp) {
     const y = iconTop + cells.length * (itemH + iconGap);
-    const imgY = y + 4;
+    const imgY = y + grid.imgOffsetY;
     cells.push({
       id: 'gyro',
       label: options.gyroLabel ?? 'TILT',
       x: iconX,
       y,
-      w: 86,
+      w: grid.itemW,
       h: itemH,
-      imgX: iconX + 16,
+      imgX: iconX + grid.imgOffsetX,
       imgY,
-      imgSize: 54,
-      labelX: iconX + 45,
-      labelY: imgY + 54 + 8,
+      imgSize: grid.imgSize,
+      labelX: iconX + grid.labelXOffset,
+      labelY: imgY + grid.imgSize + grid.labelGap,
     });
   }
 
@@ -304,15 +388,15 @@ export function buildMacCanvasLayout(
   state: MacCanvasState,
   options: MacCanvasLayoutOptions = {},
 ): MacCanvasLayout {
-  const mobile = width <= 700 || height > width * 1.18;
+  const mobile = isMacMobileViewport(width, height);
   const safeTop = mobile ? options.safeInsets?.top ?? 0 : 0;
   const safeBottom = mobile ? options.safeInsets?.bottom ?? 0 : 0;
   const widgetGlassPanels: GlassPanel[] = [];
   const hitTargets: HitTarget[] = [];
   const windows: WindowLayout[] = [];
   const photoAspect = Math.max(
-    MIN_PHOTO_STAGE_ASPECT,
-    Math.min(MAX_PHOTO_STAGE_ASPECT, options.photoAspect ?? 0.75),
+    LAYOUT.windows.minPhotoStageAspect,
+    Math.min(LAYOUT.windows.maxPhotoStageAspect, options.photoAspect ?? LAYOUT.windows.defaultPhotoAspect),
   );
 
   const langSwitch: LangSwitchLayout | null = mobile
@@ -333,21 +417,51 @@ export function buildMacCanvasLayout(
   // the app grid flowing below them.
   let widgets: WidgetsLayout;
   if (mobile) {
-    const sidePad = 20;
+    const widgetLayout = LAYOUT.widgets.mobile;
+    const sidePad = widgetLayout.sidePad;
     const widgetW = width - sidePad * 2;
-    const clockY = safeTop + 18;
-    const clock: GlassPanel = { x: sidePad, y: clockY, w: widgetW, h: 88, r: 22, z: 20 };
-    const status: GlassPanel = { x: sidePad, y: clockY + clock.h + 12, w: widgetW, h: 240, r: 22, z: 20 };
+    const clockY = safeTop + widgetLayout.top;
+    const clock: GlassPanel = {
+      x: sidePad,
+      y: clockY,
+      w: widgetW,
+      h: widgetLayout.clockH,
+      r: widgetLayout.radius,
+      z: widgetLayout.z,
+    };
+    const status: GlassPanel = {
+      x: sidePad,
+      y: clockY + clock.h + widgetLayout.gap,
+      w: widgetW,
+      h: widgetLayout.statusH,
+      r: widgetLayout.radius,
+      z: widgetLayout.z,
+    };
     widgets = { clock, status };
   } else {
+    const widgetLayout = LAYOUT.widgets.desktop;
     widgets = {
-      clock: { x: width - 252, y: 56, w: 230, h: 92, r: 18, z: 20 },
-      status: { x: width - 252, y: 160, w: 230, h: 244, r: 18, z: 20 },
+      clock: {
+        x: width - widgetLayout.right,
+        y: widgetLayout.top,
+        w: widgetLayout.clockW,
+        h: widgetLayout.clockH,
+        r: widgetLayout.radius,
+        z: widgetLayout.z,
+      },
+      status: {
+        x: width - widgetLayout.right,
+        y: widgetLayout.statusTop,
+        w: widgetLayout.statusW,
+        h: widgetLayout.statusH,
+        r: widgetLayout.radius,
+        z: widgetLayout.z,
+      },
     };
   }
   widgetGlassPanels.push(widgets.clock, widgets.status);
 
-  const iconsTop = mobile ? widgets.status.y + widgets.status.h + 26 : 56;
+  const iconsTop = mobile ? widgets.status.y + widgets.status.h + LAYOUT.widgets.iconGridGap : LAYOUT.desktopIconGrid.top;
   const iconCells = mobile ? buildMobileIconCells(width, iconsTop, options) : buildDesktopIconCells(options);
   iconCells.forEach((cell) => {
     hitTargets.push({
@@ -366,16 +480,16 @@ export function buildMacCanvasLayout(
 
   // Mobile windows behave like iOS apps: fullscreen sheets with a back chevron
   // in the titlebar, so all desktop float-positioning only applies off-mobile.
-  const titleH = mobile ? MOBILE_TITLEBAR_HEIGHT + safeTop : 34;
-  const photoNoteH = mobile ? 88 + safeBottom : 76;
+  const titleH = mobile ? LAYOUT.mobile.titlebarHeight + safeTop : LAYOUT.windows.titlebarH;
+  const photoNoteH = mobile ? LAYOUT.windows.photoMobileNoteH + safeBottom : LAYOUT.windows.defaultNoteH;
   const fullscreen: Rect = { x: 0, y: 0, w: width, h: height };
 
   let photo: WindowLayout;
   if (mobile) {
-    const stageH = Math.max(120, height - titleH - photoNoteH);
+    const stageH = Math.max(LAYOUT.windows.photoMobileMinStageH, height - titleH - photoNoteH);
     photo = {
       id: 'photo',
-      title: 'Photo3D.app',
+      title: appTitle('photo'),
       ...fullscreen,
       r: 0,
       z: state.windows.photo.z,
@@ -385,21 +499,21 @@ export function buildMacCanvasLayout(
       sourceText: options.photoSourceText,
     };
   } else {
-    const basePhotoW = 320;
-    const photoMaxWindowH = Math.max(360, height - 116);
-    const photoMaxStageH = Math.max(160, photoMaxWindowH - titleH - photoNoteH);
+    const basePhotoW = LAYOUT.windows.photoBaseW;
+    const photoMaxWindowH = Math.max(LAYOUT.windows.photoMinWindowH, height - LAYOUT.windows.photoHeightMargin);
+    const photoMaxStageH = Math.max(LAYOUT.windows.photoDesktopMinStageH, photoMaxWindowH - titleH - photoNoteH);
     const photoW = Math.round(Math.min(basePhotoW, photoMaxStageH * photoAspect));
     const photoStageH = Math.round(photoW / photoAspect);
-    const photoX = 600;
-    const photoY = 58;
+    const photoX = LAYOUT.windows.photoX;
+    const photoY = LAYOUT.windows.photoY;
     photo = {
       id: 'photo',
-      title: 'Photo3D.app',
+      title: appTitle('photo'),
       x: photoX,
       y: photoY,
       w: photoW,
       h: titleH + photoStageH + photoNoteH,
-      r: 18,
+      r: LAYOUT.windows.radius,
       z: state.windows.photo.z,
       titleH,
       stage: { x: photoX, y: photoY + titleH, w: photoW, h: photoStageH },
@@ -410,55 +524,67 @@ export function buildMacCanvasLayout(
 
   const readme: WindowLayout = {
     id: 'readme',
-    title: 'README.md',
-    ...(mobile ? fullscreen : { x: 130, y: 64, w: 430, h: 500 }),
-    r: mobile ? 0 : 18,
+    title: appTitle('readme'),
+    ...(mobile ? fullscreen : LAYOUT.windows.readme),
+    r: mobile ? 0 : LAYOUT.windows.radius,
     z: state.windows.readme.z,
     titleH,
   };
 
   const worklog: WindowLayout = {
     id: 'worklog',
-    title: 'sylvan@os - tail -f work.log',
-    ...(mobile ? fullscreen : { x: 240, y: 130, w: 560, h: 408 }),
-    r: mobile ? 0 : 18,
+    title: appTitle('worklog'),
+    ...(mobile ? fullscreen : LAYOUT.windows.worklog),
+    r: mobile ? 0 : LAYOUT.windows.radius,
     z: state.windows.worklog.z,
     titleH,
   };
 
   const reflection: WindowLayout = {
     id: 'reflection',
-    title: 'PlanarReflection.app',
-    ...(mobile ? fullscreen : { x: 430, y: 118, w: 540, h: 360 }),
-    r: mobile ? 0 : 18,
+    title: appTitle('reflection'),
+    ...(mobile ? fullscreen : LAYOUT.windows.reflection),
+    r: mobile ? 0 : LAYOUT.windows.radius,
     z: state.windows.reflection.z,
     titleH,
     stage: mobile
       ? { x: 0, y: titleH, w: width, h: Math.max(1, height - titleH) }
-      : { x: 430, y: 118 + titleH, w: 540, h: 360 - titleH },
+      : {
+        x: LAYOUT.windows.reflection.x,
+        y: LAYOUT.windows.reflection.y + titleH,
+        w: LAYOUT.windows.reflection.w,
+        h: LAYOUT.windows.reflection.h - titleH,
+      },
   };
 
   const projects: WindowLayout = {
     id: 'projects',
-    title: '~/projects',
-    ...(mobile ? fullscreen : { x: 180, y: 90, w: 600, h: 452 }),
-    r: mobile ? 0 : 18,
+    title: appTitle('projects'),
+    ...(mobile ? fullscreen : LAYOUT.windows.projects),
+    r: mobile ? 0 : LAYOUT.windows.radius,
     z: state.windows.projects.z,
     titleH,
   };
 
-  const dockIcon = mobile ? 54 : 48;
-  const dockGap = mobile ? 12 : 10;
-  const dockPadX = mobile ? 14 : 13;
-  const dockPadY = mobile ? 10 : 9;
-  const dockW = dockIcons.length * dockIcon + (dockIcons.length - 1) * dockGap + dockPadX * 2;
-  const dockH = dockIcon + dockPadY * 2 + 6;
+  const dockIcon = mobile ? LAYOUT.dock.mobileIcon : LAYOUT.dock.desktopIcon;
+  const dockGap = mobile ? LAYOUT.dock.mobileGap : LAYOUT.dock.desktopGap;
+  const dockPadX = mobile ? LAYOUT.dock.mobilePadX : LAYOUT.dock.desktopPadX;
+  const dockPadY = mobile ? LAYOUT.dock.mobilePadY : LAYOUT.dock.desktopPadY;
+  const dockW = DOCK_APPS.length * dockIcon + (DOCK_APPS.length - 1) * dockGap + dockPadX * 2;
+  const dockH = dockIcon + dockPadY * 2 + LAYOUT.dock.extraH;
   const dockX = Math.round((width - dockW) * 0.5);
-  const dockY = Math.round(height - dockH - (mobile ? 14 + safeBottom : 14));
+  const dockY = Math.round(height - dockH - (mobile ? LAYOUT.dock.bottom + safeBottom : LAYOUT.dock.bottom));
   const dock: DockLayout = {
-    panel: { x: dockX, y: dockY, w: dockW, h: dockH, r: mobile ? 24 : 22, z: 220 },
-    slots: dockIcons.map((icon, index) => ({
-      id: icon.id,
+    panel: {
+      x: dockX,
+      y: dockY,
+      w: dockW,
+      h: dockH,
+      r: mobile ? LAYOUT.dock.mobileRadius : LAYOUT.dock.desktopRadius,
+      z: LAYOUT.dock.z,
+    },
+    slots: DOCK_APPS.map((app, index) => ({
+      id: app.id,
       x: dockX + dockPadX + index * (dockIcon + dockGap),
       y: dockY + dockPadY,
       size: dockIcon,
@@ -469,7 +595,7 @@ export function buildMacCanvasLayout(
       x: slot.x,
       y: slot.y,
       w: slot.size,
-      h: slot.size + 10,
+      h: slot.size + LAYOUT.dock.hitExtraH,
       cursor: 'pointer',
       action: { type: 'open', id: slot.id, origin: 'dock' },
     });
@@ -494,10 +620,12 @@ export function buildMacCanvasLayout(
     dock,
     langSwitch,
     widgets,
-    iconsRect: padRect(boundsOf(iconCells), 16),
-    widgetsRect: padRect(boundsOf(widgetGlassPanels), 14),
-    dockRect: padRect(dock.panel, 24),
-    menubarRect: mobile ? { x: 0, y: 0, w: 0, h: 0 } : { x: 0, y: 0, w: width, h: MAC_MENUBAR_HEIGHT + 10 },
+    iconsRect: padRect(boundsOf(iconCells), LAYOUT.boundsPad.icons),
+    widgetsRect: padRect(boundsOf(widgetGlassPanels), LAYOUT.boundsPad.widgets),
+    dockRect: padRect(dock.panel, LAYOUT.boundsPad.dock),
+    menubarRect: mobile
+      ? { x: 0, y: 0, w: 0, h: 0 }
+      : { x: 0, y: 0, w: width, h: MAC_MENUBAR_HEIGHT + LAYOUT.boundsPad.menubarExtraH },
   };
 }
 

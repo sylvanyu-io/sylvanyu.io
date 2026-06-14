@@ -7,6 +7,7 @@ import {
   screenVertexShader,
 } from './shaders';
 import { disposeTarget, makeRenderTarget, renderPass } from './threeHelpers';
+import { DEFAULT_GLASS_PARAMS, GLASS_PANEL_PAD } from './tuning';
 
 export type GlassParams = {
   scale: number;
@@ -36,24 +37,7 @@ export type GlassPanelInput = {
   params?: Partial<GlassParams>;
 };
 
-export const DEFAULT_GLASS_PARAMS: GlassParams = {
-  scale: 0.1,
-  depth: 10,
-  curvature: 40,
-  splay: 1,
-  chroma: 0.2,
-  kawasePasses: 1,
-  kawaseOffset: 2,
-  kawaseDownsample: 2,
-  frost: 0.08,
-  tint: 0.05,
-  glow: 0.1,
-  edge: 0.25,
-  specularAngle: 45,
-};
-
-// Soft margin around each panel so the mask edge and rim highlights have room.
-const GLASS_PANEL_PAD = 8;
+export { DEFAULT_GLASS_PARAMS };
 
 type PassContext = {
   renderer: THREE.WebGLRenderer;
