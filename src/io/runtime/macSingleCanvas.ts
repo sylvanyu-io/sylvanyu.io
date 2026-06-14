@@ -91,6 +91,11 @@ void main() {
 }
 `;
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
   const dots = layout.dock.slots.map((slot) => (state.windows[slot.id].open ? '1' : '0')).join('');
@@ -262,9 +267,25 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const allLayers = [iconsLayer, widgetLayer, folderLayer, dockLayer, menubarLayer];
   if (allLayers.some((layer) => !layer)) return;
 
+  const idleWindow = window as IdleWindow;
+  let destroyed = false;
+  let folderPreheatHandle: number | null = null;
+  let folderPreheatUsesIdle = false;
+
   function markLayoutDirty() {
     layoutDirty = true;
     start();
+  }
+
+  function cancelFolderBackdropPreheat() {
+    if (folderPreheatHandle === null) return;
+    if (folderPreheatUsesIdle && idleWindow.cancelIdleCallback) {
+      idleWindow.cancelIdleCallback(folderPreheatHandle);
+    } else {
+      window.clearTimeout(folderPreheatHandle);
+    }
+    folderPreheatHandle = null;
+    folderPreheatUsesIdle = false;
   }
 
   let folderAnimation: {
@@ -281,6 +302,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       const from = state.folder === id ? state.folderProgress : 0;
       state.folder = id;
       state.folderProgress = from;
+      cancelFolderBackdropPreheat();
       folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
       markLayoutDirty();
       return;
@@ -413,6 +435,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let folderSnapshotDirty = true;
 
   function disposeFolderTargets() {
+    cancelFolderBackdropPreheat();
     disposeTarget(folderSnapshotTarget);
     disposeTarget(folderBlurTarget);
     folderSnapshotTarget = null;
@@ -690,6 +713,45 @@ export function mountMacSingleCanvas(rootInput: Element) {
     folderSnapshotDirty = false;
   }
 
+  function ensureFolderBackdrop(now: Date) {
+    if (!backgroundTarget) return;
+
+    const liveBlurred = glassPipeline.renderBlur(backgroundTarget);
+    captureFolderBackdrop(liveBlurred, now);
+  }
+
+  function scheduleFolderBackdropPreheat() {
+    if (
+      destroyed
+      || document.hidden
+      || state.folder
+      || folderPreheatHandle !== null
+      || !backgroundTarget
+      || !folderSnapshotDirty
+      || folderBackdropTexture
+    ) {
+      return;
+    }
+
+    const run = () => {
+      folderPreheatHandle = null;
+      folderPreheatUsesIdle = false;
+      if (destroyed || document.hidden || state.folder || !backgroundTarget || !folderSnapshotDirty || folderBackdropTexture) {
+        return;
+      }
+      ensureFolderBackdrop(new Date());
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      folderPreheatUsesIdle = true;
+      folderPreheatHandle = idleWindow.requestIdleCallback(run, { timeout: 1200 });
+      return;
+    }
+
+    folderPreheatUsesIdle = false;
+    folderPreheatHandle = window.setTimeout(run, 600);
+  }
+
   // Reused across frames: the pill plus the lens thumb that slides to the
   // selected segment. Mutated in place so the animated toggle allocates nothing.
   const langPillPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_PILL_GLASS };
@@ -808,8 +870,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
           // Freeze the current canvas home screen once, then blur that frozen
           // frame. While the folder is open, the wallpaper/photo3d background
           // does not keep refreshing behind it.
-          const liveBlurred = glassPipeline.renderBlur(backgroundTarget);
-          captureFolderBackdrop(liveBlurred, now);
+          ensureFolderBackdrop(now);
         }
 
         if (folderSnapshotTarget) presentBlurredBackdrop(folderSnapshotTarget.texture, 1);
@@ -822,6 +883,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       } else {
         const blurred = glassPipeline.renderBlur(backgroundTarget);
         renderHomeScreen(null, blurred, now);
+        scheduleFolderBackdropPreheat();
       }
     }
 
@@ -984,8 +1046,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   });
 
   start();
-
-  let destroyed = false;
 
   const destroy = () => {
     if (destroyed) return;
