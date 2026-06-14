@@ -238,6 +238,8 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
 }
 
 function activeWindowId(layout: MacCanvasLayout, state: MacCanvasState): WindowId | null {
+  if (layout.folder && (!layout.mobile || layout.windows.length === 0)) return null;
+
   let activeId: WindowId | null = null;
   let activeZ = -Infinity;
 

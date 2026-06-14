@@ -823,12 +823,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return layout.mobile && layout.windows.length > 0;
   }
 
+  function folderOwnsCanvas() {
+    return Boolean(layout.folder && (!layout.mobile || layout.windows.length === 0));
+  }
+
   function refreshActiveWindowCanvasCache() {
-    activeWindowHasCanvasCache = !layout.mobile
+    activeWindowHasCanvasCache = !folderOwnsCanvas()
+      && !layout.mobile
       && Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
   }
 
   function currentCanvasFpsLimit() {
+    if (folderOwnsCanvas()) return MAC_FPS_TUNING.maxCanvasFps;
     if (mobileWindowOpen()) return 0;
     return activeWindowHasCanvasCache ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
