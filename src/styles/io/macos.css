@@ -435,6 +435,46 @@
     overflow: hidden;
   }
 
+  /* Desktop windows are fixed-size, so content-heavy bodies scroll instead of
+     clipping. The scrollbar is tinted warm to sit on the paper rather than
+     showing the OS default high-contrast gray bar. */
+  .mac-dom-window__body--readme,
+  .mac-dom-window__body--worklog,
+  .mac-dom-window__body--projects {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(64, 58, 46, .34) transparent;
+  }
+
+  .mac-dom-window__body--readme::-webkit-scrollbar,
+  .mac-dom-window__body--worklog::-webkit-scrollbar,
+  .mac-dom-window__body--projects::-webkit-scrollbar {
+    width: 9px;
+  }
+
+  .mac-dom-window__body--readme::-webkit-scrollbar-track,
+  .mac-dom-window__body--worklog::-webkit-scrollbar-track,
+  .mac-dom-window__body--projects::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .mac-dom-window__body--readme::-webkit-scrollbar-thumb,
+  .mac-dom-window__body--worklog::-webkit-scrollbar-thumb,
+  .mac-dom-window__body--projects::-webkit-scrollbar-thumb {
+    background: rgba(64, 58, 46, .32);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+
+  .mac-dom-window__body--readme::-webkit-scrollbar-thumb:hover,
+  .mac-dom-window__body--worklog::-webkit-scrollbar-thumb:hover,
+  .mac-dom-window__body--projects::-webkit-scrollbar-thumb:hover {
+    background: rgba(64, 58, 46, .5);
+    background-clip: padding-box;
+  }
+
   /* Mobile bodies scroll like app screens; contain keeps the rubber-band
      from chaining into the page (no pull-to-refresh). */
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--readme,
