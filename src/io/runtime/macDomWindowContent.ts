@@ -100,13 +100,21 @@ function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   email.href = `mailto:${profile.email}`;
   email.textContent = profile.email;
 
-  const github = document.createElement('a');
-  github.className = 'mac-readme__github';
-  github.href = profile.github;
-  github.target = '_blank';
-  github.rel = 'noreferrer';
-  github.textContent = 'GitHub ↗';
-  actions.append(email, github);
+  const socials = div('mac-readme__socials');
+  profile.socials.forEach((social) => {
+    const link = document.createElement('a');
+    link.className = 'mac-readme__social-link';
+    link.href = social.href;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = social.icon;
+    link.title = social.label;
+    link.setAttribute('aria-label', social.label);
+    link.dataset.social = social.key;
+    socials.append(link);
+  });
+
+  actions.append(email, socials);
 
   record.body.append(eyebrow, title, body, chips, actions);
 }

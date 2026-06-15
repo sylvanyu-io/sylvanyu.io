@@ -5,6 +5,11 @@ export const profile = {
   cnName: '俞宇锋',
   email: 'me@sylvanyu.io',
   github: 'https://github.com/sylvanyu-io',
+  website: 'https://sylvanyu.io',
+  socials: [
+    { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'GH' },
+    { key: 'website', label: 'sylvanyu.io', href: 'https://sylvanyu.io', icon: 'WWW' },
+  ],
   location: {
     en: 'Shanghai · open to remote / overseas',
     zh: '上海 · 可异地 / 海外机会',
@@ -66,19 +71,19 @@ export const heroCopy: Record<Lang, {
   photoFig: string;
 }> = {
   en: {
-    kicker: 'SYLVAN YU 俞宇锋 · GRAPHICS / ENGINE ENGINEER',
-    title: 'I build production graphics systems.',
+    kicker: 'SYLVAN YU 俞宇锋 · REAL-TIME RENDERING / PRODUCT TOOLING',
+    title: 'I make visual systems shippable.',
     body:
-      'Render pipelines, cross-platform text and particle systems, and editor tooling for motion-heavy products across Web, RN, iOS, and Android. Currently building Predy at RedNote; previously on Galacean at Ant Group.',
-    chips: ['PRODUCTION GRAPHICS', 'CROSS-PLATFORM RENDERING', 'EDITOR TOOLING & AI INFRA'],
+      'I turn motion-heavy product ideas into production renderers, editors, and runtime infrastructure. Currently building Predy at RedNote across Web, RN, iOS, and Android; previously on the open-source Galacean engine inside Alipay.',
+    chips: ['REAL-TIME RENDERING', 'PRODUCT ENGINEERING', 'EDITOR TOOLING & AI INFRA'],
     photoFig: 'Hover to orbit · rendered live',
   },
   zh: {
-    kicker: 'SYLVAN YU 俞宇锋 · 图形 / 引擎工程师',
-    title: '做能上线的实时图形引擎。',
+    kicker: 'SYLVAN YU 俞宇锋 · 实时渲染 / 产品工具链',
+    title: '把视觉效果做成可交付的系统。',
     body:
-      '我做渲染管线、跨端文字 / 粒子系统和编辑器工具链，让重动效产品能在 Web / RN / iOS / Android 上稳定交付。现在在小红书做 Predy 实时动效引擎；此前在蚂蚁集团 Galacean 引擎团队。',
-    chips: ['生产级图形', '跨端渲染', '编辑器工具链 & AI 基建'],
+      '我把重动效产品需求做成能上线的渲染器、编辑器和运行时基建。现在在小红书做 Predy，覆盖 Web / RN / iOS / Android；此前在支付宝的开源 Galacean 引擎团队。',
+    chips: ['实时渲染', '产品工程', '编辑器工具链 & AI 基建'],
     photoFig: '移动鼠标转动视角 · 实时渲染',
   },
 };

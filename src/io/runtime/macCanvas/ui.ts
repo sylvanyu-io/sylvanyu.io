@@ -1149,9 +1149,9 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   const wallpaperFps = state.fps > 0 ? Math.round(state.fps).toString() : '---';
   const stats = [
     [wallpaperFps, copy.wFps],
-    ['WebGL', copy.wRenderer],
-    ['2L-LDI', copy.wWallpaper],
-    ['4', copy.wUptime],
+    ['Web/RN/Native', copy.wRenderer],
+    ['Predy/Gala', copy.wWallpaper],
+    ['MCP/Skills', copy.wUptime],
   ];
   ctx.font = `700 15px ${mono}`;
   stats.forEach((item, index) => {
