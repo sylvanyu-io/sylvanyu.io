@@ -4,6 +4,8 @@ export type GlassParams = {
   curvature: number;
   splay: number;
   chroma: number;
+  /** 0 keeps refraction on the lens edge, 1 lets the whole glass body refract. */
+  refractionFill: number;
   /** Number of complete Kawase down/up levels. 1 means one effective blur level. */
   kawasePasses: number;
   /** Kawase sample distance in target texels. */
@@ -44,13 +46,14 @@ export const MAC_WALLPAPER_MOTION = {
 } as const;
 
 export const DEFAULT_GLASS_PARAMS: GlassParams = {
-  scale: 0.1,
-  depth: 10,
-  curvature: 40,
+  scale: 0.18,
+  depth: 12,
+  curvature: 100,
   splay: 1,
-  chroma: 0.2,
+  chroma: 0.42,
+  refractionFill: 0,
   kawasePasses: 1,
-  kawaseOffset: 1.5,
+  kawaseOffset: 1,
   kawaseDownsample: 3,
   frost: 0.08,
   tint: 0.05,
@@ -87,28 +90,35 @@ export const LANG_THUMB_GLASS: Partial<GlassParams> = {
 
 export const LANG_THUMB_INSET = 2;
 
+export const DOCK_GLASS: Partial<GlassParams> = {
+  scale: 0.58,
+  depth: 4,
+  chroma: 0.48,
+  refractionFill: 0,
+  curvature: 60,
+  glow: 0.28,
+  edge: 0.42,
+};
+
 export const FOLDER_ICON_GLASS: Partial<GlassParams> = {
-  scale: 0.22,
-  depth: 7,
-  curvature: 30,
-  chroma: 0.22,
-  kawaseOffset: 2.8,
-  frost: 0.14,
-  tint: 0.34,
-  glow: 0.26,
-  edge: 0.48,
+  scale: 0.58,
+  depth: 8,
+  curvature: 40,
+  chroma: 0.58,
+  glow: 0.22,
+  edge: 0.32,
 };
 
 export const FOLDER_PANEL_GLASS: Partial<GlassParams> = {
-  scale: 0.16,
+  scale: 0.3,
   depth: 12,
-  curvature: 48,
+  curvature: 118,
   chroma: 0.22,
   kawaseOffset: 3.4,
   frost: 0.18,
   tint: 0.2,
-  glow: 0.28,
-  edge: 0.42,
+  glow: 0.22,
+  edge: 0.32,
 };
 
 // Folder open uses a frozen home-screen snapshot so this heavier Kawase chain

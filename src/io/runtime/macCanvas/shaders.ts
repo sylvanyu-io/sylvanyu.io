@@ -219,6 +219,7 @@ uniform float uCurvature;
 uniform float uCurveMix;
 uniform float uSplay;
 uniform float uChroma;
+uniform float uRefractionFill;
 uniform float uBlurLevel;
 uniform float uFrost;
 uniform float uTintEase;
@@ -271,7 +272,9 @@ void main() {
   }
 
   vec2 local = pointPx / halfPx;
-  float safeDepth = min(max(uDepth, 0.0), min(halfPx.x, halfPx.y) - 1.0);
+  float panelMinPx = min(uPanel.z, uPanel.w);
+  float depthScale = clamp(panelMinPx / 120.0, 0.35, 1.0);
+  float safeDepth = min(max(uDepth * depthScale, 0.0), min(halfPx.x, halfPx.y) - 1.0);
   float innerW = max(0.0, halfPx.x - safeDepth);
   float innerH = max(0.0, halfPx.y - safeDepth);
   float innerRadius = min(radiusPx, min(innerW, innerH));
@@ -301,7 +304,8 @@ void main() {
   specular += uEdge * (edgeLine + rimLine * 0.65) * pow(clamp(directional, 0.0, 1.0), 1.5);
 
   float refractionSizePx = max(min(uPanel.z, uPanel.w), 1.0);
-  vec2 offsetPx = -lensVector * edgeFalloff * refractionSizePx * uScale * mix(1.0, 0.82, uBlurLevel);
+  float refractionBody = mix(edgeFalloff, mask, uRefractionFill);
+  vec2 offsetPx = -lensVector * refractionBody * refractionSizePx * uScale * mix(1.0, 0.82, uBlurLevel);
   vec2 offset = vec2(offsetPx.x / max(uResolution.x, 1.0), -offsetPx.y / max(uResolution.y, 1.0));
   float chromaSpread = 0.18 * uChroma;
 

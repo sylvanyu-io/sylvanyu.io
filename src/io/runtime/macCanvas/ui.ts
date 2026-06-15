@@ -1,7 +1,7 @@
 import { desktopCopy } from '../../data';
 import type { Lang } from '../../content/common';
 import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
-import { FOLDER_ICON_GLASS, FOLDER_PANEL_GLASS } from './tuning';
+import { DOCK_GLASS, FOLDER_ICON_GLASS, FOLDER_PANEL_GLASS } from './tuning';
 import {
   DOCK_APPS,
   LABS_FOLDER_ID,
@@ -797,6 +797,7 @@ export function buildMacCanvasLayout(
       h: dockH,
       r: mobile ? LAYOUT.dock.mobileRadius : LAYOUT.dock.desktopRadius,
       z: LAYOUT.dock.z,
+      params: DOCK_GLASS,
     },
     slots: DOCK_APPS.map((app, index) => ({
       id: app.id,
