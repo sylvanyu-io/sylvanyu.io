@@ -16,7 +16,6 @@ import {
   drawMacMenubarOverlay,
   drawMacWidgetOverlay,
   hitTest,
-  isMacMobileViewport,
   loadMacUiAssets,
   MAC_MENUBAR_HEIGHT,
   MAC_WINDOW_IDS,
@@ -115,6 +114,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const pointer = new THREE.Vector2(0, 0);
   const gyro = createGyroPointer();
   let pointerActive = false;
+  let gyroPromptAttempted = false;
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
   let initialModeApplied = false;
@@ -138,25 +138,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let cssWidth = 1;
   let cssHeight = 1;
 
-  function shouldShowGyroApp() {
-    const mobileViewport = isMacMobileViewport(cssWidth, cssHeight);
-    const touchViewport = mobileViewport || window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    if (!touchViewport) return false;
-    // In dev, keep the tile visible on touch/mobile even once permission is
-    // auto-granted, so the gyro flow stays testable; wide desktop still hides it.
-    if (import.meta.env.DEV) return true;
-    return !gyro.active
-      && gyro.permissionState !== 'denied'
-      && gyro.permissionState !== 'granted'
-      && gyro.permissionState !== 'insecure'
-      && gyro.permissionState !== 'unsupported';
-  }
-
   function layoutOptions() {
     return {
-      gyroLabel: 'TILT',
       safeInsets,
-      showGyroApp: shouldShowGyroApp(),
       photoAspect: PHOTO_APP_META.renderAspect,
       photoSourceText: `SRC ${PHOTO_APP_META.sourceFrameWidth}x${PHOTO_APP_META.sourceFrameHeight}`,
     };
@@ -971,11 +955,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
       return;
     }
 
-    if (action.type === 'gyro') {
-      requestGyroFromGesture();
-      return;
-    }
-
     if (action.type === 'folder') {
       setOpenFolder(action.id);
       return;
@@ -1035,6 +1014,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const onClick = (event: MouseEvent) => {
     const point = eventPoint(event);
     updatePointer(point);
+    requestGyroFromGestureOnce();
     const hit = hitTest(layout, point.x, point.y);
     applyHitAction(hit?.action);
   };
@@ -1060,13 +1040,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (event.pointerType === 'touch') pointerActive = false;
   };
 
-  function requestGyroFromGesture() {
+  function requestGyroFromGestureOnce() {
+    if (gyroPromptAttempted || gyro.active) return;
     const touchViewport = layout.mobile || window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    if (!touchViewport || gyro.permissionState === 'unsupported') {
-      markLayoutDirty();
+    if (!touchViewport
+      || gyro.permissionState === 'granted'
+      || gyro.permissionState === 'denied'
+      || gyro.permissionState === 'unsupported'
+      || gyro.permissionState === 'insecure') {
       return;
     }
 
+    gyroPromptAttempted = true;
     void gyro.unlock().then(() => {
       markLayoutDirty();
     });

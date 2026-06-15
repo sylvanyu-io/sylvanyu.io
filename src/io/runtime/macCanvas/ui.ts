@@ -34,8 +34,7 @@ export type HitTarget = Rect & {
     | { type: 'lang'; lang: Lang }
     | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' | 'folder' }
     | { type: 'folder'; id: FolderId }
-    | { type: 'folder-close' }
-    | { type: 'gyro' };
+    | { type: 'folder-close' };
 };
 
 export type MacCanvasState = {
@@ -48,9 +47,8 @@ export type MacCanvasState = {
 };
 
 export type IconCell = {
-  id: WindowId | FolderId | 'lang' | 'gyro';
+  id: WindowId | FolderId | 'lang';
   labelKey?: IconLabelKey;
-  label?: string;
   x: number;
   y: number;
   w: number;
@@ -113,11 +111,9 @@ export type MacCanvasLayout = {
 };
 
 export type MacCanvasLayoutOptions = {
-  gyroLabel?: string;
   photoAspect?: number;
   photoSourceText?: string;
   safeInsets?: SafeInsets;
-  showGyroApp?: boolean;
 };
 
 export type MacUiAssets = {
@@ -496,7 +492,7 @@ function buildFolderOverlay(
 
 // iOS-style home screen grid: app icons in 4 columns plus optional utility
 // tiles, laid out below the widgets.
-function buildMobileIconCells(width: number, top: number, options: MacCanvasLayoutOptions): IconCell[] {
+function buildMobileIconCells(width: number, top: number): IconCell[] {
   const grid = LAYOUT.mobileIconGrid;
   const sidePad = grid.sidePad;
   const columns = grid.columns;
@@ -535,12 +531,11 @@ function buildMobileIconCells(width: number, top: number, options: MacCanvasLayo
       ...cellAt(cells.length),
     });
   });
-  if (options.showGyroApp) cells.push({ id: 'gyro', label: options.gyroLabel ?? 'TILT', ...cellAt(cells.length) });
   cells.push({ id: 'lang', ...cellAt(cells.length) });
   return cells;
 }
 
-function buildDesktopIconCells(options: MacCanvasLayoutOptions): IconCell[] {
+function buildDesktopIconCells(): IconCell[] {
   const grid = LAYOUT.desktopIconGrid;
   const iconX = grid.x;
   const iconTop = grid.top;
@@ -583,24 +578,6 @@ function buildDesktopIconCells(options: MacCanvasLayoutOptions): IconCell[] {
       labelY: imgY + grid.imgSize + grid.labelGap,
     });
   });
-
-  if (options.showGyroApp) {
-    const y = iconTop + cells.length * (itemH + iconGap);
-    const imgY = y + grid.imgOffsetY;
-    cells.push({
-      id: 'gyro',
-      label: options.gyroLabel ?? 'TILT',
-      x: iconX,
-      y,
-      w: grid.itemW,
-      h: itemH,
-      imgX: iconX + grid.imgOffsetX,
-      imgY,
-      imgSize: grid.imgSize,
-      labelX: iconX + grid.labelXOffset,
-      labelY: imgY + grid.imgSize + grid.labelGap,
-    });
-  }
 
   return cells;
 }
@@ -685,7 +662,7 @@ export function buildMacCanvasLayout(
   widgetGlassPanels.push(widgets.clock, widgets.status);
 
   const iconsTop = mobile ? widgets.status.y + widgets.status.h + LAYOUT.widgets.iconGridGap : LAYOUT.desktopIconGrid.top;
-  const iconCells = mobile ? buildMobileIconCells(width, iconsTop, options) : buildDesktopIconCells(options);
+  const iconCells = mobile ? buildMobileIconCells(width, iconsTop) : buildDesktopIconCells();
   const folder = state.folder
     ? buildFolderOverlay(width, height, mobile, safeTop, safeBottom, iconCells, state.folder, state.folderProgress)
     : null;
@@ -710,11 +687,9 @@ export function buildMacCanvasLayout(
       cursor: 'pointer',
       action: cell.id === 'lang'
         ? { type: 'lang', lang: state.lang === 'en' ? 'zh' : 'en' }
-        : cell.id === 'gyro'
-          ? { type: 'gyro' }
-          : cell.id === LABS_FOLDER_ID
-            ? { type: 'folder', id: cell.id }
-            : { type: 'open', id: cell.id, origin: 'desktop' },
+        : cell.id === LABS_FOLDER_ID
+          ? { type: 'folder', id: cell.id }
+          : { type: 'open', id: cell.id, origin: 'desktop' },
     });
   });
 
@@ -1008,47 +983,6 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.closePath();
 }
 
-function drawGyroIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
-  const { imgX, imgY, imgSize } = cell;
-  const centerX = imgX + imgSize * 0.5;
-  const centerY = imgY + imgSize * 0.5;
-  const phoneW = imgSize * 0.42;
-  const phoneH = imgSize * 0.56;
-
-  ctx.save();
-  drawTranslucentIconTile(ctx, cell);
-  ctx.shadowColor = 'transparent';
-  ctx.translate(centerX, centerY);
-  ctx.rotate(-0.18);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.96)';
-  ctx.lineWidth = Math.max(2.2, imgSize * 0.05);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  roundRectPath(ctx, -phoneW * 0.5, -phoneH * 0.5, phoneW, phoneH, imgSize * 0.13);
-  ctx.stroke();
-
-  ctx.shadowBlur = 5;
-  ctx.beginPath();
-  ctx.moveTo(-phoneW * 0.2, phoneH * 0.26);
-  ctx.lineTo(phoneW * 0.2, phoneH * 0.26);
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.58)';
-  ctx.lineWidth = Math.max(1.5, imgSize * 0.032);
-  ctx.lineCap = 'round';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
-  ctx.shadowBlur = 5;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, imgSize * 0.38, -0.82, -0.38);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, imgSize * 0.38, Math.PI - 0.38, Math.PI - 0.82, true);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function drawFolderIcon(ctx: CanvasRenderingContext2D, cell: IconCell, assets: MacUiAssets) {
   const { imgX, imgY, imgSize } = cell;
   const gridSize = imgSize * 0.68;
@@ -1174,8 +1108,6 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
   layout.iconCells.forEach((cell) => {
     if (cell.id === 'lang') {
       drawLangIcon(ctx, cell);
-    } else if (cell.id === 'gyro') {
-      drawGyroIcon(ctx, cell);
     } else if (cell.id === LABS_FOLDER_ID) {
       drawFolderIcon(ctx, cell, assets);
     } else {
@@ -1189,11 +1121,9 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
 
     const label = cell.id === 'lang'
       ? (state.lang === 'en' ? '中文' : 'English')
-      : cell.id === 'gyro'
-        ? cell.label ?? 'TILT'
-        : cell.id === LABS_FOLDER_ID
-          ? copy.iconLabs
-          : copy[cell.labelKey as IconLabelKey];
+      : cell.id === LABS_FOLDER_ID
+        ? copy.iconLabs
+        : copy[cell.labelKey as IconLabelKey];
 
     ctx.save();
     ctx.font = `500 11px ${mono}`;
