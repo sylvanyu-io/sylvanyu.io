@@ -839,14 +839,18 @@
   }
 
   .mac-dom-window__body--projects {
-    padding: 24px 22px 18px;
+    padding: 24px 24px 20px;
   }
 
   .mac-project {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 94px;
-    column-gap: 14px;
-    min-height: 78px;
+    grid-template-columns: minmax(0, 1fr) 90px;
+    column-gap: 18px;
+    padding: 0 0 20px;
+  }
+
+  .mac-project:last-child {
+    padding-bottom: 0;
   }
 
   .mac-project h2,
@@ -859,11 +863,11 @@
     font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 14px;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.12;
   }
 
   .mac-project__meta {
-    margin-top: 3px !important;
+    margin-top: 4px !important;
     color: rgba(86, 88, 96, .62);
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 9px;
@@ -872,26 +876,17 @@
   }
 
   .mac-project__body {
-    margin-top: 9px !important;
-    display: -webkit-box;
-    overflow: hidden;
+    margin-top: 7px !important;
     color: rgba(72, 74, 82, .78);
     font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 12px;
     font-weight: 500;
-    line-height: 18px;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    line-height: 1.45;
   }
 
   /* Mobile sheets have room for the full descriptions. */
   .mac-dom-window[data-mobile="true"] .mac-project {
-    min-height: 0;
-    padding: 14px 0;
-  }
-
-  .mac-dom-window[data-mobile="true"] .mac-project__body {
-    -webkit-line-clamp: 4;
+    padding: 14px 0 18px;
   }
 
   .mac-project__metric {
@@ -899,8 +894,8 @@
     align-items: flex-start;
     flex-direction: column;
     justify-self: end;
-    min-width: 70px;
-    padding-top: 4px;
+    min-width: 0;
+    padding-top: 3px;
     text-align: right;
   }
 

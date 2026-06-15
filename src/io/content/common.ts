@@ -67,18 +67,18 @@ export const heroCopy: Record<Lang, {
 }> = {
   en: {
     kicker: 'SYLVAN YU 俞宇锋 · GRAPHICS / ENGINE ENGINEER',
-    title: 'I build the engines behind the pixels.',
+    title: 'I build production graphics systems.',
     body:
-      'Render pipelines, cross-platform text and particle systems, and the editor tooling around them. Currently on Predy, RedNote\'s real-time motion engine across Web, iOS and Android. Previously on Galacean at Ant Group.',
-    chips: ['RENDER PIPELINES', 'CROSS-PLATFORM GRAPHICS', 'EDITOR TOOLING & AI INFRA'],
+      'Render pipelines, cross-platform text and particle systems, and editor tooling for motion-heavy products across Web, RN, iOS, and Android. Currently building Predy at RedNote; previously on Galacean at Ant Group.',
+    chips: ['PRODUCTION GRAPHICS', 'CROSS-PLATFORM RENDERING', 'EDITOR TOOLING & AI INFRA'],
     photoFig: 'Hover to orbit · rendered live',
   },
   zh: {
     kicker: 'SYLVAN YU 俞宇锋 · 图形 / 引擎工程师',
-    title: '像素背后的引擎，是我造的。',
+    title: '做能上线的实时图形引擎。',
     body:
-      '渲染管线、跨端文字与粒子系统，以及围绕它们的编辑器工具链。现在做小红书自研实时动效引擎 Predy（Web / iOS / Android 三端）；此前在蚂蚁集团 Galacean 引擎团队。',
-    chips: ['渲染管线', '跨端图形', '编辑器工具链 & AI 基建'],
+      '我做渲染管线、跨端文字 / 粒子系统和编辑器工具链，让重动效产品能在 Web / RN / iOS / Android 上稳定交付。现在在小红书做 Predy 实时动效引擎；此前在蚂蚁集团 Galacean 引擎团队。',
+    chips: ['生产级图形', '跨端渲染', '编辑器工具链 & AI 基建'],
     photoFig: '移动鼠标转动视角 · 实时渲染',
   },
 };
@@ -87,17 +87,17 @@ export const metrics: Record<Lang, Array<{ value: string; label: string }>> = {
   en: [
     { value: '−73%', label: 'coupon mount, android' },
     { value: '30M', label: 'coupon PV / month' },
-    { value: '56+', label: 'FPS · 16 firework scenes' },
+    { value: '56+', label: 'FPS · effect scenes' },
     { value: '<0.008‰', label: 'iOS crash rate' },
-    { value: '×10', label: 'playback YoY' },
+    { value: '×10', label: 'Predy playback YoY' },
     { value: '−50%', label: 'geometry payload' },
   ],
   zh: [
     { value: '−73%', label: '发券挂载 · Android' },
     { value: '30M', label: '发券 PV / 月' },
-    { value: '56+', label: 'FPS · 16 烟花场景' },
+    { value: '56+', label: '动效场景 FPS' },
     { value: '<0.008‰', label: 'iOS 崩溃率' },
-    { value: '×10', label: '播放量同比' },
+    { value: '×10', label: 'Predy 播放同比' },
     { value: '−50%', label: '几何数据体积' },
   ],
 };

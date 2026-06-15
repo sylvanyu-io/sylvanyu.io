@@ -33,9 +33,9 @@ export const desktopCopy: Record<Lang, {
     wUptime: 'YRS SHIPPING',
     readmeTitle: heroCopy.en.title,
     readmeBody:
-      'Render pipelines, cross-platform text and particle systems, and the editor tooling around them. Currently on Predy — RedNote’s real-time motion engine across Web, iOS and Android. Previously on Galacean at Ant Group. This desktop runs on my own work: the wallpaper is Photo3D rendering live, and the glass everywhere is my liquid-glass study.',
-    chips: ['RENDER PIPELINES', 'CROSS-PLATFORM GRAPHICS', 'EDITOR TOOLING & AI INFRA'],
-    photoNote: 'One photo → layered RGBD → LDI parallax shader. Move the pointer. Same renderer as the wallpaper behind you.',
+      'Render pipelines, cross-platform text and particle systems, and editor tooling for motion-heavy products across Web, RN, iOS, and Android. Currently building Predy at RedNote; previously on Galacean at Ant Group.',
+    chips: ['PRODUCTION GRAPHICS', 'CROSS-PLATFORM RENDERING', 'EDITOR TOOLING & AI INFRA'],
+    photoNote: 'One photo → layered RGBD → LDI parallax shader. Move the pointer.',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconReflection: 'Reflection.app',
@@ -55,9 +55,9 @@ export const desktopCopy: Record<Lang, {
     wUptime: '年工程交付',
     readmeTitle: heroCopy.zh.title,
     readmeBody:
-      '渲染管线、跨端文字与粒子系统，以及围绕它们的编辑器工具链。现在做小红书自研实时动效引擎 Predy（Web / iOS / Android 三端）；此前在蚂蚁集团 Galacean 引擎团队。这张桌面跑的就是我的工作本身：壁纸是 Photo3D 实时渲染，到处的玻璃是我的液态玻璃研究。',
-    chips: ['渲染管线', '跨端图形', '编辑器工具链 & AI 基建'],
-    photoNote: '单张照片 → 分层 RGBD → LDI 视差 shader。移动鼠标看看。和身后壁纸是同一个渲染器。',
+      '我做渲染管线、跨端文字 / 粒子系统和编辑器工具链，让重动效产品能在 Web / RN / iOS / Android 上稳定交付。现在在小红书做 Predy 实时动效引擎；此前在蚂蚁集团 Galacean 引擎团队。',
+    chips: ['生产级图形', '跨端渲染', '编辑器工具链 & AI 基建'],
+    photoNote: '单张照片 → 分层 RGBD → LDI 视差 shader。移动鼠标看看。',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconReflection: '平面反射.app',
@@ -77,129 +77,101 @@ export const desktopProjects: Record<Lang, Array<{
 }>> = {
   en: [
     {
-      title: 'TextLine',
+      title: 'Predy Engine',
       meta: 'REDNOTE · NOW',
       body:
-        'Cross-platform text rendering: one protocol across web editor, RN player and native iOS / Android / HarmonyOS. Metrics via JSI, emoji atlases, pixel-level snapshot tests.',
+        'Business-facing motion engine work across PlayKit, RN containers, and native clients: coupon campaigns, CNY effects, Starlight Market, live widgets, lottery scenes, TextLine, render-pipeline cleanup, and performance gates.',
       metric: '4',
       metricLabel: 'platforms',
-    },
-    {
-      title: 'Predy engine',
-      meta: 'REDNOTE',
-      body:
-        'Unified shader / UBO pipeline, WebGL 1/2 fallbacks, binary geometry (−50% payload), context-loss recovery, AE-grade curve editor, perf gates.',
-      metric: '−50%',
-      metricLabel: 'payload',
-    },
-    {
-      title: 'Coupon component',
-      meta: 'REDNOTE · 30M PV',
-      body:
-        'Fully parameterized marketing renderer. Android mount 747 → 200 ms, iOS 134 → 35 ms; claim rate +2.6%.',
-      metric: '−73%',
-      metricLabel: 'mount time',
-    },
-    {
-      title: 'CNY fireworks',
-      meta: 'REDNOTE',
-      body:
-        'Cross-platform particle consistency for 100M+ plays at 10× YoY; 56+ FPS across 16 large scenes; iOS crash < 0.008‰.',
-      metric: '56+',
-      metricLabel: 'fps',
-    },
-    {
-      title: 'Photo3D',
-      meta: 'REDNOTE',
-      body:
-        'One photo → layered RGBD assets (depth, segmentation, inpainting) → LDI shader on WebGL / Metal / RN, degrading 3 → 0 layers. You are looking at it.',
-      metric: '0–3',
-      metricLabel: 'layers',
     },
     {
       title: 'Editor AI infra',
       meta: 'REDNOTE · NOW',
       body:
-        'Local MCP: agents drive the live editor over stdio + WebSocket. Skills for engine-source retrieval; Langfuse observability; token governance.',
+        'Local MCP bridge, source-retrieval skills, Langfuse traces, token governance, and debug import / export so agents can work inside a real editor production loop.',
       metric: 'MCP',
       metricLabel: 'local-first',
+    },
+    {
+      title: 'Photo3D',
+      meta: 'REDNOTE',
+      body:
+        'Chose an offline AI preprocessing + lightweight 2.5D runtime path over heavier 3D routes: depth, segmentation, and inpainting become layered RGBD textures for an adapted LDI renderer across WebGL, Metal, and RN.',
+      metric: '0–3',
+      metricLabel: 'layers',
     },
     {
       title: 'Galacean engine & toolchain',
       meta: 'ANT GROUP · 2022–25',
       body:
-        'Planar reflection, HDR post, FFD animation; zero-code Uber shader covering 90%+ art needs; Unity exporter; Asian Games digital humans; CNY graphics lead.',
+        'Planar reflection, HDR post, FFD animation, Loop subdivision, RenderDoc-driven debugging, zero-code Uber shaders, and Unity-to-Galacean asset export.',
       metric: '90%+',
       metricLabel: 'art, zero code',
     },
     {
-      title: 'Galacean 1.1 / 0.9 demos',
-      meta: 'ARCHIVE',
-      body: 'Water, gem, skin, post-processing trials. Capture videos coming — slots reserved.',
-      metric: '▸',
-      metricLabel: 'video slot',
+      title: 'Ant interactive graphics',
+      meta: 'ANT GROUP',
+      body:
+        'Shipped visual work across Wufu campaigns, Ant Forest / Ocean, Jingtan collectibles, Xiaohebao, and Bund Summit: shaders, effects workflows, compatibility fixes, and performance tuning.',
+      metric: '5+',
+      metricLabel: 'product lines',
+    },
+    {
+      title: 'Digital human & XR',
+      meta: 'ANT GROUP',
+      body:
+        'Digital-human materials for hair, skin, eyes, and makeup with a Unity / Galacean workflow. XR work includes a Vision Pro MR FPS prototype and Quest 3 virtual-window rendering.',
+      metric: 'MR',
+      metricLabel: 'prototype',
     },
   ],
   zh: [
     {
-      title: 'TextLine',
+      title: 'Predy 引擎',
       meta: '小红书 · 至今',
       body:
-        '跨端文字渲染：一套协议收敛 Web 编辑器、RN 播放器与 iOS / Android / 鸿蒙原生端。JSI 度量下沉、emoji atlas、像素级快照测试。',
+        '围绕业务、引擎、客户端三层做 Predy / PlayKit 能力落地：发券、CNY、星光夜市、直播挂件、抽奖机等业务接入，TextLine、渲染管线、性能门禁，以及 RN 容器和 Native 客户端稳定性。',
       metric: '4',
       metricLabel: '端',
     },
     {
-      title: 'Predy 引擎',
-      meta: '小红书',
-      body:
-        '统一 Shader / UBO 体系、WebGL 1/2 兼容、二进制几何（体积约 −50%）、context-loss 自动重建、对标 AE 的曲线编辑器、性能门禁。',
-      metric: '−50%',
-      metricLabel: '数据体积',
-    },
-    {
-      title: '发券组件',
-      meta: '小红书 · 30M PV',
-      body: '全参数化营销渲染。Android 挂载 747 → 200ms、iOS 134 → 35ms；领取率 +2.6%。',
-      metric: '−73%',
-      metricLabel: '挂载耗时',
-    },
-    {
-      title: 'CNY 烟花',
-      meta: '小红书',
-      body: '粒子跨端一致性，支撑破亿播放（同比 10 倍）；16 个大场景 56+ FPS；iOS 崩溃率 < 0.008‰。',
-      metric: '56+',
-      metricLabel: 'FPS',
+      title: '编辑器 AI 基建',
+      meta: '小红书 · 至今',
+      body: '本地 MCP 桥接、源码检索 Skill、Langfuse trace、token 治理和调试导入导出，让 Agent 能进入真实编辑器生产链路。',
+      metric: 'MCP',
+      metricLabel: '本地优先',
     },
     {
       title: 'Photo3D',
       meta: '小红书',
       body:
-        '单张照片 → 多层 RGBD 资产（深度 / 分割 / 修补）→ LDI shader 跑在 WebGL / Metal / RN，支持 3 → 0 层降级。你现在看到的就是它。',
+        '在移动端落地成本和效果之间做取舍：没有走更重的 3D 路线，而是用离线 AI 预处理生成深度 / 分割 / 修补后的多层 RGBD 纹理，再接入轻量 LDI 渲染路径，跑通 WebGL / Metal / RN。',
       metric: '0–3',
       metricLabel: '层级',
-    },
-    {
-      title: '编辑器 AI 基建',
-      meta: '小红书 · 至今',
-      body: '本地 MCP：Agent 经 stdio + WebSocket 操作当前编辑器。引擎源码检索 Skill、Langfuse 观测、token 治理。',
-      metric: 'MCP',
-      metricLabel: '本地优先',
     },
     {
       title: 'Galacean 引擎与工具链',
       meta: '蚂蚁集团 · 2022–25',
       body:
-        '平面反射、HDR 后处理、FFD 晶格动画；覆盖 90%+ 美术需求的零代码 Uber Shader；Unity 导出工具链；亚运数字人；五福图形一号位。',
+        '平面反射、HDR 后处理、FFD 晶格动画、Loop 细分、RenderDoc 抓帧分析、覆盖 90%+ 美术需求的 Uber Shader，以及 Unity → Galacean 资产导出。',
       metric: '90%+',
       metricLabel: '美术零代码',
     },
     {
-      title: 'Galacean 1.1 / 0.9 demos',
-      meta: '归档',
-      body: '水体 / 宝石 / 皮肤 / 后处理试验。录屏视频整理中 — 已预留位置。',
-      metric: '▸',
-      metricLabel: '视频位',
+      title: '蚂蚁互动视觉',
+      meta: '蚂蚁集团',
+      body:
+        '五福、蚂蚁森林 / 神奇海洋、鲸探数字藏品、小荷包、外滩大会等业务里的图形工作：Shader、特效工作流、兼容性攻坚和端到端性能调优。',
+      metric: '5+',
+      metricLabel: '业务线',
+    },
+    {
+      title: '数字人 & XR',
+      meta: '蚂蚁集团',
+      body:
+        '数字人部分是头发 / 皮肤 / 眼睛 / 妆容材质体系和 Unity / Galacean 双端协同；XR 部分是 Vision Pro MR FPS 原型与 Quest 3 空间虚拟窗户渲染。',
+      metric: 'MR',
+      metricLabel: '原型',
     },
   ],
 };
@@ -212,7 +184,7 @@ export const logLines: Record<Lang, Array<{ text: string; tone: 'dim' | 'accent'
     { tone: 'normal', text: '  · cross-platform text rendering (TextLine), Photo3D, AI infra (MCP)' },
     { tone: 'accent', text: '[2022.07 → 2025.07]  Ant Group · Alipay — Galacean engine' },
     { tone: 'normal', text: '  · engine core (planar reflection, HDR post, FFD), Uber shader 90%+' },
-    { tone: 'normal', text: '  · CNY graphics lead at 100M+ DAU · Unity exporter · XR prototypes' },
+    { tone: 'normal', text: '  · Wufu / public-good interactive graphics · Unity exporter · XR prototypes' },
     { tone: 'normal', text: '  · outstanding-newcomer awards (dept & Beijing)' },
     { tone: 'accent', text: '[2020 → 2022]  internships' },
     { tone: 'normal', text: '  · Alipay · ByteDance commercialization tech · Hikvision' },

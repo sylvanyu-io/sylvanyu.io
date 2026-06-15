@@ -191,7 +191,7 @@ const LAYOUT = {
     readme: { x: 130, y: 64, w: 430, h: 500 },
     worklog: { x: 240, y: 130, w: 560, h: 408 },
     reflection: { x: 430, y: 118, w: 540, h: 360 },
-    projects: { x: 180, y: 90, w: 600, h: 452 },
+    projects: { x: 180, y: 72, w: 620, h: 540 },
   },
   dock: {
     mobileIcon: 54,
