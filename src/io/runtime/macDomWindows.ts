@@ -29,6 +29,7 @@ type RestoreOrigin = 'desktop' | 'dock' | 'folder';
 
 type MacDomWindowSyncOptions = {
   suppressActiveWindow?: boolean;
+  allowPhotoMount?: boolean;
 };
 
 type DragState = {
@@ -411,8 +412,11 @@ export function createMacDomWindows(
       updateWindowTexts(record, win as WindowLayout, state);
       // Canvas apps are expensive to download and initialize. Keep inactive
       // windows as DOM shells, and mount their live canvas only when they own
-      // focus; syncWindowCanvasActivity() will pause them again on blur.
-      if (isActive) ensureWindowContentMounted(record);
+      // focus; Photo3D additionally waits until the wallpaper pass is ready so
+      // the auto-open desktop window does not compete with first background load.
+      if (isActive && (id !== 'photo' || options.allowPhotoMount !== false)) {
+        ensureWindowContentMounted(record);
+      }
 
       if (!wasVisible && !closing.has(id)) {
         playRestore(record, win as WindowLayout, layout);

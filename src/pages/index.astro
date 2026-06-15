@@ -29,11 +29,8 @@ import '../styles/io/macos.css';
   </div>
 
   <script>
-    import { scheduleIdleImagePreload } from '../io/runtime/assetPreload';
-    import { PHOTO_APP_ATLAS } from '../io/runtime/macCanvas/apps';
     import { mountMacSingleCanvases } from '../io/runtime/macSingleCanvas';
 
     mountMacSingleCanvases();
-    scheduleIdleImagePreload(PHOTO_APP_ATLAS);
   </script>
 </Base>

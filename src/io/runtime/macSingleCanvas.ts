@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createMacDomWindows } from './macDomWindows';
+import { scheduleIdleImagePreload } from './assetPreload';
 import {
   createPhoto3DPass,
   type Photo3DPass,
@@ -61,6 +62,7 @@ import {
 } from './macCanvas/tuning';
 import {
   PHOTO3D_SHADER_URL,
+  PHOTO_APP_ATLAS,
   PHOTO_APP_META,
   WALLPAPER_ATLAS,
   type FolderId,
@@ -867,7 +869,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // window HUD text is refreshed on its own 500ms cadence (see macDomWindows).
     if (layoutDirty) {
       rebuildLayout();
-      domWindows.sync(layout, state, { suppressActiveWindow: folderOwnsScreen() });
+      domWindows.sync(layout, state, {
+        suppressActiveWindow: folderOwnsScreen(),
+        allowPhotoMount: Boolean(wallpaperPass),
+      });
       refreshActiveWindowCanvasCache();
     }
 
@@ -1084,6 +1089,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }),
     createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers).then((pass) => {
       wallpaperPass = pass;
+      scheduleIdleImagePreload(PHOTO_APP_ATLAS);
       resize();
     }),
   ]).catch((error) => {
