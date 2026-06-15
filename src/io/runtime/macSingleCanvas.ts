@@ -297,10 +297,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     startMs: number;
     durationMs: number;
   } | null = null;
+  let folderReleaseAfterRender = false;
 
   function setOpenFolder(id: FolderId | null) {
     const nowMs = performance.now();
     if (id) {
+      folderReleaseAfterRender = false;
       const from = state.folder === id ? state.folderProgress : 0;
       state.folder = id;
       state.folderProgress = from;
@@ -311,6 +313,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     if (!state.folder) return;
+    folderReleaseAfterRender = false;
     folderAnimation = {
       id: state.folder,
       from: state.folderProgress,
@@ -332,8 +335,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     state.folderProgress = animation.to;
     if (animation.to === 0) {
-      state.folder = null;
-      state.folderProgress = 0;
+      // Keep the folder as the screen owner for one final rendered frame at
+      // progress 0. Window canvases resume on the next frame, so closing stays
+      // at the normal 60fps even when an active canvas app is underneath.
+      folderReleaseAfterRender = true;
+    } else {
+      state.folder = animation.id;
     }
     folderAnimation = null;
     return true;
@@ -469,11 +476,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     root.dataset.macMobile = layout.mobile ? 'true' : 'false';
-    root.dataset.macFolderOpen = layout.folder
-      && folderAnimation?.to !== 0
-      && (!layout.mobile || layout.windows.length === 0)
-      ? 'true'
-      : 'false';
+    root.dataset.macFolderOpen = folderOwnsScreen() ? 'true' : 'false';
     refreshLayerKeys();
     mobileNav.ensureHomeHistory();
   }
@@ -829,18 +832,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return layout.mobile && layout.windows.length > 0;
   }
 
-  function folderOwnsCanvas() {
+  function folderOwnsScreen() {
     return Boolean(layout.folder && (!layout.mobile || layout.windows.length === 0));
   }
 
   function refreshActiveWindowCanvasCache() {
-    activeWindowHasCanvasCache = !folderOwnsCanvas()
+    activeWindowHasCanvasCache = !folderOwnsScreen()
       && !layout.mobile
       && Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
   }
 
   function currentCanvasFpsLimit() {
-    if (folderOwnsCanvas()) return MAC_FPS_TUNING.maxCanvasFps;
+    if (folderOwnsScreen()) return MAC_FPS_TUNING.maxCanvasFps;
     if (mobileWindowOpen()) return 0;
     return activeWindowHasCanvasCache ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
@@ -880,7 +883,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // window HUD text is refreshed on its own 500ms cadence (see macDomWindows).
     if (layoutDirty) {
       rebuildLayout();
-      domWindows.sync(layout, state);
+      domWindows.sync(layout, state, { suppressActiveWindow: folderOwnsScreen() });
       refreshActiveWindowCanvasCache();
     }
 
@@ -935,6 +938,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
         renderHomeScreen(null, blurred, now);
         scheduleFolderBackdropPreheat();
       }
+    }
+
+    if (folderReleaseAfterRender) {
+      folderReleaseAfterRender = false;
+      state.folder = null;
+      state.folderProgress = 0;
+      markLayoutDirty();
     }
 
     if (running) queueFrame();

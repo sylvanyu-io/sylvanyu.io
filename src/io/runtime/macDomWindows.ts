@@ -21,11 +21,15 @@ type MacDomWindowActions = {
 type MacDomWindowController = {
   minimize: (id: WindowId) => void;
   setRestoreOrigin: (id: WindowId, origin: RestoreOrigin) => void;
-  sync: (layout: MacCanvasLayout, state: MacCanvasState) => void;
+  sync: (layout: MacCanvasLayout, state: MacCanvasState, options?: MacDomWindowSyncOptions) => void;
   destroy: () => void;
 };
 
 type RestoreOrigin = 'desktop' | 'dock' | 'folder';
+
+type MacDomWindowSyncOptions = {
+  suppressActiveWindow?: boolean;
+};
 
 type DragState = {
   id: WindowId;
@@ -237,8 +241,12 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
   }
 }
 
-function activeWindowId(layout: MacCanvasLayout, state: MacCanvasState): WindowId | null {
-  if (layout.folder && (!layout.mobile || layout.windows.length === 0)) return null;
+function activeWindowId(
+  layout: MacCanvasLayout,
+  state: MacCanvasState,
+  options: MacDomWindowSyncOptions,
+): WindowId | null {
+  if (options.suppressActiveWindow) return null;
 
   let activeId: WindowId | null = null;
   let activeZ = -Infinity;
@@ -370,11 +378,11 @@ export function createMacDomWindows(
 
   const textTimer = window.setInterval(syncDynamicWindowTexts, 500);
 
-  function sync(layout: MacCanvasLayout, state: MacCanvasState) {
+  function sync(layout: MacCanvasLayout, state: MacCanvasState, options: MacDomWindowSyncOptions = {}) {
     latestLayout = layout;
     latestState = state;
     root.__macCanvasLayout = layout;
-    const activeId = activeWindowId(layout, state);
+    const activeId = activeWindowId(layout, state, options);
 
     if (lastLang !== state.lang) {
       records.forEach((record) => renderWindowContent(record, state.lang));
