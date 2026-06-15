@@ -23,7 +23,7 @@ export const designVariants = [
     key: 'macos',
     label: 'B',
     title: 'Sylvan OS',
-    href: '/io-design/macos/',
+    href: '/',
     summary: 'A macOS-inspired desktop. Glass panels are drawn by a fullscreen Three.js canvas pass.',
   },
   {
