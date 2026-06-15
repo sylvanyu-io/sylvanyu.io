@@ -1089,7 +1089,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }),
     createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers).then((pass) => {
       wallpaperPass = pass;
-      scheduleIdleImagePreload(PHOTO_APP_ATLAS);
+      // Desktop opens Photo3D.app by default; its mount path will fetch the
+      // atlas once. Only preload while the app is closed, mainly for mobile.
+      if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
       resize();
     }),
   ]).catch((error) => {
