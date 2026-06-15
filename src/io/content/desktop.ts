@@ -19,6 +19,9 @@ export const desktopCopy: Record<Lang, {
   iconReflection: string;
   iconLog: string;
   iconProjects: string;
+  iconAlbum: string;
+  iconMoments: string;
+  iconVideo: string;
   iconLabs: string;
   iconMail: string;
 }> = {
@@ -41,6 +44,9 @@ export const desktopCopy: Record<Lang, {
     iconReflection: 'Reflection.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
+    iconAlbum: 'photos/',
+    iconMoments: 'moments',
+    iconVideo: 'video',
     iconLabs: 'Labs',
     iconMail: 'mail',
   },
@@ -63,6 +69,9 @@ export const desktopCopy: Record<Lang, {
     iconReflection: '平面反射.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
+    iconAlbum: '相册',
+    iconMoments: '动态',
+    iconVideo: '视频',
     iconLabs: 'Labs',
     iconMail: '邮件',
   },

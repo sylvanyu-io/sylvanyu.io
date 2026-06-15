@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c3038"/>
+      <stop offset="1" stop-color="#0f1116"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".56"/>
+      <stop offset="1" stop-color="#b4e8ff" stop-opacity=".16"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".44"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="120" height="120" rx="27"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="120" height="120" fill="url(#bg)"/>
+    <rect x="25" y="34" width="70" height="52" rx="15" fill="url(#glass)" stroke="#fff" stroke-opacity=".5"/>
+    <path d="M54 49l22 11-22 11z" fill="#fff"/>
+    <rect x="34" y="75" width="52" height="4" rx="2" fill="#fff" opacity=".42"/>
+    <rect x="34" y="75" width="29" height="4" rx="2" fill="#84d9ff"/>
+    <rect width="120" height="44" fill="url(#gloss)" opacity=".35"/>
+  </g>
+</svg>
