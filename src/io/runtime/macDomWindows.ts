@@ -218,7 +218,7 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
   if (record.appliedSig === signature) return;
   record.appliedSig = signature;
 
-  element.dataset.tone = win.id === 'worklog' || win.id === 'reflection' ? 'dark' : 'light';
+  element.dataset.tone = win.id === 'worklog' || win.id === 'reflection' || win.id === 'video' ? 'dark' : 'light';
   element.dataset.mobile = layout.mobile ? 'true' : 'false';
   element.style.width = `${Math.round(win.w)}px`;
   element.style.height = `${Math.round(win.h)}px`;
@@ -267,6 +267,9 @@ function setWindowActive(record: MacDomWindowRecord, active: boolean) {
   const next = active ? 'true' : 'false';
   if (record.element.dataset.active === next) return;
   record.element.dataset.active = next;
+  if (!active) {
+    record.element.querySelectorAll('video').forEach((video) => video.pause());
+  }
   syncWindowCanvasActivity(record, active);
 }
 
@@ -284,7 +287,6 @@ export function createMacDomWindows(
   const closing = new Set<WindowId>();
   const animations = new Map<WindowId, Animation>();
   const restoreOrigins = new Map<WindowId, RestoreOrigin>();
-  let lastLang: Lang | null = null;
   let latestLayout: MacCanvasLayout | null = null;
   let latestState: MacCanvasState | null = null;
 
@@ -385,11 +387,6 @@ export function createMacDomWindows(
     root.__macCanvasLayout = layout;
     const activeId = activeWindowId(layout, state, options);
 
-    if (lastLang !== state.lang) {
-      records.forEach((record) => renderWindowContent(record, state.lang));
-      lastLang = state.lang;
-    }
-
     MAC_WINDOW_IDS.forEach((id) => {
       const record = records.get(id);
       if (!record) return;
@@ -407,6 +404,10 @@ export function createMacDomWindows(
       }
 
       const isActive = id === activeId;
+      if (record.contentLang !== state.lang) {
+        renderWindowContent(record, state.lang);
+        record.contentLang = state.lang;
+      }
       setWindowActive(record, isActive);
       updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);

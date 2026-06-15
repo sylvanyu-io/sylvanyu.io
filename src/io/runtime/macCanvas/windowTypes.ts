@@ -1,6 +1,15 @@
 import type { GlassParams } from './tuning';
 
-export const MAC_WINDOW_IDS = ['readme', 'photo', 'reflection', 'worklog', 'projects'] as const;
+export const MAC_WINDOW_IDS = [
+  'readme',
+  'photo',
+  'reflection',
+  'worklog',
+  'projects',
+  'album',
+  'moments',
+  'video',
+] as const;
 export const PHOTO_APP_HUD_HEIGHT = 25;
 
 export type WindowId = (typeof MAC_WINDOW_IDS)[number];

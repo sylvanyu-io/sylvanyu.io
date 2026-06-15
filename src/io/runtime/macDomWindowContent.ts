@@ -1,4 +1,13 @@
-import { desktopCopy, desktopProjects, logLines, profile } from '../data';
+import {
+  desktopCopy,
+  desktopProjects,
+  logLines,
+  mediaMomentPosts,
+  mediaPhotos,
+  mediaWindowCopy,
+  profile,
+  videoClips,
+} from '../data';
 import type { Lang } from '../content/common';
 import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
@@ -30,6 +39,7 @@ export type MacDomWindowRecord = {
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
+  contentLang?: Lang;
 };
 
 function div(className: string) {
@@ -163,6 +173,241 @@ function renderProjects(record: MacDomWindowRecord, lang: Lang) {
   });
 }
 
+function imageAlt(title: string, caption: string) {
+  return `${title}. ${caption}`;
+}
+
+function renderAlbum(record: MacDomWindowRecord, lang: Lang) {
+  const photos = mediaPhotos[lang];
+  const copy = mediaWindowCopy[lang];
+  record.body.replaceChildren();
+
+  const hero = div('mac-album__hero');
+  const heroImage = document.createElement('img');
+  heroImage.src = photos[0]?.src ?? '';
+  heroImage.alt = photos[0] ? imageAlt(photos[0].title, photos[0].caption) : '';
+  const heroCopy = div('mac-album__hero-copy');
+  const heroTitle = document.createElement('h2');
+  heroTitle.textContent = copy.albumTitle;
+  const heroMeta = document.createElement('p');
+  heroMeta.textContent = copy.albumIntro;
+  heroCopy.append(heroTitle, heroMeta);
+  hero.append(heroImage, heroCopy);
+
+  const grid = div('mac-album__grid');
+  photos.forEach((photo) => {
+    const card = document.createElement('figure');
+    card.className = 'mac-album__tile';
+    const image = document.createElement('img');
+    image.src = photo.src;
+    image.alt = imageAlt(photo.title, photo.caption);
+    const caption = document.createElement('figcaption');
+    const title = document.createElement('strong');
+    title.textContent = photo.title;
+    const date = document.createElement('span');
+    date.textContent = photo.date;
+    caption.append(title, date);
+    card.append(image, caption);
+    grid.append(card);
+  });
+
+  record.body.append(hero, grid);
+}
+
+function renderMoments(record: MacDomWindowRecord, lang: Lang) {
+  const photos = mediaPhotos[lang];
+  const copy = mediaWindowCopy[lang];
+  const posts = mediaMomentPosts[lang];
+  record.body.replaceChildren();
+
+  const feed = div('mac-moments');
+  const cover = div('mac-moments__cover');
+  const coverImage = document.createElement('img');
+  coverImage.src = photos[0]?.src ?? '';
+  coverImage.alt = copy.momentsTitle;
+  const profileRow = div('mac-moments__profile');
+  const profileCopy = div('mac-moments__profile-copy');
+  const title = document.createElement('strong');
+  title.textContent = copy.momentsTitle;
+  const intro = document.createElement('span');
+  intro.textContent = copy.momentsIntro;
+  const avatar = div('mac-moments__profile-avatar');
+  avatar.textContent = 'S';
+  profileCopy.append(title, intro);
+  profileRow.append(profileCopy, avatar);
+  cover.append(coverImage, profileRow);
+  feed.append(cover);
+
+  const list = div('mac-moments__list');
+  posts.forEach((entry) => {
+    const article = document.createElement('article');
+    article.className = 'mac-moment';
+    const avatar = div('mac-moment__avatar');
+    avatar.textContent = entry.avatar;
+
+    const content = div('mac-moment__content');
+    const author = document.createElement('strong');
+    author.className = 'mac-moment__author';
+    author.textContent = entry.author;
+    const body = document.createElement('p');
+    body.className = 'mac-moment__caption';
+    body.textContent = entry.body;
+
+    const images = entry.photoIndexes.flatMap((photoIndex) => {
+      const photo = photos[photoIndex];
+      return photo ? [photo] : [];
+    });
+    const grid = div('mac-moment__grid');
+    grid.dataset.count = String(images.length);
+    images.forEach((photo) => {
+      const image = document.createElement('img');
+      image.src = photo.src;
+      image.alt = imageAlt(photo.title, photo.caption);
+      grid.append(image);
+    });
+
+    const footer = div('mac-moment__footer');
+    const time = document.createElement('time');
+    time.textContent = entry.time;
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'mac-moment__more';
+    action.textContent = '··';
+    action.setAttribute('aria-label', 'Post actions');
+    footer.append(time, action);
+
+    const reactions = div('mac-moment__reactions');
+    reactions.textContent = entry.reactions;
+
+    content.append(author, body);
+    if (images.length) content.append(grid);
+    content.append(footer, reactions);
+    article.append(avatar, content);
+    list.append(article);
+  });
+
+  feed.append(list);
+  record.body.append(feed);
+}
+
+function renderVideo(record: MacDomWindowRecord, lang: Lang) {
+  const clips = videoClips[lang];
+  record.body.replaceChildren();
+
+  let activeIndex = 0;
+  const shell = div('mac-video');
+  const stage = div('mac-video__stage');
+  const video = document.createElement('video');
+  video.className = 'mac-video__media';
+  video.src = clips[activeIndex].src;
+  video.poster = clips[activeIndex].poster;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+
+  const controls = div('mac-video__controls');
+  const skipBack = document.createElement('button');
+  skipBack.type = 'button';
+  skipBack.className = 'mac-video__button mac-video__button--small';
+  skipBack.textContent = '15';
+  skipBack.setAttribute('aria-label', 'Back 15 seconds');
+  const play = document.createElement('button');
+  play.type = 'button';
+  play.className = 'mac-video__button mac-video__button--play';
+  play.textContent = '▶';
+  play.setAttribute('aria-label', 'Play video');
+  const skipForward = document.createElement('button');
+  skipForward.type = 'button';
+  skipForward.className = 'mac-video__button mac-video__button--small';
+  skipForward.textContent = '15';
+  skipForward.setAttribute('aria-label', 'Forward 15 seconds');
+
+  const progress = document.createElement('input');
+  progress.className = 'mac-video__scrub';
+  progress.type = 'range';
+  progress.min = '0';
+  progress.max = '1000';
+  progress.value = '0';
+  progress.setAttribute('aria-label', 'Video progress');
+  controls.append(skipBack, play, skipForward, progress);
+  stage.append(video, controls);
+
+  const meta = div('mac-video__meta');
+  const metaTitle = document.createElement('h2');
+  const metaDate = document.createElement('time');
+  const metaBody = document.createElement('p');
+  meta.append(metaTitle, metaDate, metaBody);
+
+  const playlist = div('mac-video__playlist');
+
+  const syncMeta = () => {
+    const clip = clips[activeIndex];
+    metaTitle.textContent = clip.title;
+    metaDate.textContent = clip.date ?? '';
+    metaDate.hidden = !clip.date;
+    metaBody.textContent = clip.caption ?? '';
+    metaBody.hidden = !clip.caption;
+    meta.hidden = !clip.date && !clip.caption;
+    [...playlist.children].forEach((child, index) => {
+      (child as HTMLElement).dataset.active = index === activeIndex ? 'true' : 'false';
+    });
+  };
+
+  const setClip = (index: number) => {
+    activeIndex = index;
+    const clip = clips[activeIndex];
+    video.src = clip.src;
+    video.poster = clip.poster;
+    progress.value = '0';
+    play.textContent = '▶';
+    play.setAttribute('aria-label', 'Play video');
+    syncMeta();
+  };
+
+  clips.forEach((clip, index) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'mac-video__clip';
+    item.textContent = clip.title;
+    item.addEventListener('click', () => setClip(index));
+    playlist.append(item);
+  });
+
+  play.addEventListener('click', () => {
+    if (video.paused) {
+      video.play().catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  });
+  skipBack.addEventListener('click', () => {
+    video.currentTime = Math.max(0, video.currentTime - 15);
+  });
+  skipForward.addEventListener('click', () => {
+    video.currentTime = Math.min(video.duration || video.currentTime + 15, video.currentTime + 15);
+  });
+  progress.addEventListener('input', () => {
+    if (!video.duration) return;
+    video.currentTime = (Number(progress.value) / 1000) * video.duration;
+  });
+  video.addEventListener('timeupdate', () => {
+    if (!video.duration) return;
+    progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+  });
+  video.addEventListener('play', () => {
+    play.textContent = 'Ⅱ';
+    play.setAttribute('aria-label', 'Pause video');
+  });
+  video.addEventListener('pause', () => {
+    play.textContent = '▶';
+    play.setAttribute('aria-label', 'Play video');
+  });
+
+  syncMeta();
+  shell.append(stage, meta, playlist);
+  record.body.append(shell);
+}
+
 async function mountPhotoIsland(record: MacDomWindowRecord) {
   const root = record.body.querySelector('[data-photo3d-root]');
   if (
@@ -265,6 +510,9 @@ export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   if (record.id === 'reflection') renderReflection(record);
   if (record.id === 'worklog') renderWorklog(record, lang);
   if (record.id === 'projects') renderProjects(record, lang);
+  if (record.id === 'album') renderAlbum(record, lang);
+  if (record.id === 'moments') renderMoments(record, lang);
+  if (record.id === 'video') renderVideo(record, lang);
 }
 
 export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout, state: MacCanvasState) {
@@ -294,6 +542,21 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'projects') {
     setText(record.accessory, `${desktopProjects[state.lang].length} ITEMS`);
+    return;
+  }
+
+  if (win.id === 'album') {
+    setText(record.accessory, `${mediaPhotos[state.lang].length} PHOTOS`);
+    return;
+  }
+
+  if (win.id === 'moments') {
+    setText(record.accessory, `${mediaMomentPosts[state.lang].length} POSTS`);
+    return;
+  }
+
+  if (win.id === 'video') {
+    setText(record.accessory, mediaWindowCopy[state.lang].videoAccessory);
     return;
   }
 

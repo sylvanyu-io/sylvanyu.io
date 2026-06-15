@@ -429,6 +429,10 @@
     color: #9ee8ff;
   }
 
+  .mac-dom-window[data-window-id="video"] .mac-dom-window__accessory {
+    color: #bceeff;
+  }
+
   .mac-dom-window__body {
     position: relative;
     height: calc(100% - var(--mac-window-title-h, 34px));
@@ -440,7 +444,9 @@
      showing the OS default high-contrast gray bar. */
   .mac-dom-window__body--readme,
   .mac-dom-window__body--worklog,
-  .mac-dom-window__body--projects {
+  .mac-dom-window__body--projects,
+  .mac-dom-window__body--album,
+  .mac-dom-window__body--moments {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -449,19 +455,25 @@
 
   .mac-dom-window__body--readme::-webkit-scrollbar,
   .mac-dom-window__body--worklog::-webkit-scrollbar,
-  .mac-dom-window__body--projects::-webkit-scrollbar {
+  .mac-dom-window__body--projects::-webkit-scrollbar,
+  .mac-dom-window__body--album::-webkit-scrollbar,
+  .mac-dom-window__body--moments::-webkit-scrollbar {
     width: 9px;
   }
 
   .mac-dom-window__body--readme::-webkit-scrollbar-track,
   .mac-dom-window__body--worklog::-webkit-scrollbar-track,
-  .mac-dom-window__body--projects::-webkit-scrollbar-track {
+  .mac-dom-window__body--projects::-webkit-scrollbar-track,
+  .mac-dom-window__body--album::-webkit-scrollbar-track,
+  .mac-dom-window__body--moments::-webkit-scrollbar-track {
     background: transparent;
   }
 
   .mac-dom-window__body--readme::-webkit-scrollbar-thumb,
   .mac-dom-window__body--worklog::-webkit-scrollbar-thumb,
-  .mac-dom-window__body--projects::-webkit-scrollbar-thumb {
+  .mac-dom-window__body--projects::-webkit-scrollbar-thumb,
+  .mac-dom-window__body--album::-webkit-scrollbar-thumb,
+  .mac-dom-window__body--moments::-webkit-scrollbar-thumb {
     background: rgba(64, 58, 46, .32);
     border: 2px solid transparent;
     border-radius: 999px;
@@ -470,7 +482,9 @@
 
   .mac-dom-window__body--readme::-webkit-scrollbar-thumb:hover,
   .mac-dom-window__body--worklog::-webkit-scrollbar-thumb:hover,
-  .mac-dom-window__body--projects::-webkit-scrollbar-thumb:hover {
+  .mac-dom-window__body--projects::-webkit-scrollbar-thumb:hover,
+  .mac-dom-window__body--album::-webkit-scrollbar-thumb:hover,
+  .mac-dom-window__body--moments::-webkit-scrollbar-thumb:hover {
     background: rgba(64, 58, 46, .5);
     background-clip: padding-box;
   }
@@ -479,7 +493,9 @@
      from chaining into the page (no pull-to-refresh). */
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--readme,
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--worklog,
-  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--projects {
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--projects,
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--album,
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__body--moments {
     overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
@@ -939,6 +955,484 @@
     font-size: 9px;
     font-weight: 600;
     line-height: 1.1;
+  }
+
+  .mac-dom-window__body--album {
+    padding: 16px;
+  }
+
+  .mac-album__hero {
+    position: relative;
+    min-height: 154px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .2);
+  }
+
+  .mac-album__hero img,
+  .mac-album__tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mac-album__hero-copy {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 14px;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .54);
+  }
+
+  .mac-album__hero-copy h2 {
+    margin: 0;
+    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .mac-album__hero-copy p {
+    max-width: 340px;
+    margin: 8px 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .mac-album__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .mac-album__tile {
+    position: relative;
+    aspect-ratio: 1;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .56);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .18);
+  }
+
+  .mac-album__tile figcaption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 18px 10px 9px;
+    color: #fff;
+    background: linear-gradient(0deg, rgba(0, 0, 0, .62), rgba(0, 0, 0, 0));
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .64);
+  }
+
+  .mac-album__tile strong,
+  .mac-album__tile span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mac-album__tile strong {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .mac-album__tile span {
+    margin-top: 3px;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 8px;
+    opacity: .78;
+  }
+
+  .mac-dom-window__body--moments {
+    padding: 0;
+    background: rgba(245, 246, 241, .82);
+  }
+
+  .mac-moments {
+    min-height: 100%;
+    color: #22252c;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .mac-moments__cover {
+    position: relative;
+    height: 172px;
+    margin-bottom: 32px;
+    background: #dfe8de;
+  }
+
+  .mac-moments__cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, .04), rgba(0, 0, 0, .28));
+  }
+
+  .mac-moments__cover > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mac-moments__profile {
+    position: absolute;
+    right: 18px;
+    bottom: -24px;
+    z-index: 1;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    max-width: calc(100% - 32px);
+    color: #fff;
+    text-align: right;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .44);
+  }
+
+  .mac-moments__profile-copy strong,
+  .mac-moments__profile-copy span {
+    display: block;
+  }
+
+  .mac-moments__profile-copy strong {
+    font-size: 20px;
+    line-height: 1.05;
+  }
+
+  .mac-moments__profile-copy span {
+    max-width: 270px;
+    margin-top: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.35;
+    opacity: .92;
+  }
+
+  .mac-moments__profile-avatar {
+    display: grid;
+    flex: 0 0 54px;
+    width: 54px;
+    height: 54px;
+    place-items: center;
+    border: 2px solid rgba(255, 255, 255, .86);
+    border-radius: 8px;
+    color: #fff;
+    background: linear-gradient(135deg, #2f6fd0, #80d0ff);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .28);
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .mac-moments__list {
+    padding: 4px 18px 20px;
+  }
+
+  .mac-moment {
+    display: flex;
+    gap: 10px;
+    margin: 0;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(24, 28, 36, .08);
+  }
+
+  .mac-moment__avatar {
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 7px;
+    color: #fff;
+    background: linear-gradient(135deg, #35537e, #89c2d9);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mac-moment__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mac-moment__author {
+    display: block;
+    color: #526895;
+    font-size: 13px;
+    line-height: 1.15;
+  }
+
+  .mac-moment__caption {
+    margin: 6px 0 0;
+    color: rgba(28, 31, 38, .9);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.48;
+  }
+
+  .mac-moment__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: min(100%, 246px);
+    margin-top: 8px;
+  }
+
+  .mac-moment__grid[data-count="1"] {
+    grid-template-columns: minmax(0, 168px);
+    width: 168px;
+  }
+
+  .mac-moment__grid img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: rgba(0, 0, 0, .06);
+  }
+
+  .mac-moment__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .mac-moment__footer time {
+    color: rgba(28, 31, 38, .48);
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .mac-moment__more {
+    width: 28px;
+    height: 18px;
+    border: 0;
+    border-radius: 3px;
+    color: #526895;
+    background: rgba(82, 104, 149, .12);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 10px;
+  }
+
+  .mac-moment__reactions {
+    position: relative;
+    margin-top: 8px;
+    padding: 7px 9px;
+    color: rgba(54, 63, 82, .78);
+    background: rgba(221, 225, 232, .84);
+    border-radius: 4px;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .mac-moment__reactions::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 14px;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    transform: rotate(45deg);
+  }
+
+  .mac-dom-window__body--video {
+    padding: 14px;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(120, 212, 255, .16), transparent 42%),
+      rgba(6, 8, 11, .76);
+  }
+
+  .mac-video {
+    height: 100%;
+    color: rgba(255, 255, 255, .9);
+  }
+
+  .mac-video__stage {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border: 1px solid rgba(255, 255, 255, .24);
+    border-radius: 18px;
+    background: #07090d;
+    box-shadow: 0 18px 34px rgba(0, 0, 0, .34);
+  }
+
+  .mac-video__media {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mac-video__controls {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 0 22px;
+    align-items: center;
+    justify-items: center;
+    padding: 0 34px 24px;
+    pointer-events: none;
+  }
+
+  .mac-video__button,
+  .mac-video__scrub,
+  .mac-video__clip {
+    pointer-events: auto;
+  }
+
+  .mac-video__button {
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .26);
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(255, 255, 255, .16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 10px 24px rgba(0, 0, 0, .2);
+    backdrop-filter: blur(14px) saturate(1.35);
+    -webkit-backdrop-filter: blur(14px) saturate(1.35);
+    cursor: pointer;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .mac-video__button--small {
+    grid-row: 1;
+    width: 54px;
+    height: 54px;
+    font-size: 16px;
+  }
+
+  .mac-video__button--play {
+    grid-row: 1;
+    width: 86px;
+    height: 86px;
+    font-size: 34px;
+  }
+
+  .mac-video__button--small:first-child {
+    grid-column: 2;
+  }
+
+  .mac-video__button--play {
+    grid-column: 3;
+  }
+
+  .mac-video__button--small:nth-child(3) {
+    grid-column: 4;
+  }
+
+  .mac-video__scrub {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    height: 42px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    backdrop-filter: blur(14px) saturate(1.25);
+    -webkit-backdrop-filter: blur(14px) saturate(1.25);
+    accent-color: #fff;
+  }
+
+  .mac-video__meta {
+    margin-top: 12px;
+    padding: 0 4px;
+  }
+
+  .mac-video__meta h2 {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.1;
+  }
+
+  .mac-video__meta time {
+    display: block;
+    margin-top: 5px;
+    color: rgba(188, 238, 255, .72);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .mac-video__meta p {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, .66);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .mac-video__playlist {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .mac-video__clip {
+    min-height: 28px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, .72);
+    background: rgba(255, 255, 255, .08);
+    cursor: pointer;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .mac-video__clip[data-active="true"] {
+    color: #081016;
+    background: rgba(188, 238, 255, .88);
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-album__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moments__cover {
+    height: 210px;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moments__profile {
+    right: 14px;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moments__profile-copy span {
+    display: none;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moments__list {
+    padding: 2px 12px 24px;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moment {
+    gap: 9px;
+    padding: 13px 0;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moment__grid {
+    width: min(100%, 282px);
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-moment__grid[data-count="1"] {
+    width: min(70vw, 188px);
   }
 
   .mac-noscript {

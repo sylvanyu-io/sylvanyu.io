@@ -141,14 +141,14 @@ const LAYOUT = {
   desktopIconGrid: {
     x: 18,
     top: 56,
-    gap: 18,
-    itemW: 86,
-    itemH: 76,
+    gap: 5,
+    itemW: 76,
+    itemH: 58,
     imgOffsetX: 16,
-    imgOffsetY: 4,
-    imgSize: 54,
-    labelXOffset: 45,
-    labelGap: 8,
+    imgOffsetY: 2,
+    imgSize: 44,
+    labelXOffset: 38,
+    labelGap: 5,
   },
   widgets: {
     mobile: {
@@ -192,6 +192,9 @@ const LAYOUT = {
     worklog: { x: 240, y: 130, w: 560, h: 408 },
     reflection: { x: 430, y: 118, w: 540, h: 360 },
     projects: { x: 180, y: 72, w: 620, h: 540 },
+    album: { x: 260, y: 74, w: 520, h: 500 },
+    moments: { x: 300, y: 58, w: 450, h: 560 },
+    video: { x: 230, y: 92, w: 720, h: 560 },
   },
   dock: {
     mobileIcon: 54,
@@ -781,6 +784,33 @@ export function buildMacCanvasLayout(
     titleH,
   };
 
+  const album: WindowLayout = {
+    id: 'album',
+    title: appTitle('album'),
+    ...(mobile ? fullscreen : LAYOUT.windows.album),
+    r: mobile ? 0 : LAYOUT.windows.radius,
+    z: state.windows.album.z,
+    titleH,
+  };
+
+  const moments: WindowLayout = {
+    id: 'moments',
+    title: appTitle('moments'),
+    ...(mobile ? fullscreen : LAYOUT.windows.moments),
+    r: mobile ? 0 : LAYOUT.windows.radius,
+    z: state.windows.moments.z,
+    titleH,
+  };
+
+  const video: WindowLayout = {
+    id: 'video',
+    title: appTitle('video'),
+    ...(mobile ? fullscreen : LAYOUT.windows.video),
+    r: mobile ? 0 : LAYOUT.windows.radius,
+    z: state.windows.video.z,
+    titleH,
+  };
+
   const dockIcon = mobile ? LAYOUT.dock.mobileIcon : LAYOUT.dock.desktopIcon;
   const dockGap = mobile ? LAYOUT.dock.mobileGap : LAYOUT.dock.desktopGap;
   const dockPadX = mobile ? LAYOUT.dock.mobilePadX : LAYOUT.dock.desktopPadX;
@@ -842,7 +872,7 @@ export function buildMacCanvasLayout(
     });
   }
 
-  [readme, photo, reflection, worklog, projects].forEach((windowLayout) => {
+  [readme, photo, reflection, worklog, projects, album, moments, video].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
     placeWindow(state, windowLayout, mobile);
     windows.push(windowLayout);

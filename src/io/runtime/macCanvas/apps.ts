@@ -1,7 +1,16 @@
 import type { WindowId, WindowStateMap } from './windowTypes';
 import { PHOTO3D_APP_ATLAS_META } from '../photo3d/core';
 
-export type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects' | 'iconLabs';
+export type IconLabelKey =
+  | 'iconReadme'
+  | 'iconPhoto'
+  | 'iconReflection'
+  | 'iconLog'
+  | 'iconProjects'
+  | 'iconAlbum'
+  | 'iconMoments'
+  | 'iconVideo'
+  | 'iconLabs';
 export type FolderId = 'labs';
 
 export type MacAppDefinition = {
@@ -83,6 +92,33 @@ export const MAC_APPS: MacAppDefinition[] = [
     dock: true,
     initialOpen: false,
     initialZ: 13,
+  },
+  {
+    id: 'album',
+    title: 'Photos.app',
+    icon: 'icon-album.svg',
+    labelKey: 'iconAlbum',
+    dock: false,
+    initialOpen: false,
+    initialZ: 10,
+  },
+  {
+    id: 'moments',
+    title: 'Moments.app',
+    icon: 'icon-moments.svg',
+    labelKey: 'iconMoments',
+    dock: false,
+    initialOpen: false,
+    initialZ: 10,
+  },
+  {
+    id: 'video',
+    title: 'GlassPlayer.app',
+    icon: 'icon-video.svg',
+    labelKey: 'iconVideo',
+    dock: false,
+    initialOpen: false,
+    initialZ: 10,
   },
 ];
 
