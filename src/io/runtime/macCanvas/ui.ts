@@ -666,8 +666,8 @@ export function buildMacCanvasLayout(
   const folder = state.folder
     ? buildFolderOverlay(width, height, mobile, safeTop, safeBottom, iconCells, state.folder, state.folderProgress)
     : null;
-  const folderGlassPanels: GlassPanel[] = iconCells
-    .filter((cell) => cell.id === LABS_FOLDER_ID)
+  const iconGlassPanels: GlassPanel[] = iconCells
+    .filter((cell) => cell.id === LABS_FOLDER_ID || cell.id === 'lang')
     .map((cell) => ({
       x: cell.imgX,
       y: cell.imgY,
@@ -854,7 +854,7 @@ export function buildMacCanvasLayout(
     mobile,
     safeTop,
     safeBottom,
-    glassPanels: [...widgetGlassPanels, ...folderGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
+    glassPanels: [...widgetGlassPanels, ...iconGlassPanels, dock.panel].sort((a, b) => a.z - b.z),
     hitTargets,
     windows: [...windows].sort((a, b) => a.z - b.z),
     iconCells,
@@ -928,43 +928,17 @@ function drawMenubar(
   ctx.restore();
 }
 
-function drawTranslucentIconTile(ctx: CanvasRenderingContext2D, cell: IconCell) {
-  const { imgX, imgY, imgSize } = cell;
-  const radius = imgSize * 0.235;
-
-  ctx.shadowColor = 'rgba(0,0,0,.34)';
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetY = 5;
-
-  ctx.beginPath();
-  ctx.moveTo(imgX + radius, imgY);
-  ctx.arcTo(imgX + imgSize, imgY, imgX + imgSize, imgY + imgSize, radius);
-  ctx.arcTo(imgX + imgSize, imgY + imgSize, imgX, imgY + imgSize, radius);
-  ctx.arcTo(imgX, imgY + imgSize, imgX, imgY, radius);
-  ctx.arcTo(imgX, imgY, imgX + imgSize, imgY, radius);
-  ctx.closePath();
-
-  const fill = ctx.createLinearGradient(imgX, imgY, imgX, imgY + imgSize);
-  fill.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
-  fill.addColorStop(1, 'rgba(255, 255, 255, 0.14)');
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-}
-
 // Procedural "translate" tile so the language toggle reads as one more app
 // icon on the mobile home screen.
 function drawLangIcon(ctx: CanvasRenderingContext2D, cell: IconCell) {
   const { imgX, imgY, imgSize } = cell;
 
   ctx.save();
-  drawTranslucentIconTile(ctx, cell);
-
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+  ctx.shadowBlur = Math.max(5, imgSize * 0.1);
+  ctx.shadowOffsetY = Math.max(1, imgSize * 0.025);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
   ctx.font = `700 ${Math.round(imgSize * 0.4)}px ${sans}`;
   ctx.fillText('A', imgX + imgSize * 0.36, imgY + imgSize * 0.4);
