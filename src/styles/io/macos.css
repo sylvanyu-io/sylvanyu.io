@@ -546,7 +546,7 @@
     left: 24px;
     bottom: 26px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
   }
 
@@ -577,10 +577,25 @@
     background: #17191c;
   }
 
-  .mac-readme__github {
-    min-width: 96px;
+  .mac-readme__socials {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .mac-readme__social-link {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
     color: #17191c;
     border: 1px solid rgba(255, 255, 255, .82);
+    background: rgba(255, 255, 255, .16);
+    letter-spacing: 0;
+  }
+
+  .mac-readme__social-link[data-social="website"] {
+    width: 46px;
+    min-width: 46px;
   }
 
   .mac-dom-window__body--photo {
@@ -686,6 +701,14 @@
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mac-demo__canvas:focus,
+  .mac-demo__canvas:focus-visible,
+  .mac-demo__stage:focus,
+  .mac-demo__stage:focus-visible {
+    outline: none;
   }
 
   .mac-demo__hud {
@@ -895,7 +918,7 @@
     flex-direction: column;
     justify-self: end;
     min-width: 0;
-    padding-top: 3px;
+    padding-top: 18px;
     text-align: right;
   }
 
