@@ -62,7 +62,7 @@ import {
 import {
   PHOTO3D_SHADER_URL,
   PHOTO_APP_META,
-  WALLPAPER_SPRITE,
+  WALLPAPER_ATLAS,
   type FolderId,
 } from './macCanvas/apps';
 
@@ -1082,7 +1082,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // freshly-loaded glyphs actually rasterize into their layers.
       markLayoutDirty();
     }),
-    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_SPRITE, MAC_WALLPAPER_MOTION.layers).then((pass) => {
+    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers).then((pass) => {
       wallpaperPass = pass;
       resize();
     }),

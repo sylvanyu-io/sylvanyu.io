@@ -4,11 +4,13 @@ import {
   PHOTO3D_FOCAL_LENGTH,
   PHOTO3D_INV_Z_MIN,
   PHOTO3D_MAX_LAYERS,
-  createPhoto3DDisparityCanvas,
+  PHOTO3D_WALLPAPER_ATLAS_META,
+  createPhoto3DAtlasShader,
   loadPhoto3DImage,
   loadPhoto3DShader,
+  photo3DAtlasCellHeight,
+  photo3DAtlasCellWidth,
   photo3DTargetOffset,
-  splitPhoto3DSprite,
 } from '../photo3d/core';
 
 const photo3dVertexShader = `
@@ -57,6 +59,8 @@ type RenderOptions = {
 };
 
 function createPhoto3DWallpaperShader(shaderBody: string) {
+  const adaptedShader = createPhoto3DAtlasShader(shaderBody);
+
   return `
 uniform vec2 outputResolution;
 uniform vec2 outputShade;
@@ -64,7 +68,7 @@ uniform vec2 outputShade;
 varying vec2 vScreenUv;
 
 #define main photo3DMain
-${shaderBody}
+${adaptedShader}
 #undef main
 
 void main(void) {
@@ -79,28 +83,18 @@ void main(void) {
 `;
 }
 
-function makeTexture(source: HTMLCanvasElement | THREE.DataTexture) {
+function makeTexture(source: HTMLCanvasElement | HTMLImageElement | THREE.DataTexture) {
   if (source instanceof THREE.DataTexture) {
     source.needsUpdate = true;
     return source;
   }
 
-  const texture = new THREE.CanvasTexture(source);
+  const texture = new THREE.Texture(source);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function transparentTexture() {
-  const texture = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
   return texture;
 }
@@ -119,25 +113,16 @@ export class Photo3DPass {
   private smoothY = PHOTO3D_DEFAULT_CONFIG.offsetY;
 
   constructor(shaderBody: string, image: HTMLImageElement, layers = 2) {
-    const frames = splitPhoto3DSprite(image);
-    const width = frames[3].width;
-    const height = frames[3].height;
-    const transparent = transparentTexture();
-    const textures = {
-      disparity0: makeTexture(createPhoto3DDisparityCanvas(frames[0], false)),
-      disparity1: makeTexture(createPhoto3DDisparityCanvas(frames[1], true)),
-      disparity2: makeTexture(createPhoto3DDisparityCanvas(frames[2], true)),
-      disparity3: transparent,
-      rgb0: makeTexture(frames[3]),
-      rgb1: makeTexture(frames[4]),
-      rgb2: makeTexture(frames[5]),
-      rgb3: transparent,
-    };
+    const width = PHOTO3D_WALLPAPER_ATLAS_META.frameWidth;
+    const height = PHOTO3D_WALLPAPER_ATLAS_META.frameHeight;
+    const atlasWidth = image.naturalWidth || image.width;
+    const atlasHeight = image.naturalHeight || image.height;
+    const atlasTexture = makeTexture(image);
 
     this.aspect = width / height;
     this.sourceWidth = width;
     this.sourceHeight = height;
-    this.textures = Object.values(textures);
+    this.textures = [atlasTexture];
 
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -168,14 +153,27 @@ export class Photo3DPass {
             new THREE.Vector2(1, 1),
           ],
         },
-        disparity0: { value: textures.disparity0 },
-        disparity1: { value: textures.disparity1 },
-        disparity2: { value: textures.disparity2 },
-        disparity3: { value: textures.disparity3 },
-        rgb0: { value: textures.rgb0 },
-        rgb1: { value: textures.rgb1 },
-        rgb2: { value: textures.rgb2 },
-        rgb3: { value: textures.rgb3 },
+        photo3DAtlas: { value: atlasTexture },
+        photo3DAtlasSize: { value: new THREE.Vector2(atlasWidth, atlasHeight) },
+        photo3DAtlasFrameSize: { value: new THREE.Vector2(width, height) },
+        photo3DAtlasCellSize: {
+          value: new THREE.Vector2(
+            photo3DAtlasCellWidth(PHOTO3D_WALLPAPER_ATLAS_META),
+            photo3DAtlasCellHeight(PHOTO3D_WALLPAPER_ATLAS_META),
+          ),
+        },
+        photo3DAtlasPadding: { value: PHOTO3D_WALLPAPER_ATLAS_META.padding },
+        // The shared Photo3D shader still passes the old per-layer samplers
+        // through raycasting(). Wallpaper sampling now ignores them and reads
+        // from photo3DAtlas, avoiding first-frame canvas split/remap work.
+        disparity0: { value: atlasTexture },
+        disparity1: { value: atlasTexture },
+        disparity2: { value: atlasTexture },
+        disparity3: { value: atlasTexture },
+        rgb0: { value: atlasTexture },
+        rgb1: { value: atlasTexture },
+        rgb2: { value: atlasTexture },
+        rgb3: { value: atlasTexture },
       },
       vertexShader: photo3dVertexShader,
       fragmentShader: createPhoto3DWallpaperShader(shaderBody),
@@ -212,7 +210,7 @@ export class Photo3DPass {
 
 export { loadPhoto3DShader };
 
-export async function createPhoto3DPass(shaderUrl: string, spriteUrl: string, layers = 2) {
-  const [shaderBody, image] = await Promise.all([loadPhoto3DShader(shaderUrl), loadPhoto3DImage(spriteUrl)]);
+export async function createPhoto3DPass(shaderUrl: string, atlasUrl: string, layers = 2) {
+  const [shaderBody, image] = await Promise.all([loadPhoto3DShader(shaderUrl), loadPhoto3DImage(atlasUrl)]);
   return new Photo3DPass(shaderBody, image, layers);
 }

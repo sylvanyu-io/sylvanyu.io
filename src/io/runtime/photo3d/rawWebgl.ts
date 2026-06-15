@@ -6,17 +6,20 @@ import {
   PHOTO3D_MAX_LAYERS,
   PHOTO3D_RAW_VERTEX_SHADER,
   PHOTO3D_UNIFORM_NAMES,
+  type Photo3DAtlasMeta,
   type Photo3DSourceConfig,
   type Photo3DUniformName,
+  createPhoto3DAtlasShader,
   createPhoto3DConfig,
-  createPhoto3DDisparityCanvas,
   loadPhoto3DImage,
+  photo3DAtlasCellHeight,
+  photo3DAtlasCellWidth,
   photo3DTargetOffset,
-  splitPhoto3DSprite,
 } from './core';
 
 type Photo3DOptions = {
   shaderBody: string;
+  atlasMeta: Photo3DAtlasMeta;
   interaction?: 'drag' | 'hover';
   idleDrift?: boolean;
   fit?: 'stretch' | 'contain' | 'cover';
@@ -32,31 +35,19 @@ export type Photo3DController = {
 
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
-const SPRITE_LAYOUT = '2x3';
+const LEGACY_SAMPLER_UNIFORMS: Photo3DUniformName[] = [
+  'disparity0',
+  'disparity1',
+  'disparity2',
+  'disparity3',
+  'rgb0',
+  'rgb1',
+  'rgb2',
+  'rgb3',
+];
 
 function setText(element: Element | null | undefined, value: string) {
   if (element && element.textContent !== value) element.textContent = value;
-}
-
-function makeTransparentTexture(gl: WebGLRenderingContext) {
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    1,
-    1,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    new Uint8Array([0, 0, 0, 0]),
-  );
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  return texture;
 }
 
 function createTexture(gl: WebGLRenderingContext, source: TexImageSource) {
@@ -110,7 +101,7 @@ function createProgram(gl: WebGLRenderingContext, shaderBody: string) {
 
 export function mountPhoto3D(
   root: Element,
-  { shaderBody, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
+  { shaderBody, atlasMeta, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
 ): Photo3DController | null {
   if (!(root instanceof HTMLElement)) return null;
   if (root.dataset.mounted === 'true') return root.__photo3dController ?? null;
@@ -155,13 +146,16 @@ export function mountPhoto3D(
     setText(statEls.get(id), value);
   };
 
-  const spriteUrl = root.dataset.localSprite;
-  if (!spriteUrl) {
-    setStatus('Sprite unavailable', true);
+  const atlasUrl = root.dataset.localAtlas;
+  if (!atlasUrl) {
+    setStatus('Asset unavailable', true);
     return null;
   }
 
-  const config = createPhoto3DConfig();
+  const config = createPhoto3DConfig({
+    sourceWidth: atlasMeta.frameWidth,
+    sourceHeight: atlasMeta.frameHeight,
+  });
   root.style.setProperty('--photo3d-aspect', `${config.sourceWidth} / ${config.sourceHeight}`);
 
   const canvas = document.createElement('canvas');
@@ -178,7 +172,7 @@ export function mountPhoto3D(
     return null;
   }
 
-  const program = createProgram(gl, shaderBody);
+  const program = createProgram(gl, createPhoto3DAtlasShader(shaderBody));
   const uniforms = Object.fromEntries(
     PHOTO3D_UNIFORM_NAMES.map((name) => [name, gl.getUniformLocation(program, name)]),
   ) as Record<Photo3DUniformName, WebGLUniformLocation | null>;
@@ -186,8 +180,7 @@ export function mountPhoto3D(
   const invZMaxUniform = new Float32Array([0, 0, 0, 0]);
   const focalUniform = new Float32Array([PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, 0]);
   const inputResolutionUniform = new Float32Array(8);
-  const textures: Record<string, WebGLTexture | null> = {};
-  let transparentTextureRef: WebGLTexture | null = null;
+  let atlasTexture: WebGLTexture | null = null;
   let animationFrame = 0;
   let running = false;
   let renderActive = true;
@@ -280,42 +273,26 @@ export function mountPhoto3D(
     updateStats();
   };
 
-  const loadSprite = async (url: string) => {
+  const loadAtlas = async (url: string) => {
     setStatus('Loading asset');
-    const frames = splitPhoto3DSprite(await loadPhoto3DImage(url), SPRITE_LAYOUT);
-
-    textures.rgb0 = createTexture(gl, frames[3]);
-    textures.rgb1 = createTexture(gl, frames[4]);
-    textures.rgb2 = createTexture(gl, frames[5]);
-    textures.disparity0 = createTexture(gl, createPhoto3DDisparityCanvas(frames[0], false));
-    textures.disparity1 = createTexture(gl, createPhoto3DDisparityCanvas(frames[1], true));
-    textures.disparity2 = createTexture(gl, createPhoto3DDisparityCanvas(frames[2], true));
-
-    if (!transparentTextureRef) transparentTextureRef = makeTransparentTexture(gl);
-    textures.rgb3 = transparentTextureRef;
-    textures.disparity3 = transparentTextureRef;
-    config.sourceWidth = frames[3].width;
-    config.sourceHeight = frames[3].height;
+    const image = await loadPhoto3DImage(url);
+    atlasTexture = createTexture(gl, image);
+    config.sourceWidth = atlasMeta.frameWidth;
+    config.sourceHeight = atlasMeta.frameHeight;
     root.style.setProperty('--photo3d-aspect', `${config.sourceWidth} / ${config.sourceHeight}`);
     layoutStage();
 
     gl.useProgram(program);
-    const units = {
-      disparity0: 0,
-      disparity1: 1,
-      disparity2: 2,
-      disparity3: 3,
-      rgb0: 4,
-      rgb1: 5,
-      rgb2: 6,
-      rgb3: 7,
-    };
-
-    for (const [key, unit] of Object.entries(units)) {
-      gl.activeTexture(gl.TEXTURE0 + unit);
-      gl.bindTexture(gl.TEXTURE_2D, textures[key]);
-      gl.uniform1i(uniforms[key as Photo3DUniformName], unit);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTexture);
+    gl.uniform1i(uniforms.photo3DAtlas, 0);
+    for (const name of LEGACY_SAMPLER_UNIFORMS) {
+      gl.uniform1i(uniforms[name], 0);
     }
+    gl.uniform2f(uniforms.photo3DAtlasSize, image.naturalWidth || image.width, image.naturalHeight || image.height);
+    gl.uniform2f(uniforms.photo3DAtlasFrameSize, atlasMeta.frameWidth, atlasMeta.frameHeight);
+    gl.uniform2f(uniforms.photo3DAtlasCellSize, photo3DAtlasCellWidth(atlasMeta), photo3DAtlasCellHeight(atlasMeta));
+    gl.uniform1f(uniforms.photo3DAtlasPadding, atlasMeta.padding);
     syncStaticUniforms();
 
     resize();
@@ -462,6 +439,10 @@ export function mountPhoto3D(
     },
     dispose() {
       stopLoop();
+      if (atlasTexture) {
+        gl.deleteTexture(atlasTexture);
+        atlasTexture = null;
+      }
     },
     get active() {
       return renderActive;
@@ -515,7 +496,7 @@ export function mountPhoto3D(
     controller.dispose();
   }, { once: true });
 
-  loadSprite(spriteUrl)
+  loadAtlas(atlasUrl)
     .then(() => startLoop())
     .catch((error) => {
       console.error(error);

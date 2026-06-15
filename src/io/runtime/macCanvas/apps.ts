@@ -1,4 +1,5 @@
 import type { WindowId, WindowStateMap } from './windowTypes';
+import { PHOTO3D_APP_ATLAS_META } from '../photo3d/core';
 
 export type IconLabelKey = 'iconReadme' | 'iconPhoto' | 'iconReflection' | 'iconLog' | 'iconProjects' | 'iconLabs';
 export type FolderId = 'labs';
@@ -22,13 +23,13 @@ export type MacFolderDefinition = {
 
 export const MAC_ASSET_BASE = '/io-design/assets/';
 export const PHOTO3D_SHADER_URL = `${MAC_ASSET_BASE}photo3d.fs`;
-export const WALLPAPER_SPRITE = `${MAC_ASSET_BASE}sprite1.png`;
-export const PHOTO_APP_SPRITE = `${MAC_ASSET_BASE}sprite2.png`;
+export const WALLPAPER_ATLAS = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas.png`;
+export const PHOTO_APP_ATLAS = `${MAC_ASSET_BASE}photo3d-app-atlas.png`;
 export const REFLECTION_DEMO_ID = 'planar-reflection';
 
 export const PHOTO_APP_META = {
-  sourceFrameWidth: 472,
-  sourceFrameHeight: 1024,
+  sourceFrameWidth: PHOTO3D_APP_ATLAS_META.frameWidth,
+  sourceFrameHeight: PHOTO3D_APP_ATLAS_META.frameHeight,
   renderAspect: 0.72,
 } as const;
 

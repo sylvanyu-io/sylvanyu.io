@@ -16,6 +16,38 @@ export const PHOTO3D_DEFAULT_CONFIG = {
   sourceHeight: 640,
 } as const;
 
+export type Photo3DAtlasMeta = {
+  columns: number;
+  rows: number;
+  padding: number;
+  frameWidth: number;
+  frameHeight: number;
+};
+
+export const PHOTO3D_WALLPAPER_ATLAS_META = {
+  columns: 3,
+  rows: 2,
+  padding: 16,
+  frameWidth: 1024,
+  frameHeight: 640,
+} as const satisfies Photo3DAtlasMeta;
+
+export const PHOTO3D_APP_ATLAS_META = {
+  columns: 3,
+  rows: 2,
+  padding: 16,
+  frameWidth: 472,
+  frameHeight: 1024,
+} as const satisfies Photo3DAtlasMeta;
+
+export function photo3DAtlasCellWidth(meta: Photo3DAtlasMeta) {
+  return meta.frameWidth + meta.padding * 2;
+}
+
+export function photo3DAtlasCellHeight(meta: Photo3DAtlasMeta) {
+  return meta.frameHeight + meta.padding * 2;
+}
+
 export const PHOTO3D_RAW_VERTEX_SHADER = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -47,6 +79,11 @@ export const PHOTO3D_UNIFORM_NAMES = [
   'rgb1',
   'rgb2',
   'rgb3',
+  'photo3DAtlas',
+  'photo3DAtlasSize',
+  'photo3DAtlasFrameSize',
+  'photo3DAtlasCellSize',
+  'photo3DAtlasPadding',
 ] as const;
 
 export type Photo3DUniformName = (typeof PHOTO3D_UNIFORM_NAMES)[number];
@@ -72,6 +109,146 @@ export function createPhoto3DConfig(overrides: Partial<Photo3DSourceConfig> = {}
     ...PHOTO3D_DEFAULT_CONFIG,
     ...overrides,
   };
+}
+
+function replaceRequired(source: string, pattern: string | RegExp, replacement: string, label: string) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`Failed to adapt Photo3D atlas shader: ${label}`);
+  }
+  return next;
+}
+
+export function createPhoto3DAtlasShader(shaderBody: string) {
+  const atlasUniforms = `
+uniform sampler2D photo3DAtlas;
+uniform vec2 photo3DAtlasSize;
+uniform vec2 photo3DAtlasFrameSize;
+uniform vec2 photo3DAtlasCellSize;
+uniform float photo3DAtlasPadding;
+`;
+
+  const atlasSamplers = `
+vec2 photo3DAtlasUv(vec2 uv, int texIndex, float row){
+    float layer = min(float(texIndex), 2.0);
+    vec2 paddingUv = vec2(photo3DAtlasPadding) / photo3DAtlasFrameSize;
+    vec2 safeUv = clamp(uv, -paddingUv, vec2(1.0) + paddingUv);
+    vec2 origin = vec2(layer * photo3DAtlasCellSize.x + photo3DAtlasPadding,
+        row * photo3DAtlasCellSize.y + photo3DAtlasPadding);
+    return (origin + safeUv * photo3DAtlasFrameSize) / photo3DAtlasSize;
+}
+
+// The atlas stores preprocessed disparity on the PNG top row and RGB on the
+// bottom row. Current upload paths flip image Y, so shader row 0 samples the
+// PNG bottom row. Dilated padding prevents feather/linear samples crossing
+// into adjacent atlas cells.
+vec3 readColor(sampler2D iChannel,vec2 uv,int texIndex){
+    return texture2D(photo3DAtlas, photo3DAtlasUv(uv, texIndex, 0.0)).rgb;
+}
+
+float readMask(sampler2D tex, vec2 uv, int texIndex){
+    return texture2D(photo3DAtlas, photo3DAtlasUv(uv, texIndex, 1.0)).y;
+}
+
+// 读取深度视差值，并将其映射到指定范围
+float readDisp(sampler2D iChannel,vec2 uv,float vMin,float vMax,vec2 iRes,int texIndex){
+    // 改进的边界处理 - 使用更宽松的边界
+    vec2 safeUV = clamp(uv, vec2(0.001), vec2(0.999));
+    return texture2D(photo3DAtlas, photo3DAtlasUv(safeUV, texIndex, 1.0)).x*(vMin-vMax)+vMax;
+}
+`;
+
+  let shader = replaceRequired(
+    shaderBody,
+    'uniform sampler2D rgb3;// 第3层颜色图',
+    `uniform sampler2D rgb3;// 第3层颜色图\n${atlasUniforms}`,
+    'atlas uniforms',
+  );
+
+  shader = replaceRequired(
+    shader,
+    /\/\/ === 纹理读取函数 ===[\s\S]*?\/\/ === 矩阵变换函数 ===/,
+    `// === 纹理读取函数 ===\n${atlasSamplers}\n// === 矩阵变换函数 ===`,
+    'atlas texture readers',
+  );
+
+  shader = replaceRequired(shader, 'return texture2D(tex,xy).y;', 'return readMask(tex, xy, texIndex);', 'hard mask reader');
+  shader = replaceRequired(shader, 'float center = texture2D(tex, xy).y;', 'float center = readMask(tex, xy, texIndex);', 'mask center reader');
+  shader = replaceRequired(
+    shader,
+    'mask += texture2D(tex, clamp(xy + vec2(offset.x, 0.), vec2(0.01), vec2(0.99))).y * 0.15;',
+    'mask += readMask(tex, clamp(xy + vec2(offset.x, 0.), vec2(0.01), vec2(0.99)), texIndex) * 0.15;',
+    'mask x+ reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'mask += texture2D(tex, clamp(xy - vec2(offset.x, 0.), vec2(0.01), vec2(0.99))).y * 0.15;',
+    'mask += readMask(tex, clamp(xy - vec2(offset.x, 0.), vec2(0.01), vec2(0.99)), texIndex) * 0.15;',
+    'mask x- reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'mask += texture2D(tex, clamp(xy + vec2(0., offset.y), vec2(0.01), vec2(0.99))).y * 0.15;',
+    'mask += readMask(tex, clamp(xy + vec2(0., offset.y), vec2(0.01), vec2(0.99)), texIndex) * 0.15;',
+    'mask y+ reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'mask += texture2D(tex, clamp(xy - vec2(0., offset.y), vec2(0.01), vec2(0.99))).y * 0.15;',
+    'mask += readMask(tex, clamp(xy - vec2(0., offset.y), vec2(0.01), vec2(0.99)), texIndex) * 0.15;',
+    'mask y- reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'float getDistanceToMaskEdge(vec2 xy,sampler2D tex,vec2 iRes){',
+    'float getDistanceToMaskEdge(vec2 xy,sampler2D tex,vec2 iRes,int texIndex){',
+    'edge function signature',
+  );
+  shader = replaceRequired(shader, 'float center = texture2D(tex, xy).y;', 'float center = readMask(tex, xy, texIndex);', 'edge center reader');
+  shader = replaceRequired(
+    shader,
+    'diff = max(diff, abs(center - texture2D(tex, xy + vec2(texelSize.x, 0.)).y));',
+    'diff = max(diff, abs(center - readMask(tex, xy + vec2(texelSize.x, 0.), texIndex)));',
+    'edge x+ reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'diff = max(diff, abs(center - texture2D(tex, xy - vec2(texelSize.x, 0.)).y));',
+    'diff = max(diff, abs(center - readMask(tex, xy - vec2(texelSize.x, 0.), texIndex)));',
+    'edge x- reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'diff = max(diff, abs(center - texture2D(tex, xy + vec2(0., texelSize.y)).y));',
+    'diff = max(diff, abs(center - readMask(tex, xy + vec2(0., texelSize.y), texIndex)));',
+    'edge y+ reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'diff = max(diff, abs(center - texture2D(tex, xy - vec2(0., texelSize.y)).y));',
+    'diff = max(diff, abs(center - readMask(tex, xy - vec2(0., texelSize.y), texIndex)));',
+    'edge y- reader',
+  );
+  shader = replaceRequired(
+    shader,
+    'disp=readDisp(iChannelDisp,s1+.5,invZmin,invZmax,iRes);',
+    'disp=readDisp(iChannelDisp,s1+.5,invZmin,invZmax,iRes,texIndex);',
+    'depth reader call',
+  );
+  shader = replaceRequired(
+    shader,
+    'vec3 color = readColor(iChannelCol, s1+.5);',
+    'vec3 color = readColor(iChannelCol, s1+.5, texIndex);',
+    'color reader call',
+  );
+  shader = replaceRequired(
+    shader,
+    'float edgeDist = getDistanceToMaskEdge(s1+.5, iChannelDisp, iRes);',
+    'float edgeDist = getDistanceToMaskEdge(s1+.5, iChannelDisp, iRes, texIndex);',
+    'edge reader call',
+  );
+
+  return shader;
 }
 
 export function createPhoto3DCanvas(width: number, height: number) {

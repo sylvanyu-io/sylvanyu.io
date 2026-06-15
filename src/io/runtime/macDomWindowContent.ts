@@ -3,13 +3,13 @@ import type { Lang } from '../content/common';
 import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
-import { loadPhoto3DShader } from './photo3d/core';
+import { PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 import {
   MAC_LOADING_COPY,
   PHOTO3D_SHADER_URL,
-  PHOTO_APP_SPRITE,
+  PHOTO_APP_ATLAS,
   REFLECTION_DEMO_ID,
 } from './macCanvas/apps';
 import { MAC_FPS_TUNING } from './macCanvas/tuning';
@@ -174,6 +174,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
     ]);
     const controller = mountPhoto3D(root, {
       shaderBody,
+      atlasMeta: PHOTO3D_APP_ATLAS_META,
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: true,
       fit: 'cover',
@@ -201,7 +202,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   const stage = div('mac-photo__stage');
   const photoRoot = div('mac-photo__island');
   photoRoot.dataset.photo3dRoot = '';
-  photoRoot.dataset.localSprite = PHOTO_APP_SPRITE;
+  photoRoot.dataset.localAtlas = PHOTO_APP_ATLAS;
   const wrap = div('mac-photo__wrap');
   wrap.dataset.photo3dWrap = '';
   const photoStage = div('mac-photo__canvas-stage');
