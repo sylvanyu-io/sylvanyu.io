@@ -88,7 +88,7 @@ function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   body.textContent = copy.readmeBody;
 
   const chips = div('mac-readme__chips');
-  copy.chips.slice(0, 3).forEach((chip) => {
+  copy.chips.forEach((chip) => {
     const item = document.createElement('span');
     item.textContent = chip;
     chips.append(item);
@@ -115,7 +115,7 @@ function renderWorklog(record: MacDomWindowRecord, lang: Lang) {
   const panel = div('mac-worklog__panel');
   panel.setAttribute('aria-label', 'work log');
 
-  logLines[lang].slice(0, 10).forEach((line) => {
+  logLines[lang].forEach((line) => {
     const row = document.createElement('p');
     row.dataset.tone = line.tone;
     row.textContent = line.text;
@@ -128,7 +128,7 @@ function renderWorklog(record: MacDomWindowRecord, lang: Lang) {
 function renderProjects(record: MacDomWindowRecord, lang: Lang) {
   record.body.replaceChildren();
 
-  desktopProjects[lang].slice(0, 5).forEach((project) => {
+  desktopProjects[lang].forEach((project) => {
     const article = document.createElement('article');
     article.className = 'mac-project';
 
