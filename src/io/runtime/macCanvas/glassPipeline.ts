@@ -166,7 +166,6 @@ export function createGlassPipeline(ctx: GlassPassContext, placeholder: THREE.Te
     uCurveMix: { value: 0 },
     uSplay: { value: 1 },
     uChroma: { value: 0 },
-    uRefractionFill: { value: 0 },
     uBlurLevel: { value: 0 },
     uFrost: { value: 0 },
     uTintEase: { value: 0 },
@@ -199,7 +198,6 @@ export function createGlassPipeline(ctx: GlassPassContext, placeholder: THREE.Te
     glassUniforms.uCurveMix.value = THREE.MathUtils.clamp(params.curvature / 80, 0, 1);
     glassUniforms.uSplay.value = THREE.MathUtils.clamp(params.splay, 0, 1);
     glassUniforms.uChroma.value = THREE.MathUtils.clamp(params.chroma, 0, 1);
-    glassUniforms.uRefractionFill.value = THREE.MathUtils.clamp(params.refractionFill, 0, 1);
     glassUniforms.uBlurLevel.value = smoothstep01(6, THREE.MathUtils.clamp(params.kawaseOffset, 0, 6));
     glassUniforms.uFrost.value = THREE.MathUtils.clamp(params.frost, 0, 1);
     glassUniforms.uTintEase.value = Math.pow(THREE.MathUtils.clamp(params.tint, 0, 1), 1.15);

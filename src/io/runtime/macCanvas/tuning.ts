@@ -4,8 +4,6 @@ export type GlassParams = {
   curvature: number;
   splay: number;
   chroma: number;
-  /** 0 keeps refraction on the lens edge, 1 lets the whole glass body refract. */
-  refractionFill: number;
   /** Number of complete Kawase down/up levels. 1 means one effective blur level. */
   kawasePasses: number;
   /** Kawase sample distance in target texels. */
@@ -51,7 +49,6 @@ export const DEFAULT_GLASS_PARAMS: GlassParams = {
   curvature: 100,
   splay: 1,
   chroma: 0.42,
-  refractionFill: 0,
   kawasePasses: 1,
   kawaseOffset: 1,
   kawaseDownsample: 3,
@@ -94,7 +91,6 @@ export const DOCK_GLASS: Partial<GlassParams> = {
   scale: 0.58,
   depth: 4,
   chroma: 0.48,
-  refractionFill: 0,
   curvature: 60,
   glow: 0.28,
   edge: 0.42,
@@ -102,11 +98,11 @@ export const DOCK_GLASS: Partial<GlassParams> = {
 
 export const FOLDER_ICON_GLASS: Partial<GlassParams> = {
   scale: 0.58,
-  depth: 8,
-  curvature: 40,
-  chroma: 0.58,
-  glow: 0.22,
-  edge: 0.32,
+  depth: 6,
+  curvature: 80,
+  chroma: 0.48,
+  glow: 0.2,
+  edge: 0.12,
 };
 
 export const FOLDER_PANEL_GLASS: Partial<GlassParams> = {
