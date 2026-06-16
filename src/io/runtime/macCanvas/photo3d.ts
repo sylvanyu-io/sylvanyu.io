@@ -4,10 +4,14 @@ import {
   PHOTO3D_FOCAL_LENGTH,
   PHOTO3D_INV_Z_MIN,
   PHOTO3D_MAX_LAYERS,
+  PHOTO3D_SETTLE_EPSILON,
   PHOTO3D_WALLPAPER_ATLAS_META,
   createPhoto3DAtlasShader,
   loadPhoto3DImage,
   loadPhoto3DShader,
+  photo3DDampingAlpha,
+  photo3DOffsetSettled,
+  photo3DQuantizeOffset,
   photo3DAtlasCellHeight,
   photo3DAtlasCellWidth,
   photo3DTargetOffset,
@@ -56,6 +60,16 @@ type RenderOptions = {
   shadeStrength?: number;
   offsetZ?: number;
   focus?: number;
+  dt?: number;
+  smoothingPerSecond?: number;
+};
+
+type Photo3DPassDebug = {
+  rendered: boolean;
+  reason: 'settled' | 'first' | 'offset' | 'key' | 'idle';
+  dx: number;
+  dy: number;
+  keyChanged: boolean;
 };
 
 function createPhoto3DWallpaperShader(shaderBody: string) {
@@ -99,6 +113,10 @@ function makeTexture(source: HTMLCanvasElement | HTMLImageElement | THREE.DataTe
   return texture;
 }
 
+function renderKeyNumber(value: number, digits = 4) {
+  return Number.isFinite(value) ? value.toFixed(digits) : String(value);
+}
+
 export class Photo3DPass {
   readonly aspect: number;
   readonly sourceWidth: number;
@@ -111,6 +129,15 @@ export class Photo3DPass {
   private readonly textures: THREE.Texture[];
   private smoothX = PHOTO3D_DEFAULT_CONFIG.offsetX;
   private smoothY = PHOTO3D_DEFAULT_CONFIG.offsetY;
+  private rendered = false;
+  private renderKey = '';
+  private debug: Photo3DPassDebug = {
+    rendered: false,
+    reason: 'first',
+    dx: 0,
+    dy: 0,
+    keyChanged: false,
+  };
 
   constructor(shaderBody: string, image: HTMLImageElement, layers = 2) {
     const width = PHOTO3D_WALLPAPER_ATLAS_META.frameWidth;
@@ -185,20 +212,63 @@ export class Photo3DPass {
   }
 
   render(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, options: RenderOptions) {
-    const offset = photo3DTargetOffset(options);
+    const offset = photo3DQuantizeOffset(photo3DTargetOffset(options));
     const offsetZ = options.offsetZ ?? PHOTO3D_DEFAULT_CONFIG.offsetZ;
     const focus = options.focus ?? PHOTO3D_DEFAULT_CONFIG.focus;
+    const shadeHeight = Number((options.shadeHeight ?? 0).toFixed(3));
+    const shadeStrength = Number((options.shadeStrength ?? 0).toFixed(4));
+    const overscan = Number((options.overscan ?? 1.0).toFixed(4));
+    const nextKey = [
+      `${target.width}x${target.height}`,
+      renderKeyNumber(overscan),
+      renderKeyNumber(shadeHeight, 3),
+      renderKeyNumber(shadeStrength),
+      renderKeyNumber(offsetZ),
+      renderKeyNumber(focus),
+    ].join(':');
+    const settledBefore = photo3DOffsetSettled({ x: this.smoothX, y: this.smoothY }, offset);
+    const keyChanged = this.renderKey !== nextKey;
 
-    this.smoothX += (offset.x - this.smoothX) * 0.055;
-    this.smoothY += (offset.y - this.smoothY) * 0.055;
+    if (this.rendered && settledBefore && !options.idleDrift && this.renderKey === nextKey) {
+      this.debug = {
+        rendered: false,
+        reason: 'settled',
+        dx: 0,
+        dy: 0,
+        keyChanged: false,
+      };
+      return false;
+    }
+
+    const reason = !this.rendered ? 'first' : options.idleDrift ? 'idle' : keyChanged ? 'key' : 'offset';
+
+    const alpha = photo3DDampingAlpha(options.dt ?? 1 / 60, options.smoothingPerSecond);
+    this.smoothX += (offset.x - this.smoothX) * alpha;
+    this.smoothY += (offset.y - this.smoothY) * alpha;
+    if (Math.abs(offset.x - this.smoothX) <= PHOTO3D_SETTLE_EPSILON) this.smoothX = offset.x;
+    if (Math.abs(offset.y - this.smoothY) <= PHOTO3D_SETTLE_EPSILON) this.smoothY = offset.y;
     this.material.uniforms.offset.value.set(this.smoothX, this.smoothY, offsetZ);
     this.material.uniforms.focus.value = focus;
     this.material.uniforms.outputResolution.value.set(target.width, target.height);
-    this.material.uniforms.outputOverscan.value = options.overscan ?? 1.0;
-    this.material.uniforms.outputShade.value.set(options.shadeHeight ?? 0, options.shadeStrength ?? 0);
+    this.material.uniforms.outputOverscan.value = overscan;
+    this.material.uniforms.outputShade.value.set(shadeHeight, shadeStrength);
 
     renderer.setRenderTarget(target);
     renderer.render(this.scene, this.camera);
+    this.rendered = true;
+    this.renderKey = nextKey;
+    this.debug = {
+      rendered: true,
+      reason,
+      dx: offset.x - this.smoothX,
+      dy: offset.y - this.smoothY,
+      keyChanged,
+    };
+    return true;
+  }
+
+  getDebug() {
+    return this.debug;
   }
 
   dispose() {

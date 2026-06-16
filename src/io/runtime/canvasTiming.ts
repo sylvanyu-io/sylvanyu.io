@@ -1,4 +1,5 @@
 const DEFAULT_FPS_SAMPLE_MS = 1000;
+const MAX_FRAME_DELTA_SECONDS = 0.25;
 
 export function createFrameLimiter(initialFps: number) {
   let activeFps = Math.max(1, Math.round(initialFps) || 1);
@@ -25,7 +26,7 @@ export function createFrameLimiter(initialFps: number) {
   };
 
   const consumeDelta = (nowMs: number) => {
-    const dt = Math.min(0.1, Math.max(0.001, (nowMs - lastRenderMs) / 1000));
+    const dt = Math.min(MAX_FRAME_DELTA_SECONDS, Math.max(0.001, (nowMs - lastRenderMs) / 1000));
     lastRenderMs = nowMs;
     return dt;
   };
