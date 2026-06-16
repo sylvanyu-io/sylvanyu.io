@@ -4,6 +4,7 @@ import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
 import { DOCK_GLASS, FOLDER_ICON_GLASS, FOLDER_PANEL_GLASS } from './tuning';
 import {
   DOCK_APPS,
+  HOME_APPS,
   LABS_FOLDER_ID,
   MAC_APPS,
   MAC_ASSET_BASE,
@@ -522,7 +523,7 @@ function buildMobileIconCells(width: number, top: number): IconCell[] {
     };
   };
 
-  const cells: IconCell[] = MAC_APPS.map((app, index) => ({
+  const cells: IconCell[] = HOME_APPS.map((app, index) => ({
     id: app.id,
     labelKey: app.labelKey,
     ...cellAt(index),
@@ -545,7 +546,7 @@ function buildDesktopIconCells(): IconCell[] {
   const iconGap = grid.gap;
   const itemH = grid.itemH;
 
-  const cells: IconCell[] = MAC_APPS.map((app, index) => {
+  const cells: IconCell[] = HOME_APPS.map((app, index) => {
     const y = iconTop + index * (itemH + iconGap);
     const imgY = y + grid.imgOffsetY;
     return {
@@ -808,7 +809,7 @@ export function buildMacCanvasLayout(
     ...(mobile ? fullscreen : LAYOUT.windows.video),
     r: mobile ? 0 : LAYOUT.windows.radius,
     z: state.windows.video.z,
-    titleH,
+    titleH: mobile ? 0 : titleH,
   };
 
   const dockIcon = mobile ? LAYOUT.dock.mobileIcon : LAYOUT.dock.desktopIcon;
