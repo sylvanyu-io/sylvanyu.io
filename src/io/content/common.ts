@@ -7,8 +7,10 @@ export const profile = {
   github: 'https://github.com/sylvanyu-io',
   website: 'https://sylvanyu.io',
   socials: [
-    { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'GH' },
-    { key: 'website', label: 'sylvanyu.io', href: 'https://sylvanyu.io', icon: 'WWW' },
+    { key: 'github', label: 'GitHub', href: '#', icon: 'github' },
+    { key: 'linkedin', label: 'LinkedIn', href: '#', icon: 'linkedin' },
+    { key: 'rednote', label: '小红书', href: '#', icon: 'rednote' },
+    { key: 'instagram', label: 'Instagram', href: '#', icon: 'instagram' },
   ],
   location: {
     en: 'Shanghai · open to remote / overseas',

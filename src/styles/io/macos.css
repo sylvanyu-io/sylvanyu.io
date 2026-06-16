@@ -560,16 +560,19 @@
   .mac-readme__actions {
     position: absolute;
     left: 24px;
+    right: 24px;
     bottom: 26px;
     display: flex;
     gap: 8px;
     align-items: center;
+    justify-content: space-between;
   }
 
   /* In the scrolling mobile sheet the actions flow with the content. */
   .mac-dom-window[data-mobile="true"] .mac-readme__actions {
     position: static;
     margin-top: 28px;
+    flex-wrap: wrap;
   }
 
   .mac-readme__actions a {
@@ -595,13 +598,13 @@
 
   .mac-readme__socials {
     display: inline-flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
   }
 
   .mac-readme__social-link {
-    width: 38px;
-    min-width: 38px;
+    width: 36px;
+    min-width: 36px;
     padding: 0;
     color: #17191c;
     border: 1px solid rgba(255, 255, 255, .82);
@@ -609,9 +612,10 @@
     letter-spacing: 0;
   }
 
-  .mac-readme__social-link[data-social="website"] {
-    width: 46px;
-    min-width: 46px;
+  .mac-readme__social-link svg {
+    width: 18px;
+    height: 18px;
+    display: block;
   }
 
   .mac-dom-window__body--photo {

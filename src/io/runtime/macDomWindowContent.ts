@@ -96,6 +96,19 @@ function dispatchWindowAction(record: MacDomWindowRecord, detail: MacDomWindowAc
   record.element.dispatchEvent(new CustomEvent(MAC_DOM_WINDOW_ACTION_EVENT, { bubbles: true, detail }));
 }
 
+function socialIcon(key: string) {
+  if (key === 'github') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.4a9.6 9.6 0 0 0-3 18.7c.48.1.66-.2.66-.46v-1.7c-2.68.58-3.24-1.14-3.24-1.14-.44-1.1-1.08-1.4-1.08-1.4-.88-.6.07-.6.07-.6.98.07 1.5 1 1.5 1 .86 1.48 2.27 1.06 2.82.8.09-.63.34-1.06.62-1.3-2.14-.24-4.4-1.07-4.4-4.76 0-1.05.38-1.9 1-2.58-.1-.25-.43-1.23.1-2.55 0 0 .82-.26 2.66 1a9.2 9.2 0 0 1 4.86 0c1.84-1.26 2.65-1 2.65-1 .54 1.32.2 2.3.1 2.55.63.68 1 1.53 1 2.58 0 3.7-2.26 4.52-4.4 4.76.35.3.66.9.66 1.8v2.54c0 .26.18.56.67.46A9.6 9.6 0 0 0 12 2.4Z" fill="currentColor"/></svg>';
+  }
+  if (key === 'linkedin') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.1 8.8h3.2v10.3H5.1V8.8Zm1.6-5a1.86 1.86 0 1 1 0 3.72 1.86 1.86 0 0 1 0-3.72Zm3.7 5h3.08v1.4h.04c.43-.82 1.48-1.69 3.05-1.69 3.26 0 3.86 2.15 3.86 4.94v5.66h-3.2v-5.02c0-1.2-.02-2.74-1.67-2.74-1.67 0-1.93 1.3-1.93 2.65v5.11h-3.2V8.8Z" fill="currentColor"/></svg>';
+  }
+  if (key === 'rednote') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4.2" width="16" height="15.6" rx="4" fill="currentColor"/><path d="M8 9.1h8M8 12h8M8 14.9h5.2" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="14" height="14" rx="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.4" cy="7.8" r="1.1" fill="currentColor"/></svg>';
+}
+
 function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   const copy = desktopCopy[lang];
   record.body.replaceChildren();
@@ -132,7 +145,7 @@ function renderReadme(record: MacDomWindowRecord, lang: Lang) {
     link.href = social.href;
     link.target = '_blank';
     link.rel = 'noreferrer';
-    link.textContent = social.icon;
+    link.innerHTML = socialIcon(social.icon);
     link.title = social.label;
     link.setAttribute('aria-label', social.label);
     link.dataset.social = social.key;
