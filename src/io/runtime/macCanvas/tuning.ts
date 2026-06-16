@@ -44,7 +44,7 @@ export const MAC_WALLPAPER_MOTION = {
   layers: 2,
   strength: 0.045,
   maxOffset: 0.018,
-  smoothingPerSecond: 3.4,
+  smoothingPerSecond: 7.5,
   settleEpsilon: 0.0002,
   idleDrift: false,
   overscan: 1.08,
