@@ -18,11 +18,11 @@ export type GlassParams = {
 };
 
 export const MAC_RENDER_TUNING = {
-  maxDesktopDevicePixelRatio: 1.5,
-  maxMobileDevicePixelRatio: 1.25,
+  maxDesktopDevicePixelRatio: 2,
+  maxMobileDevicePixelRatio: 3,
   maxVideoDevicePixelRatio: 1.35,
-  maxPhotoAppDevicePixelRatio: 1.5,
-  maxCanvasRenderPixels: 4_200_000,
+  maxPhotoAppDevicePixelRatio: 2,
+  maxCanvasRenderPixels: 16_000_000,
   maxVideoRenderPixels: 1_800_000,
   maxBackgroundRenderEdge: 1600,
   // A/B result: background upscale is visually close enough here and showed a

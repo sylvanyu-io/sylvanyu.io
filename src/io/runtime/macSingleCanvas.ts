@@ -600,10 +600,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     disposeTargets();
 
-    // backgroundTarget renders the wallpaper at MAC_RENDER_TUNING.baseRenderScale and is
-    // upscaled to the screen; the glass blur owns a separate chain sized to
-    // backgroundWidth/Height (capped at MAC_RENDER_TUNING.maxBackgroundRenderEdge), since the
-    // frosted backdrop never needs full device-pixel detail.
+    // backgroundTarget renders only the wallpaper at
+    // MAC_RENDER_TUNING.baseRenderScale and is upscaled to the screen. Text,
+    // icons, and DOM windows remain on the native canvas/DOM layers.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
     folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
