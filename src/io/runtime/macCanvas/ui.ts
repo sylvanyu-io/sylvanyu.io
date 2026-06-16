@@ -1177,12 +1177,12 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.fillStyle = 'rgba(204, 226, 255, 0.86)';
   ctx.fillText(copy.statusFoot, statusX, status.y + 126);
 
-  const wallpaperFps = state.fps > 0 ? Math.round(state.fps).toString() : '---';
+  const wallpaperFps = Math.round(state.fps).toString();
   const stats = [
     [wallpaperFps, copy.wFps],
-    ['Web/RN/Native', copy.wRenderer],
-    ['Predy/Gala', copy.wWallpaper],
-    ['MCP/Skills', copy.wUptime],
+    ['Web/RN', copy.wRenderer],
+    ['Predy', copy.wWallpaper],
+    ['MCP', copy.wUptime],
   ];
   ctx.font = `700 15px ${mono}`;
   stats.forEach((item, index) => {
