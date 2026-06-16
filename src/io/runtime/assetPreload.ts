@@ -14,7 +14,7 @@ export function scheduleIdleImagePreload(url: string, delayMs = 2000) {
     link.as = 'image';
     link.href = url;
     link.crossOrigin = 'anonymous';
-    link.type = 'image/png';
+    link.type = url.endsWith('.webp') ? 'image/webp' : 'image/png';
     link.setAttribute('fetchpriority', 'low');
     document.head.appendChild(link);
   };

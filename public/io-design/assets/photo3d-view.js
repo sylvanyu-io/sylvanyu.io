@@ -26,7 +26,13 @@
   var shaderCache = {};
 
   // When bundled into a standalone file, assets are inlined as blob URLs under window.__resources.
-  var ASSET_IDS = { 'assets/sprite1.png': 'sprite1', 'assets/sprite2.png': 'sprite2', 'assets/photo3d.fs': 'photo3dfs' };
+  var ASSET_IDS = {
+    'assets/sprite1.png': 'sprite1',
+    'assets/sprite2.png': 'sprite2',
+    'assets/sprite1.webp': 'sprite1',
+    'assets/sprite2.webp': 'sprite2',
+    'assets/photo3d.fs': 'photo3dfs'
+  };
   function resolveAsset(u) {
     var key = (u || '').replace(/^\.\//, '');
     var id = ASSET_IDS[key];
