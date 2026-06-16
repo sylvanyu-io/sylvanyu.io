@@ -240,15 +240,15 @@ function desktopIconGridForTier(tier: DesktopLayoutTier) {
       ...base,
       x: 18,
       top: 52,
-      gap: 12,
-      itemW: 80,
-      itemH: 66,
+      gap: 9,
+      itemW: 78,
+      itemH: 64,
       imgOffsetX: 17,
-      imgSize: 46,
-      labelXOffset: 40,
+      imgSize: 44,
+      labelXOffset: 39,
       labelGap: 7,
-      rows: 4,
-      colGap: 16,
+      rows: 8,
+      colGap: 0,
     };
   }
   if (tier === 'spacious') {
