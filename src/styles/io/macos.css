@@ -598,23 +598,23 @@
 
   .mac-readme__socials {
     display: inline-flex;
-    gap: 8px;
+    gap: 16px;
     align-items: center;
   }
 
-  .mac-readme__social-link {
-    width: 36px;
-    min-width: 36px;
+  .mac-readme__actions .mac-readme__social-link {
+    width: 24px;
+    min-width: 24px;
+    min-height: 24px;
     padding: 0;
     color: #17191c;
-    border: 1px solid rgba(255, 255, 255, .82);
-    background: rgba(255, 255, 255, .16);
+    border-radius: 0;
     letter-spacing: 0;
   }
 
   .mac-readme__social-link svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     display: block;
   }
 
