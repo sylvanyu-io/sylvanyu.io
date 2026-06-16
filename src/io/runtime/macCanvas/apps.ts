@@ -34,7 +34,6 @@ export type MacFolderDefinition = {
 export const MAC_ASSET_BASE = '/io-design/assets/';
 export const PHOTO3D_SHADER_URL = `${MAC_ASSET_BASE}photo3d.fs`;
 export const WALLPAPER_ATLAS = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas.webp`;
-export const WALLPAPER_ATLAS_FULL = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas.png`;
 export const PHOTO_APP_ATLAS = `${MAC_ASSET_BASE}photo3d-app-atlas.webp`;
 export const PHOTO_APP_ATLAS_FULL = `${MAC_ASSET_BASE}photo3d-app-atlas.png`;
 export const REFLECTION_DEMO_ID = 'planar-reflection';

@@ -66,13 +66,9 @@ import {
   PHOTO_APP_ATLAS,
   PHOTO_APP_META,
   WALLPAPER_ATLAS,
-  WALLPAPER_ATLAS_FULL,
   type FolderId,
 } from './macCanvas/apps';
-import {
-  PHOTO3D_WALLPAPER_ATLAS_FULL_META,
-  PHOTO3D_WALLPAPER_ATLAS_META,
-} from './photo3d/core';
+import { PHOTO3D_WALLPAPER_ATLAS_META } from './photo3d/core';
 
 const WINDOW_DRAG_LIMITS = {
   fallbackWidth: 320,
@@ -862,19 +858,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     folderPreheatHandle = window.setTimeout(run, 600);
   }
 
-  function scheduleIdleTask(task: () => void, delayMs = 1600) {
-    window.setTimeout(() => {
-      if (destroyed || document.hidden) return;
-      if (idleWindow.requestIdleCallback) {
-        idleWindow.requestIdleCallback(() => {
-          if (!destroyed) task();
-        }, { timeout: 5000 });
-        return;
-      }
-      task();
-    }, delayMs);
-  }
-
   // Reused across frames: the pill plus the lens thumb that slides to the
   // selected segment. Mutated in place so the animated toggle allocates nothing.
   const langPillPanel: GlassPanelInput = { x: 0, y: 0, w: 0, h: 0, r: 0, params: LANG_PILL_GLASS };
@@ -1257,16 +1240,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }),
     createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
       wallpaperPass = pass;
-      scheduleIdleTask(() => {
-        pass.replaceAtlasFromUrl(WALLPAPER_ATLAS_FULL, PHOTO3D_WALLPAPER_ATLAS_FULL_META)
-          .then(() => {
-            if (destroyed || wallpaperPass !== pass) return;
-            markRenderDirty();
-          })
-          .catch((error) => {
-            console.warn('mac wallpaper atlas upgrade:', error);
-          });
-      });
       // Desktop opens Photo3D.app by default; its mount path will fetch the
       // atlas once. Only preload while the app is closed, mainly for mobile.
       if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
