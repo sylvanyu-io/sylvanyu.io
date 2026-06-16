@@ -82,7 +82,7 @@ export type LangSwitchLayout = Rect & {
 };
 
 export type WidgetsLayout = {
-  clock: GlassPanel;
+  clock: GlassPanel | null;
   status: GlassPanel;
 };
 
@@ -157,6 +157,7 @@ const LAYOUT = {
       sidePad: 20,
       top: 18,
       clockH: 88,
+      clockMinViewportH: 760,
       statusH: 240,
       gap: 12,
       radius: 22,
@@ -802,17 +803,21 @@ export function buildMacCanvasLayout(
     const sidePad = widgetLayout.sidePad;
     const widgetW = width - sidePad * 2;
     const clockY = safeTop + widgetLayout.top;
-    const clock: GlassPanel = {
-      x: sidePad,
-      y: clockY,
-      w: widgetW,
-      h: widgetLayout.clockH,
-      r: widgetLayout.radius,
-      z: widgetLayout.z,
-    };
+    const showClock = height >= widgetLayout.clockMinViewportH;
+    const clock: GlassPanel | null = showClock
+      ? {
+        x: sidePad,
+        y: clockY,
+        w: widgetW,
+        h: widgetLayout.clockH,
+        r: widgetLayout.radius,
+        z: widgetLayout.z,
+      }
+      : null;
+    const statusY = clock ? clock.y + clock.h + widgetLayout.gap : clockY;
     const status: GlassPanel = {
       x: sidePad,
-      y: clockY + clock.h + widgetLayout.gap,
+      y: statusY,
       w: widgetW,
       h: widgetLayout.statusH,
       r: widgetLayout.radius,
@@ -840,7 +845,8 @@ export function buildMacCanvasLayout(
       },
     };
   }
-  widgetGlassPanels.push(widgets.clock, widgets.status);
+  if (widgets.clock) widgetGlassPanels.push(widgets.clock);
+  widgetGlassPanels.push(widgets.status);
 
   const iconsTop = mobile ? widgets.status.y + widgets.status.h + LAYOUT.widgets.iconGridGap : desktopIconGrid.top;
   const iconCells = mobile ? buildMobileIconCells(width, iconsTop) : buildDesktopIconCells(desktopIconGrid);
@@ -1324,7 +1330,6 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
 function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, state: MacCanvasState, now: Date) {
   const copy = desktopCopy[state.lang];
   const { clock, status } = layout.widgets;
-  const clockX = clock.x + 18;
   const statusX = status.x + 18;
   const statusW = status.w - 36;
   // Two columns spread across wider mobile widgets; the desktop rail keeps 100.
@@ -1338,11 +1343,14 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 1.2;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
-  ctx.font = `600 34px ${mono}`;
-  ctx.fillText(time, clockX, clock.y + 38);
-  ctx.font = `500 10px ${mono}`;
-  ctx.fillStyle = 'rgba(246, 250, 255, 0.62)';
-  ctx.fillText(date, clockX, clock.y + 66);
+  if (clock) {
+    const clockX = clock.x + 18;
+    ctx.font = `600 34px ${mono}`;
+    ctx.fillText(time, clockX, clock.y + 38);
+    ctx.font = `500 10px ${mono}`;
+    ctx.fillStyle = 'rgba(246, 250, 255, 0.62)';
+    ctx.fillText(date, clockX, clock.y + 66);
+  }
 
   ctx.font = `600 10px ${mono}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.66)';
