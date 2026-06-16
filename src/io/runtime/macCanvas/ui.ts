@@ -142,14 +142,14 @@ const LAYOUT = {
   desktopIconGrid: {
     x: 18,
     top: 56,
-    gap: 5,
+    gap: 10,
     itemW: 76,
-    itemH: 58,
-    imgOffsetX: 16,
+    itemH: 66,
+    imgOffsetX: 15,
     imgOffsetY: 2,
-    imgSize: 44,
+    imgSize: 46,
     labelXOffset: 38,
-    labelGap: 5,
+    labelGap: 7,
   },
   widgets: {
     mobile: {
@@ -565,7 +565,7 @@ function buildDesktopIconCells(): IconCell[] {
   });
 
   MAC_FOLDERS.forEach((folder, folderIndex) => {
-    const index = MAC_APPS.length + folderIndex;
+    const index = HOME_APPS.length + folderIndex;
     const y = iconTop + index * (itemH + iconGap);
     const imgY = y + grid.imgOffsetY;
     cells.push({
