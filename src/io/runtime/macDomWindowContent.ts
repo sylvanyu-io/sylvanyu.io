@@ -13,13 +13,14 @@ import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
 import { mountMacVideoGlass, type MacVideoGlassController } from './macVideoGlass';
-import { PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
+import { PHOTO3D_APP_ATLAS_FULL_META, PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 import {
   MAC_LOADING_COPY,
   PHOTO3D_SHADER_URL,
   PHOTO_APP_ATLAS,
+  PHOTO_APP_ATLAS_FULL,
   REFLECTION_DEMO_ID,
 } from './macCanvas/apps';
 import { MAC_FPS_TUNING } from './macCanvas/tuning';
@@ -562,6 +563,8 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
     const controller = mountPhoto3D(root, {
       shaderBody,
       atlasMeta: PHOTO3D_APP_ATLAS_META,
+      highAtlasUrl: PHOTO_APP_ATLAS_FULL,
+      highAtlasMeta: PHOTO3D_APP_ATLAS_FULL_META,
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: false,
       fit: 'cover',

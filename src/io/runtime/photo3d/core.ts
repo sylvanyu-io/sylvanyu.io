@@ -36,12 +36,28 @@ export const PHOTO3D_WALLPAPER_ATLAS_META = {
   frameHeight: 480,
 } as const satisfies Photo3DAtlasMeta;
 
+export const PHOTO3D_WALLPAPER_ATLAS_FULL_META = {
+  columns: 3,
+  rows: 2,
+  padding: 16,
+  frameWidth: 1024,
+  frameHeight: 640,
+} as const satisfies Photo3DAtlasMeta;
+
 export const PHOTO3D_APP_ATLAS_META = {
   columns: 3,
   rows: 2,
   padding: 12,
   frameWidth: 354,
   frameHeight: 768,
+} as const satisfies Photo3DAtlasMeta;
+
+export const PHOTO3D_APP_ATLAS_FULL_META = {
+  columns: 3,
+  rows: 2,
+  padding: 16,
+  frameWidth: 472,
+  frameHeight: 1024,
 } as const satisfies Photo3DAtlasMeta;
 
 export function photo3DAtlasCellWidth(meta: Photo3DAtlasMeta) {

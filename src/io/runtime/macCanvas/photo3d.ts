@@ -15,6 +15,7 @@ import {
   photo3DAtlasCellHeight,
   photo3DAtlasCellWidth,
   photo3DTargetOffset,
+  type Photo3DAtlasMeta,
 } from '../photo3d/core';
 
 const photo3dVertexShader = `
@@ -118,9 +119,9 @@ function renderKeyNumber(value: number, digits = 4) {
 }
 
 export class Photo3DPass {
-  readonly aspect: number;
-  readonly sourceWidth: number;
-  readonly sourceHeight: number;
+  aspect: number;
+  sourceWidth: number;
+  sourceHeight: number;
 
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -131,6 +132,7 @@ export class Photo3DPass {
   private smoothY = PHOTO3D_DEFAULT_CONFIG.offsetY;
   private rendered = false;
   private renderKey = '';
+  private disposed = false;
   private debug: Photo3DPassDebug = {
     rendered: false,
     reason: 'first',
@@ -139,9 +141,9 @@ export class Photo3DPass {
     keyChanged: false,
   };
 
-  constructor(shaderBody: string, image: HTMLImageElement, layers = 2) {
-    const width = PHOTO3D_WALLPAPER_ATLAS_META.frameWidth;
-    const height = PHOTO3D_WALLPAPER_ATLAS_META.frameHeight;
+  constructor(shaderBody: string, image: HTMLImageElement, layers = 2, atlasMeta: Photo3DAtlasMeta = PHOTO3D_WALLPAPER_ATLAS_META) {
+    const width = atlasMeta.frameWidth;
+    const height = atlasMeta.frameHeight;
     const atlasWidth = image.naturalWidth || image.width;
     const atlasHeight = image.naturalHeight || image.height;
     const atlasTexture = makeTexture(image);
@@ -185,11 +187,11 @@ export class Photo3DPass {
         photo3DAtlasFrameSize: { value: new THREE.Vector2(width, height) },
         photo3DAtlasCellSize: {
           value: new THREE.Vector2(
-            photo3DAtlasCellWidth(PHOTO3D_WALLPAPER_ATLAS_META),
-            photo3DAtlasCellHeight(PHOTO3D_WALLPAPER_ATLAS_META),
+            photo3DAtlasCellWidth(atlasMeta),
+            photo3DAtlasCellHeight(atlasMeta),
           ),
         },
-        photo3DAtlasPadding: { value: PHOTO3D_WALLPAPER_ATLAS_META.padding },
+        photo3DAtlasPadding: { value: atlasMeta.padding },
         // The shared Photo3D shader still passes the old per-layer samplers
         // through raycasting(). Wallpaper sampling now ignores them and reads
         // from photo3DAtlas, avoiding first-frame canvas split/remap work.
@@ -209,6 +211,49 @@ export class Photo3DPass {
     });
 
     this.scene.add(new THREE.Mesh(this.geometry, this.material));
+  }
+
+  replaceAtlas(image: HTMLImageElement, atlasMeta: Photo3DAtlasMeta) {
+    const previousTexture = this.textures[0];
+    const nextTexture = makeTexture(image);
+    if (this.disposed) {
+      nextTexture.dispose();
+      return;
+    }
+    const width = atlasMeta.frameWidth;
+    const height = atlasMeta.frameHeight;
+    const atlasWidth = image.naturalWidth || image.width;
+    const atlasHeight = image.naturalHeight || image.height;
+
+    this.aspect = width / height;
+    this.sourceWidth = width;
+    this.sourceHeight = height;
+    this.textures[0] = nextTexture;
+    previousTexture.dispose();
+
+    const uniforms = this.material.uniforms;
+    uniforms.aspect.value = this.aspect;
+    uniforms.outputResolution.value.set(width, height);
+    uniforms.originalWidthPx.value = width;
+    uniforms.originalHeightPx.value = height;
+    uniforms.iRes.value[0].set(width, height);
+    uniforms.iRes.value[1].set(width, height);
+    uniforms.iRes.value[2].set(width, height);
+    uniforms.photo3DAtlas.value = nextTexture;
+    uniforms.photo3DAtlasSize.value.set(atlasWidth, atlasHeight);
+    uniforms.photo3DAtlasFrameSize.value.set(width, height);
+    uniforms.photo3DAtlasCellSize.value.set(photo3DAtlasCellWidth(atlasMeta), photo3DAtlasCellHeight(atlasMeta));
+    uniforms.photo3DAtlasPadding.value = atlasMeta.padding;
+    ['disparity0', 'disparity1', 'disparity2', 'disparity3', 'rgb0', 'rgb1', 'rgb2', 'rgb3'].forEach((name) => {
+      uniforms[name].value = nextTexture;
+    });
+    this.rendered = false;
+    this.renderKey = '';
+  }
+
+  async replaceAtlasFromUrl(url: string, atlasMeta: Photo3DAtlasMeta) {
+    const image = await loadPhoto3DImage(url);
+    this.replaceAtlas(image, atlasMeta);
   }
 
   render(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, options: RenderOptions) {
@@ -272,6 +317,7 @@ export class Photo3DPass {
   }
 
   dispose() {
+    this.disposed = true;
     this.geometry.dispose();
     this.material.dispose();
     this.textures.forEach((texture) => texture.dispose());
@@ -280,7 +326,12 @@ export class Photo3DPass {
 
 export { loadPhoto3DShader };
 
-export async function createPhoto3DPass(shaderUrl: string, atlasUrl: string, layers = 2) {
+export async function createPhoto3DPass(
+  shaderUrl: string,
+  atlasUrl: string,
+  layers = 2,
+  atlasMeta: Photo3DAtlasMeta = PHOTO3D_WALLPAPER_ATLAS_META,
+) {
   const [shaderBody, image] = await Promise.all([loadPhoto3DShader(shaderUrl), loadPhoto3DImage(atlasUrl)]);
-  return new Photo3DPass(shaderBody, image, layers);
+  return new Photo3DPass(shaderBody, image, layers, atlasMeta);
 }

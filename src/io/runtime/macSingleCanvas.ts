@@ -66,8 +66,13 @@ import {
   PHOTO_APP_ATLAS,
   PHOTO_APP_META,
   WALLPAPER_ATLAS,
+  WALLPAPER_ATLAS_FULL,
   type FolderId,
 } from './macCanvas/apps';
+import {
+  PHOTO3D_WALLPAPER_ATLAS_FULL_META,
+  PHOTO3D_WALLPAPER_ATLAS_META,
+} from './photo3d/core';
 
 const WINDOW_DRAG_LIMITS = {
   fallbackWidth: 320,
@@ -128,8 +133,6 @@ function createPerfHud(root: HTMLElement) {
     'font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
     'pointer-events:none',
     'white-space:pre',
-    'backdrop-filter:blur(10px)',
-    '-webkit-backdrop-filter:blur(10px)',
   ].join(';');
   root.append(hud);
   return hud;
@@ -188,7 +191,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return {
       safeInsets,
       photoAspect: PHOTO_APP_META.renderAspect,
-      photoSourceText: `SRC ${PHOTO_APP_META.sourceFrameWidth}x${PHOTO_APP_META.sourceFrameHeight}`,
+      photoSourceText: `SRC ${PHOTO_APP_META.fullSourceFrameWidth}x${PHOTO_APP_META.fullSourceFrameHeight}`,
     };
   }
 
@@ -524,7 +527,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function refreshLayerKeys() {
     const assetFlag = assets ? 1 : 0;
-    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.label ?? ''}`).join(',');
+    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.labelKey ?? ''}`).join(',');
     iconsCacheKey = `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assetFlag}:${iconSig}`;
     dockCacheKey = dockStateKey(layout, state, assets);
   }
@@ -857,6 +860,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     folderPreheatUsesIdle = false;
     folderPreheatHandle = window.setTimeout(run, 600);
+  }
+
+  function scheduleIdleTask(task: () => void, delayMs = 1600) {
+    window.setTimeout(() => {
+      if (destroyed || document.hidden) return;
+      if (idleWindow.requestIdleCallback) {
+        idleWindow.requestIdleCallback(() => {
+          if (!destroyed) task();
+        }, { timeout: 5000 });
+        return;
+      }
+      task();
+    }, delayMs);
   }
 
   // Reused across frames: the pill plus the lens thumb that slides to the
@@ -1239,8 +1255,18 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // freshly-loaded glyphs actually rasterize into their layers.
       markLayoutDirty();
     }),
-    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers).then((pass) => {
+    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
       wallpaperPass = pass;
+      scheduleIdleTask(() => {
+        pass.replaceAtlasFromUrl(WALLPAPER_ATLAS_FULL, PHOTO3D_WALLPAPER_ATLAS_FULL_META)
+          .then(() => {
+            if (destroyed || wallpaperPass !== pass) return;
+            markRenderDirty();
+          })
+          .catch((error) => {
+            console.warn('mac wallpaper atlas upgrade:', error);
+          });
+      });
       // Desktop opens Photo3D.app by default; its mount path will fetch the
       // atlas once. Only preload while the app is closed, mainly for mobile.
       if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
@@ -1283,6 +1309,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     geometry.dispose();
     coverMaterial.dispose();
     uiRectMaterial.dispose();
+    upscaleMaterial.dispose();
     blurredBackdropMaterial.dispose();
     renderer.dispose();
   };
