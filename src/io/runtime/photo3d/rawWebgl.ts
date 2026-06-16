@@ -25,8 +25,6 @@ import { MAC_RENDER_TUNING } from '../macCanvas/tuning';
 type Photo3DOptions = {
   shaderBody: string;
   atlasMeta: Photo3DAtlasMeta;
-  highAtlasUrl?: string;
-  highAtlasMeta?: Photo3DAtlasMeta;
   interaction?: 'drag' | 'hover';
   idleDrift?: boolean;
   fit?: 'stretch' | 'contain' | 'cover';
@@ -108,7 +106,7 @@ function createProgram(gl: WebGLRenderingContext, shaderBody: string) {
 
 export function mountPhoto3D(
   root: Element,
-  { shaderBody, atlasMeta, highAtlasUrl, highAtlasMeta, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
+  { shaderBody, atlasMeta, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
 ): Photo3DController | null {
   if (!(root instanceof HTMLElement)) return null;
   if (root.dataset.mounted === 'true') return root.__photo3dController ?? null;
@@ -291,13 +289,13 @@ export function mountPhoto3D(
     updateStats();
   };
 
-  const loadAtlas = async (url: string, nextAtlasMeta = atlasMeta, silent = false) => {
-    if (!silent) setStatus('Loading asset');
+  const loadAtlas = async (url: string) => {
+    setStatus('Loading asset');
     const image = await loadPhoto3DImage(url);
     if (atlasTexture) gl.deleteTexture(atlasTexture);
     atlasTexture = createTexture(gl, image);
-    config.sourceWidth = nextAtlasMeta.frameWidth;
-    config.sourceHeight = nextAtlasMeta.frameHeight;
+    config.sourceWidth = atlasMeta.frameWidth;
+    config.sourceHeight = atlasMeta.frameHeight;
     root.style.setProperty('--photo3d-aspect', `${config.sourceWidth} / ${config.sourceHeight}`);
     layoutStage();
 
@@ -309,14 +307,14 @@ export function mountPhoto3D(
       gl.uniform1i(uniforms[name], 0);
     }
     gl.uniform2f(uniforms.photo3DAtlasSize, image.naturalWidth || image.width, image.naturalHeight || image.height);
-    gl.uniform2f(uniforms.photo3DAtlasFrameSize, nextAtlasMeta.frameWidth, nextAtlasMeta.frameHeight);
-    gl.uniform2f(uniforms.photo3DAtlasCellSize, photo3DAtlasCellWidth(nextAtlasMeta), photo3DAtlasCellHeight(nextAtlasMeta));
-    gl.uniform1f(uniforms.photo3DAtlasPadding, nextAtlasMeta.padding);
+    gl.uniform2f(uniforms.photo3DAtlasFrameSize, atlasMeta.frameWidth, atlasMeta.frameHeight);
+    gl.uniform2f(uniforms.photo3DAtlasCellSize, photo3DAtlasCellWidth(atlasMeta), photo3DAtlasCellHeight(atlasMeta));
+    gl.uniform1f(uniforms.photo3DAtlasPadding, atlasMeta.padding);
     syncStaticUniforms();
 
     resize();
     root.dataset.state = 'ready';
-    if (!silent) hideStatus();
+    hideStatus();
     updateStats();
   };
 
@@ -557,19 +555,7 @@ export function mountPhoto3D(
   listen(window, 'pagehide', onPageHide, { once: true });
 
   loadAtlas(atlasUrl)
-    .then(() => {
-      startLoop();
-      if (highAtlasUrl && highAtlasMeta) {
-        window.setTimeout(() => {
-          if (disposed || !renderActive) return;
-          loadAtlas(highAtlasUrl, highAtlasMeta, true)
-            .then(() => startLoop())
-            .catch((error) => {
-              console.warn('Photo3D high atlas:', error);
-            });
-        }, 1200);
-      }
-    })
+    .then(() => startLoop())
     .catch((error) => {
       console.error(error);
       setStatus(String(error.message || error), true);
