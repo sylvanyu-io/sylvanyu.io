@@ -638,7 +638,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   if (win.id === 'photo') {
     const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
     const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
-    const fpsText = photoFps > 0 ? Math.round(photoFps).toString().padStart(3, ' ') : '---';
+    const fpsText = Math.round(photoFps).toString().padStart(3, ' ');
     setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
     setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
     return;
@@ -648,7 +648,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     const demo = macCanvasDemos[REFLECTION_DEMO_ID];
     const demoActive = record.canvasDemoHandle?.active ?? record.element.dataset.active === 'true';
     const demoFps = demoActive ? record.canvasDemoHandle?.fps ?? 0 : 0;
-    const fpsText = demoFps > 0 ? Math.round(demoFps).toString().padStart(3, ' ') : '---';
+    const fpsText = Math.round(demoFps).toString().padStart(3, ' ');
     setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
     if (record.canvasDemoHud) {
       record.canvasDemoHud.hidden = false;

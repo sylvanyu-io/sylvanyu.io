@@ -44,7 +44,7 @@ function formatClock(root: HTMLElement) {
   });
 
   const wallpaper = root.querySelector('photo3d-view') as (HTMLElement & { _fps?: number }) | null;
-  const fps = wallpaper?._fps ? String(Math.round(wallpaper._fps)) : '—';
+  const fps = wallpaper?._fps ? String(Math.round(wallpaper._fps)) : '0';
   root.querySelectorAll<HTMLElement>('[data-wallpaper-fps]').forEach((element) => {
     element.textContent = fps;
   });

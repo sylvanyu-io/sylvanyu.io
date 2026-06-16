@@ -937,7 +937,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     lastPerfHudUpdateMs = nowMs;
     const photoDebug = wallpaperPass?.getDebug();
     perfHud.textContent = [
-      `fps ${state.fps ? Math.round(state.fps) : '--'} / cap ${displayFpsLimit}`,
+      `fps ${Math.round(state.fps)} / cap ${displayFpsLimit}`,
       `state ${status}`,
       `dpr ${pixelRatio.toFixed(2)} native ${(window.devicePixelRatio || 1).toFixed(2)} ${layout.mobile ? 'mobile' : 'desktop'}`,
       `canvas ${renderWidth}x${renderHeight}`,
@@ -945,7 +945,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       `blur ${backgroundWidth}x${backgroundHeight}`,
       photoDebug
         ? `photo3d ${photoDebug.rendered ? 'draw' : 'skip'} ${photoDebug.reason} dx ${photoDebug.dx.toExponential(1)} dy ${photoDebug.dy.toExponential(1)}`
-        : 'photo3d --',
+        : 'photo3d idle',
       `dom canvases ${root.querySelectorAll('canvas').length}`,
       `dirty layout:${layoutDirty ? 1 : 0} render:${renderDirty ? 1 : 0}`,
     ].join('\n');

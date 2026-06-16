@@ -248,7 +248,7 @@ export function mountPhoto3D(
     const size = stageSize();
     const width = size?.width ?? canvas.width;
     const height = size?.height ?? canvas.height;
-    setStat('fps', fps > 0 ? `${Math.round(fps)}` : '--');
+    setStat('fps', `${Math.round(fps)}`);
     setStat('view', `${width} x ${height}`);
     setStat('buffer', `${canvas.width} x ${canvas.height}`);
     setStat('image', `${config.sourceWidth} x ${config.sourceHeight}`);
