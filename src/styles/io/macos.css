@@ -598,14 +598,14 @@
 
   .mac-readme__socials {
     display: inline-flex;
-    gap: 16px;
+    gap: 10px;
     align-items: center;
   }
 
   .mac-readme__actions .mac-readme__social-link {
-    width: 24px;
-    min-width: 24px;
-    min-height: 24px;
+    width: 28px;
+    min-width: 28px;
+    min-height: 28px;
     padding: 0;
     color: #17191c;
     border-radius: 0;
@@ -613,8 +613,8 @@
   }
 
   .mac-readme__social-link svg {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     display: block;
   }
 
