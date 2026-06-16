@@ -896,7 +896,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.maxCanvasFps);
   const fpsSampler = createFpsSampler();
   let activeCanvasFpsLimit = MAC_FPS_TUNING.maxCanvasFps;
-  let activeWindowHasCanvasCache = false;
   const startTime = performance.now();
   let lastClockKey = '';
 
@@ -912,16 +911,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return Boolean(layout.folder && (!layout.mobile || layout.windows.length === 0));
   }
 
-  function refreshActiveWindowCanvasCache() {
-    activeWindowHasCanvasCache = !folderOwnsScreen()
+  function activeWindowHasRenderingCanvas() {
+    return !folderOwnsScreen()
       && !layout.mobile
-      && Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
+      && Boolean(root.querySelector('.mac-dom-window[data-active="true"][data-canvas-rendering="true"]'));
   }
 
   function currentCanvasFpsLimit() {
     if (folderOwnsScreen()) return MAC_FPS_TUNING.maxCanvasFps;
     if (mobileWindowOpen()) return 0;
-    return activeWindowHasCanvasCache ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
+    return activeWindowHasRenderingCanvas() ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
 
   function resetFrameTiming(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
@@ -987,7 +986,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
         suppressActiveWindow: folderOwnsScreen(),
         allowPhotoMount: Boolean(wallpaperPass),
       });
-      refreshActiveWindowCanvasCache();
     }
 
     if (!shouldRenderFrame(nowMs)) {

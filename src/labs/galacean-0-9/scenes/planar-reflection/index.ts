@@ -181,6 +181,9 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
     get active() {
       return running
     },
+    get rendering() {
+      return running
+    },
     get fps() {
       return fps
     },

@@ -88,6 +88,13 @@ function setAppLoaderState(loader: Element | null | undefined, state: 'loading' 
   setText(loader.querySelector('[data-app-loader-text]'), state === 'ready' ? '' : label);
 }
 
+function setCanvasRendering(record: MacDomWindowRecord, rendering: boolean) {
+  const next = rendering ? 'true' : 'false';
+  if (record.element.dataset.canvasRendering !== next) {
+    record.element.dataset.canvasRendering = next;
+  }
+}
+
 function setText(element: Element | null | undefined, value: string) {
   if (element && element.textContent !== value) element.textContent = value;
 }
@@ -657,6 +664,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'photo') {
     const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
+    setCanvasRendering(record, photoActive && Boolean(record.photo3dController?.rendering));
     const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
     const fpsText = Math.round(photoFps).toString().padStart(3, ' ');
     setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
@@ -667,6 +675,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   if (win.id === 'reflection') {
     const demo = macCanvasDemos[REFLECTION_DEMO_ID];
     const demoActive = record.canvasDemoHandle?.active ?? record.element.dataset.active === 'true';
+    setCanvasRendering(record, demoActive && Boolean(record.canvasDemoHandle?.rendering));
     const demoFps = demoActive ? record.canvasDemoHandle?.fps ?? 0 : 0;
     const fpsText = Math.round(demoFps).toString().padStart(3, ' ');
     setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
@@ -698,6 +707,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   }
 
   setText(record.accessory, '');
+  setCanvasRendering(record, false);
 }
 
 async function mountReflectionDemo(record: MacDomWindowRecord) {
@@ -779,6 +789,7 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
   }
 
   record.videoGlassController?.setActive(active);
+  if (!active) setCanvasRendering(record, false);
 }
 
 export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
@@ -787,6 +798,7 @@ export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
   record.canvasDemoCleanup?.();
   record.canvasDemoCleanup = undefined;
   record.canvasDemoHandle = null;
+  setCanvasRendering(record, false);
 }
 
 export { PHOTO_APP_HUD_HEIGHT };

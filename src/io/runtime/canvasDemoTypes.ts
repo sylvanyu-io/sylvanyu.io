@@ -6,6 +6,7 @@ export type CanvasDemoHandle = {
   resize?: () => void;
   destroy: () => void;
   readonly active?: boolean;
+  readonly rendering?: boolean;
   readonly fps?: number;
 };
 

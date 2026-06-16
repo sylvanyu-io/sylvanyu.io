@@ -35,6 +35,7 @@ export type Photo3DController = {
   setMaxFps: (fps: number) => void;
   dispose: () => void;
   readonly active: boolean;
+  readonly rendering: boolean;
   readonly fps: number;
 };
 
@@ -490,6 +491,9 @@ export function mountPhoto3D(
     },
     get active() {
       return renderActive;
+    },
+    get rendering() {
+      return running;
     },
     get fps() {
       return fps;
