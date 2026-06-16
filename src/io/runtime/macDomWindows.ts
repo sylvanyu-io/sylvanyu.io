@@ -419,7 +419,7 @@ export function createMacDomWindows(
     });
   }
 
-  const textTimer = window.setInterval(syncDynamicWindowTexts, 500);
+  const textTimer = window.setInterval(syncDynamicWindowTexts, 250);
 
   function sync(layout: MacCanvasLayout, state: MacCanvasState, options: MacDomWindowSyncOptions = {}) {
     latestLayout = layout;

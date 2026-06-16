@@ -1,4 +1,4 @@
-const DEFAULT_FPS_SAMPLE_MS = 1000;
+const DEFAULT_FPS_SAMPLE_MS = 400;
 const MAX_FRAME_DELTA_SECONDS = 0.25;
 
 export function createFrameLimiter(initialFps: number) {
