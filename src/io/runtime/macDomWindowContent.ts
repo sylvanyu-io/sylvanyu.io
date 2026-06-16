@@ -40,6 +40,15 @@ export type MacDomWindowRecord = {
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
   contentLang?: Lang;
+  internalBack?: () => boolean;
+};
+
+export const MAC_DOM_WINDOW_ACTION_EVENT = 'mac-dom-window-action';
+
+export type MacDomWindowActionEventDetail = {
+  type: 'open-window';
+  id: WindowId;
+  clipIndex?: number;
 };
 
 function div(className: string) {
@@ -79,6 +88,10 @@ function setAppLoaderState(loader: Element | null | undefined, state: 'loading' 
 
 function setText(element: Element | null | undefined, value: string) {
   if (element && element.textContent !== value) element.textContent = value;
+}
+
+function dispatchWindowAction(record: MacDomWindowRecord, detail: MacDomWindowActionEventDetail) {
+  record.element.dispatchEvent(new CustomEvent(MAC_DOM_WINDOW_ACTION_EVENT, { bubbles: true, detail }));
 }
 
 function renderReadme(record: MacDomWindowRecord, lang: Lang) {
@@ -177,6 +190,55 @@ function imageAlt(title: string, caption: string) {
   return `${title}. ${caption}`;
 }
 
+function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof mediaPhotos)[Lang][number]) {
+  record.body.querySelector('.mac-moments-preview')?.remove();
+
+  const overlay = div('mac-moments-preview');
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', photo.title);
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'mac-moments-preview__close';
+  closeButton.setAttribute('aria-label', 'Close image preview');
+  closeButton.textContent = '×';
+
+  const imageWrap = div('mac-moments-preview__image-wrap');
+  const image = document.createElement('img');
+  image.src = photo.src;
+  image.alt = imageAlt(photo.title, photo.caption);
+  imageWrap.append(image);
+
+  const caption = div('mac-moments-preview__caption');
+  const title = document.createElement('strong');
+  title.textContent = photo.title;
+  const meta = document.createElement('span');
+  meta.textContent = `${photo.date} · ${photo.caption}`;
+  caption.append(title, meta);
+
+  const closePreview = () => {
+    overlay.remove();
+    record.body.dataset.internalView = '';
+    record.internalBack = undefined;
+    return true;
+  };
+
+  closeButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closePreview();
+  });
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) closePreview();
+  });
+
+  overlay.append(closeButton, imageWrap, caption);
+  record.body.append(overlay);
+  record.body.dataset.internalView = 'image';
+  record.internalBack = closePreview;
+}
+
 function renderAlbum(record: MacDomWindowRecord, lang: Lang) {
   const photos = mediaPhotos[lang];
   const copy = mediaWindowCopy[lang];
@@ -260,11 +322,38 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
     const grid = div('mac-moment__grid');
     grid.dataset.count = String(images.length);
     images.forEach((photo) => {
+      const imageButton = document.createElement('button');
+      imageButton.type = 'button';
+      imageButton.className = 'mac-moment__image-button';
+      imageButton.setAttribute('aria-label', photo.title);
       const image = document.createElement('img');
       image.src = photo.src;
       image.alt = imageAlt(photo.title, photo.caption);
-      grid.append(image);
+      imageButton.append(image);
+      imageButton.addEventListener('click', () => showMomentsImagePreview(record, photo));
+      grid.append(imageButton);
     });
+
+    const clip = entry.videoClipIndex === undefined ? null : videoClips[lang][entry.videoClipIndex] ?? null;
+    const videoButton = clip ? document.createElement('button') : null;
+    if (videoButton && entry.videoClipIndex !== undefined) {
+      videoButton.type = 'button';
+      videoButton.className = 'mac-moment__video-button';
+      videoButton.setAttribute('aria-label', clip.title);
+      const poster = document.createElement('img');
+      poster.src = clip.poster;
+      poster.alt = clip.title;
+      const play = document.createElement('span');
+      play.className = 'mac-moment__video-play';
+      play.textContent = '▶';
+      const label = document.createElement('span');
+      label.className = 'mac-moment__video-label';
+      label.textContent = clip.title;
+      videoButton.append(poster, play, label);
+      videoButton.addEventListener('click', () => {
+        dispatchWindowAction(record, { type: 'open-window', id: 'video', clipIndex: entry.videoClipIndex });
+      });
+    }
 
     const footer = div('mac-moment__footer');
     const time = document.createElement('time');
@@ -281,6 +370,7 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
 
     content.append(author, body);
     if (images.length) content.append(grid);
+    if (videoButton) content.append(videoButton);
     content.append(footer, reactions);
     article.append(avatar, content);
     list.append(article);
@@ -294,7 +384,10 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const clips = videoClips[lang];
   record.body.replaceChildren();
 
-  let activeIndex = 0;
+  const requestedIndex = Number(record.element.dataset.videoClipIndex ?? 0);
+  let activeIndex = Number.isFinite(requestedIndex)
+    ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
+    : 0;
   const shell = div('mac-video');
   const stage = div('mac-video__stage');
   const video = document.createElement('video');
@@ -505,6 +598,8 @@ function renderReflection(record: MacDomWindowRecord) {
 }
 
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
+  record.internalBack = undefined;
+  record.body.dataset.internalView = '';
   if (record.id === 'readme') renderReadme(record, lang);
   if (record.id === 'photo') renderPhoto(record, lang);
   if (record.id === 'reflection') renderReflection(record);

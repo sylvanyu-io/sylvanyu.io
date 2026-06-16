@@ -21,7 +21,7 @@ export type MacMobileNavHooks = {
   /** Topmost open window id, or null when the home screen is showing. */
   topOpenWindowId: () => WindowId | null;
   openWindow: (id: WindowId, updateHistory?: boolean) => void;
-  minimizeWindow: (id: WindowId) => void;
+  minimizeWindow: (id: WindowId) => boolean;
 };
 
 export type MacMobileNav = {
@@ -218,7 +218,7 @@ export function createMacMobileNav(hooks: MacMobileNavHooks): MacMobileNav {
     if (historyHasKey(event.state, MAC_HOME_GUARD_HISTORY_KEY)) {
       hidePowerConfirm();
       const activeId = topOpenWindowId();
-      if (activeId) minimizeWindow(activeId);
+      if (activeId && !minimizeWindow(activeId)) pushAppHistory(activeId);
       return;
     }
 
@@ -230,7 +230,7 @@ export function createMacMobileNav(hooks: MacMobileNavHooks): MacMobileNav {
 
     const activeId = topOpenWindowId();
     if (activeId) {
-      minimizeWindow(activeId);
+      if (!minimizeWindow(activeId)) pushAppHistory(activeId);
       return;
     }
 

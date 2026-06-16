@@ -113,6 +113,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
   time: string;
   body: string;
   photoIndexes: number[];
+  videoClipIndex?: number;
   reactions: string;
 }>> = {
   en: [
@@ -129,7 +130,8 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatar: 'M',
       time: 'yesterday 18:42',
       body: 'The useful part of a personal site is not only the copy. It is also a place to keep tiny interface experiments alive.',
-      photoIndexes: [4],
+      photoIndexes: [],
+      videoClipIndex: 0,
       reactions: '1 comment · saved to references',
     },
     {
@@ -155,7 +157,8 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatar: 'M',
       time: '昨天 18:42',
       body: '个人网站有用的地方不只在文案，也在于能把一些小界面实验长期留在现场。',
-      photoIndexes: [4],
+      photoIndexes: [],
+      videoClipIndex: 0,
       reactions: '1 条评论 · 已存入参考',
     },
     {

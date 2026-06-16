@@ -3,8 +3,10 @@ import type { MacCanvasLayout, MacCanvasState, Rect, WindowId, WindowLayout } fr
 import { MAC_WINDOW_IDS } from './macCanvas/ui';
 import {
   ensureWindowContentMounted,
+  MAC_DOM_WINDOW_ACTION_EVENT,
   PHOTO_APP_HUD_HEIGHT,
   releaseWindowCanvasDemo,
+  type MacDomWindowActionEventDetail,
   type MacDomWindowRecord,
   renderWindowContent,
   syncWindowCanvasActivity,
@@ -19,7 +21,7 @@ type MacDomWindowActions = {
 };
 
 type MacDomWindowController = {
-  minimize: (id: WindowId) => void;
+  minimize: (id: WindowId) => boolean;
   setRestoreOrigin: (id: WindowId, origin: RestoreOrigin) => void;
   sync: (layout: MacCanvasLayout, state: MacCanvasState, options?: MacDomWindowSyncOptions) => void;
   destroy: () => void;
@@ -298,9 +300,23 @@ export function createMacDomWindows(
     record.close.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (record.internalBack?.()) return;
       if (actions.requestClose?.(id)) return;
       minimize(id);
     });
+  });
+
+  layer.addEventListener(MAC_DOM_WINDOW_ACTION_EVENT, (event) => {
+    const detail = (event as CustomEvent<MacDomWindowActionEventDetail>).detail;
+    if (!detail || detail.type !== 'open-window') return;
+    if (detail.id === 'video' && detail.clipIndex !== undefined) {
+      const videoRecord = records.get('video');
+      if (videoRecord) {
+        videoRecord.element.dataset.videoClipIndex = String(detail.clipIndex);
+        videoRecord.contentLang = undefined;
+      }
+    }
+    actions.setOpen(detail.id, true);
   });
 
   function cancelAnimation(id: WindowId) {
@@ -330,10 +346,11 @@ export function createMacDomWindows(
 
   function minimize(id: WindowId) {
     const layout = latestLayout;
-    if (!layout || closing.has(id)) return;
+    if (!layout || closing.has(id)) return false;
     const win = windowById(layout, id);
     const record = records.get(id);
-    if (!win || !record) return;
+    if (!win || !record) return false;
+    if (record.internalBack?.()) return false;
 
     closing.add(id);
     cancelAnimation(id);
@@ -346,7 +363,7 @@ export function createMacDomWindows(
     if (!record.element.animate) {
       actions.setOpen(id, false);
       closing.delete(id);
-      return;
+      return true;
     }
 
     const animation = record.element.animate(
@@ -364,6 +381,7 @@ export function createMacDomWindows(
       closing.delete(id);
       if (animations.get(id) === animation) animations.delete(id);
     });
+    return true;
   }
 
   function syncDynamicWindowTexts() {
