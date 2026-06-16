@@ -23,36 +23,36 @@ void main() {
 `;
 
 const BUTTON_GLASS: GlassPanelInput['params'] = {
-  scale: 0.42,
-  depth: 9,
+  scale: 0.24,
+  depth: 5,
   curvature: 128,
-  chroma: 0.48,
-  kawaseOffset: 2.8,
-  frost: 0.08,
-  tint: 0.38,
-  glow: 0.58,
+  chroma: 0.2,
+  kawaseOffset: 0,
+  frost: 0.02,
+  tint: 0.18,
+  glow: 0.42,
   edge: 0.74,
 };
 
 const PLAY_GLASS: GlassPanelInput['params'] = {
   ...BUTTON_GLASS,
-  scale: 0.52,
-  depth: 12,
+  scale: 0.3,
+  depth: 7,
   curvature: 150,
-  tint: 0.44,
-  glow: 0.72,
+  tint: 0.22,
+  glow: 0.6,
   edge: 0.82,
 };
 
 const SCRUB_GLASS: GlassPanelInput['params'] = {
-  scale: 0.18,
-  depth: 6,
+  scale: 0.08,
+  depth: 3,
   curvature: 72,
-  chroma: 0.26,
-  kawaseOffset: 2.4,
-  frost: 0.08,
-  tint: 0.24,
-  glow: 0.26,
+  chroma: 0.1,
+  kawaseOffset: 0,
+  frost: 0.02,
+  tint: 0.12,
+  glow: 0.2,
   edge: 0.4,
 };
 
@@ -178,6 +178,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   }
 
   function sourceTexture() {
+    if (posterTexture && video.paused && video.currentTime <= 0.05) return posterTexture;
     return hasLiveVideoFrame() ? videoTexture : posterTexture ?? placeholder;
   }
 
@@ -221,10 +222,9 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
 
     sourceUniforms.uScene.value = sourceTexture();
     renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
-    const blurred = glassPipeline.renderBlur(sourceTarget);
     renderer.setRenderTarget(null);
     renderer.clear(true, true, true);
-    glassPipeline.renderPanels(blurred, collectPanels(), cssWidth, cssHeight, null);
+    glassPipeline.renderPanels(sourceTarget.texture, collectPanels(), cssWidth, cssHeight, null);
     frameLimiter.consumeDelta(nowMs);
   }
 
@@ -273,6 +273,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     start();
   };
   const onPlay = () => {
+    frameLimiter.reset(performance.now(), MAC_FPS_TUNING.videoGlassFps);
     renderOnce();
     start();
   };
@@ -290,7 +291,6 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
 
   video.addEventListener('loadeddata', onVideoFrame);
   video.addEventListener('seeked', onVideoFrame);
-  video.addEventListener('timeupdate', onVideoFrame);
   video.addEventListener('play', onPlay);
   video.addEventListener('pause', onPause);
   document.addEventListener('visibilitychange', onVisibilityChange);
@@ -325,7 +325,6 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
       resizeObserver.disconnect();
       video.removeEventListener('loadeddata', onVideoFrame);
       video.removeEventListener('seeked', onVideoFrame);
-      video.removeEventListener('timeupdate', onVideoFrame);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       document.removeEventListener('visibilitychange', onVisibilityChange);

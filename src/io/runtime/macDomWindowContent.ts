@@ -460,6 +460,11 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     });
   };
 
+  const syncPlayButton = (playing: boolean) => {
+    play.textContent = playing ? 'Ⅱ' : '▶';
+    play.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
+  };
+
   const setClip = (index: number) => {
     activeIndex = index;
     const clip = clips[activeIndex];
@@ -467,8 +472,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     video.poster = clip.poster;
     record.videoGlassController?.setPoster(clip.poster);
     progress.value = '0';
-    play.textContent = '▶';
-    play.setAttribute('aria-label', 'Play video');
+    syncPlayButton(false);
     syncMeta();
   };
 
@@ -481,10 +485,15 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     playlist.append(item);
   });
 
+  play.addEventListener('pointerdown', () => {
+    syncPlayButton(video.paused);
+  }, { passive: true });
   play.addEventListener('click', () => {
     if (video.paused) {
-      video.play().catch(() => undefined);
+      syncPlayButton(true);
+      video.play().catch(() => syncPlayButton(false));
     } else {
+      syncPlayButton(false);
       video.pause();
     }
   });
@@ -503,12 +512,10 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
   });
   video.addEventListener('play', () => {
-    play.textContent = 'Ⅱ';
-    play.setAttribute('aria-label', 'Pause video');
+    syncPlayButton(true);
   });
   video.addEventListener('pause', () => {
-    play.textContent = '▶';
-    play.setAttribute('aria-label', 'Play video');
+    syncPlayButton(false);
   });
 
   syncMeta();
