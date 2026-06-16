@@ -187,7 +187,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return {
       safeInsets,
       photoAspect: PHOTO_APP_META.renderAspect,
-      photoSourceText: `SRC ${PHOTO_APP_META.fullSourceFrameWidth}x${PHOTO_APP_META.fullSourceFrameHeight}`,
+      photoSourceText: `SRC ${PHOTO_APP_META.sourceFrameWidth}x${PHOTO_APP_META.sourceFrameHeight}`,
     };
   }
 
