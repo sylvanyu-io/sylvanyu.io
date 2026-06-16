@@ -12,6 +12,7 @@ import type { Lang } from '../content/common';
 import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
+import { mountMacVideoGlass, type MacVideoGlassController } from './macVideoGlass';
 import { PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
@@ -39,6 +40,7 @@ export type MacDomWindowRecord = {
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
+  videoGlassController?: MacVideoGlassController | null;
   contentLang?: Lang;
   internalBack?: () => boolean;
 };
@@ -191,7 +193,7 @@ function imageAlt(title: string, caption: string) {
 }
 
 function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof mediaPhotos)[Lang][number]) {
-  record.body.querySelector('.mac-moments-preview')?.remove();
+  record.element.querySelector('.mac-moments-preview')?.remove();
 
   const overlay = div('mac-moments-preview');
   overlay.setAttribute('role', 'dialog');
@@ -219,7 +221,7 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
 
   const closePreview = () => {
     overlay.remove();
-    record.body.dataset.internalView = '';
+    delete record.body.dataset.internalView;
     record.internalBack = undefined;
     return true;
   };
@@ -234,7 +236,7 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
   });
 
   overlay.append(closeButton, imageWrap, caption);
-  record.body.append(overlay);
+  record.element.append(overlay);
   record.body.dataset.internalView = 'image';
   record.internalBack = closePreview;
 }
@@ -382,6 +384,8 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
 
 function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const clips = videoClips[lang];
+  record.videoGlassController?.dispose();
+  record.videoGlassController = null;
   record.body.replaceChildren();
 
   const requestedIndex = Number(record.element.dataset.videoClipIndex ?? 0);
@@ -389,6 +393,13 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
     : 0;
   const shell = div('mac-video');
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'mac-video__close';
+  close.setAttribute('aria-label', 'Close video player');
+  close.textContent = '×';
+  close.addEventListener('click', () => record.close.click());
+
   const stage = div('mac-video__stage');
   const video = document.createElement('video');
   video.className = 'mac-video__media';
@@ -397,12 +408,15 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   video.loop = true;
   video.playsInline = true;
   video.preload = 'metadata';
+  const glassCanvas = document.createElement('canvas');
+  glassCanvas.className = 'mac-video__glass';
+  glassCanvas.setAttribute('aria-hidden', 'true');
 
   const controls = div('mac-video__controls');
   const skipBack = document.createElement('button');
   skipBack.type = 'button';
   skipBack.className = 'mac-video__button mac-video__button--small';
-  skipBack.textContent = '15';
+  skipBack.innerHTML = '<span class="mac-video__skip-arrow" aria-hidden="true">↶</span><span>15</span>';
   skipBack.setAttribute('aria-label', 'Back 15 seconds');
   const play = document.createElement('button');
   play.type = 'button';
@@ -412,7 +426,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const skipForward = document.createElement('button');
   skipForward.type = 'button';
   skipForward.className = 'mac-video__button mac-video__button--small';
-  skipForward.textContent = '15';
+  skipForward.innerHTML = '<span>15</span><span class="mac-video__skip-arrow" aria-hidden="true">↷</span>';
   skipForward.setAttribute('aria-label', 'Forward 15 seconds');
 
   const progress = document.createElement('input');
@@ -423,7 +437,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   progress.value = '0';
   progress.setAttribute('aria-label', 'Video progress');
   controls.append(skipBack, play, skipForward, progress);
-  stage.append(video, controls);
+  stage.append(video, glassCanvas, controls);
 
   const meta = div('mac-video__meta');
   const metaTitle = document.createElement('h2');
@@ -451,6 +465,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     const clip = clips[activeIndex];
     video.src = clip.src;
     video.poster = clip.poster;
+    record.videoGlassController?.setPoster(clip.poster);
     progress.value = '0';
     play.textContent = '▶';
     play.setAttribute('aria-label', 'Play video');
@@ -497,8 +512,14 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   });
 
   syncMeta();
-  shell.append(stage, meta, playlist);
+  shell.append(close, stage, meta, playlist);
   record.body.append(shell);
+  const glassController = mountMacVideoGlass(stage, video, glassCanvas);
+  if (glassController) {
+    record.videoGlassController = glassController;
+    glassController.setActive(record.element.dataset.active === 'true');
+    record.cleanup.push(() => glassController.dispose());
+  }
 }
 
 async function mountPhotoIsland(record: MacDomWindowRecord) {
@@ -522,7 +543,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
       shaderBody,
       atlasMeta: PHOTO3D_APP_ATLAS_META,
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
-      idleDrift: true,
+      idleDrift: false,
       fit: 'cover',
     });
     if (controller) {
@@ -599,7 +620,8 @@ function renderReflection(record: MacDomWindowRecord) {
 
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   record.internalBack = undefined;
-  record.body.dataset.internalView = '';
+  record.element.querySelector('.mac-moments-preview')?.remove();
+  delete record.body.dataset.internalView;
   if (record.id === 'readme') renderReadme(record, lang);
   if (record.id === 'photo') renderPhoto(record, lang);
   if (record.id === 'reflection') renderReflection(record);
@@ -735,6 +757,8 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
       record.canvasDemoHandle.pause?.();
     }
   }
+
+  record.videoGlassController?.setActive(active);
 }
 
 export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
