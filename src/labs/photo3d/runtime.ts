@@ -1,4 +1,15 @@
 import { createFpsSampler, createFrameLimiter } from '../../io/runtime/canvasTiming';
+import {
+  PHOTO3D_FOCAL_LENGTH,
+  PHOTO3D_INV_Z_MIN,
+  PHOTO3D_MAX_LAYERS,
+  PHOTO3D_SETTLE_EPSILON,
+  photo3DDampingAlpha,
+  photo3DOffsetSettled,
+  photo3DQuantizeOffset,
+  photo3DTargetOffset,
+} from '../../io/runtime/photo3d/core';
+import { MAC_RENDER_TUNING } from '../../io/runtime/macCanvas/tuning';
 
 type Photo3DOptions = {
   shaderBody: string;
@@ -35,10 +46,10 @@ type Photo3DConfig = {
 type NumericConfigKey = Exclude<keyof Photo3DConfig, 'highlight'>;
 
 const SPRITE_LAYOUT = '2x3';
-const F1 = 1248.0;
-const INVZMIN = 0.1282;
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
+const HOVER_STRENGTH = 0.045;
+const HOVER_MAX_OFFSET = 0.06;
 const VS = `
 attribute vec2 aPos;
 varying vec2 vTextureCoord;
@@ -181,11 +192,22 @@ export const mountPhoto3D = (
   };
 
   setPanelOpen(false);
-  panelToggle?.addEventListener('click', () => {
+  const cleanup: (() => void)[] = [];
+  const listen = (target: EventTarget, type: string, listener: EventListener, options?: AddEventListenerOptions) => {
+    target.addEventListener(type, listener, options);
+    cleanup.push(() => target.removeEventListener(type, listener, options));
+  };
+
+  const markDirty = () => {
+    renderDirty = true;
+    startLoop();
+  };
+
+  if (panelToggle) listen(panelToggle, 'click', () => {
     setPanelOpen(panel instanceof HTMLElement ? panel.hidden : false);
   });
   setStatsOpen(false);
-  statsToggle?.addEventListener('click', () => {
+  if (statsToggle) listen(statsToggle, 'click', () => {
     setStatsOpen(statsPanel instanceof HTMLElement ? statsPanel.hidden : false);
     updateStats();
   });
@@ -241,8 +263,14 @@ export const mountPhoto3D = (
   let mx = 0;
   let my = 0;
   let fps = 0;
+  let renderDirty = true;
+  let disposed = false;
   const uniforms: Record<string, WebGLUniformLocation | null> = {};
   const textures: Record<string, WebGLTexture | null> = {};
+  const invZMinUniform = new Float32Array([PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, PHOTO3D_INV_Z_MIN, 0]);
+  const invZMaxUniform = new Float32Array([0, 0, 0, 0]);
+  const focalUniform = new Float32Array([PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, PHOTO3D_FOCAL_LENGTH, 0]);
+  const inputResolutionUniform = new Float32Array(8);
 
   const compile = (type: number, source: string) => {
     const shader = gl.createShader(type);
@@ -338,7 +366,10 @@ export const mountPhoto3D = (
     if (!size) return;
 
     const { width, height } = size;
-    const pixelRatio = window.devicePixelRatio || 1;
+    const dprLimit = window.matchMedia('(hover: none), (pointer: coarse)').matches
+      ? MAC_RENDER_TUNING.maxMobileDevicePixelRatio
+      : MAC_RENDER_TUNING.maxPhotoAppDevicePixelRatio;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, dprLimit);
     const backingScale = Math.min(
       pixelRatio,
       MAX_BACKING_EDGE / width,
@@ -353,6 +384,7 @@ export const mountPhoto3D = (
     canvas.style.top = '0';
     if (canvas.width !== backingWidth) canvas.width = backingWidth;
     if (canvas.height !== backingHeight) canvas.height = backingHeight;
+    renderDirty = true;
     updateStats();
   };
 
@@ -360,7 +392,7 @@ export const mountPhoto3D = (
     const size = stageSize();
     const width = size?.width ?? canvas.width;
     const height = size?.height ?? canvas.height;
-    setStat('fps', fps > 0 ? `${Math.round(fps)}` : '--');
+    setStat('fps', `${Math.round(fps)}`);
     setStat('view', `${width} x ${height}`);
     setStat('buffer', `${canvas.width} x ${canvas.height}`);
     setStat('image', `${config.W} x ${config.H}`);
@@ -410,6 +442,7 @@ export const mountPhoto3D = (
     root.dataset.state = 'ready';
     hideStatus();
     updateStats();
+    markDirty();
   };
 
   const stopCanvasGesture = (event: Event) => {
@@ -421,34 +454,43 @@ export const mountPhoto3D = (
     const rect = canvas.getBoundingClientRect();
     mx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     my = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+    markDirty();
   };
 
   if (interaction === 'hover') {
     // Hover mode keeps the page scrollable: no gesture capture, no preventDefault.
     canvas.style.touchAction = 'pan-y';
-    canvas.addEventListener('pointermove', (event) => {
+    listen(canvas, 'pointermove', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       updatePointer(event);
       pointerActive = true;
     });
-    canvas.addEventListener('pointerdown', (event) => {
+    listen(canvas, 'pointerdown', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       updatePointer(event);
       pointerActive = true;
     });
-    canvas.addEventListener('pointerup', (event) => {
+    listen(canvas, 'pointerup', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       if (event.pointerType !== 'mouse') pointerActive = false;
+      markDirty();
     });
-    canvas.addEventListener('pointercancel', () => {
+    listen(canvas, 'pointercancel', () => {
       pointerActive = false;
+      markDirty();
     });
-    canvas.addEventListener('pointerleave', () => {
+    listen(canvas, 'pointerleave', () => {
       pointerActive = false;
+      markDirty();
     });
   } else {
-    canvas.addEventListener('pointermove', (event) => {
+    listen(canvas, 'pointermove', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
       updatePointer(event);
     });
-    canvas.addEventListener('pointerdown', (event) => {
+    listen(canvas, 'pointerdown', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
       dragging = true;
       canvas.setPointerCapture(event.pointerId);
@@ -457,13 +499,14 @@ export const mountPhoto3D = (
     const endPointerGesture = (event: PointerEvent) => {
       stopCanvasGesture(event);
       dragging = false;
+      markDirty();
     };
-    canvas.addEventListener('pointerup', endPointerGesture);
-    canvas.addEventListener('pointercancel', endPointerGesture);
-    canvas.addEventListener('pointerleave', endPointerGesture);
-    canvas.addEventListener('wheel', stopCanvasGesture, { passive: false });
-    canvas.addEventListener('touchstart', stopCanvasGesture, { passive: false });
-    canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
+    listen(canvas, 'pointerup', endPointerGesture as EventListener);
+    listen(canvas, 'pointercancel', endPointerGesture as EventListener);
+    listen(canvas, 'pointerleave', endPointerGesture as EventListener);
+    listen(canvas, 'wheel', stopCanvasGesture, { passive: false });
+    listen(canvas, 'touchstart', stopCanvasGesture, { passive: false });
+    listen(canvas, 'touchmove', stopCanvasGesture, { passive: false });
   }
 
   const recordFpsSample = (nowMs: number) => {
@@ -523,9 +566,19 @@ export const mountPhoto3D = (
       if (nextFps === maxRenderFps) return;
       maxRenderFps = nextFps;
       if (running) resetFrameTiming();
+      markDirty();
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
       stopLoop();
+      cleanup.forEach((dispose) => dispose());
+      const uniqueTextures = new Set(Object.values(textures).filter((texture): texture is WebGLTexture => Boolean(texture)));
+      uniqueTextures.forEach((texture) => gl.deleteTexture(texture));
+      if (program) gl.deleteProgram(program);
+      canvas.remove();
+      delete root.__photo3dController;
+      delete root.dataset.mounted;
     },
     get active() {
       return renderActive;
@@ -543,34 +596,54 @@ export const mountPhoto3D = (
       queueFrame();
       return;
     }
+    const dt = frameLimiter.consumeDelta(time);
     recordFpsSample(time);
 
     let ox = config.offsetX;
     let oy = config.offsetY;
     const oz = config.offsetZ;
+    let keepRunning = false;
 
     if (interaction === 'hover') {
-      let targetX = config.offsetX;
-      let targetY = config.offsetY;
-
-      if (pointerActive) {
-        targetX = mx * 0.045;
-        targetY = my * 0.045;
-      } else if (idleDrift) {
-        const seconds = time * 0.001;
-        targetX = config.offsetX + Math.sin(seconds * 0.5) * 0.016;
-        targetY = config.offsetY + Math.cos(seconds * 0.37) * 0.011;
-      }
-
-      smoothX += (targetX - smoothX) * 0.055;
-      smoothY += (targetY - smoothY) * 0.055;
+      const target = photo3DQuantizeOffset(photo3DTargetOffset({
+        time: time * 0.001,
+        pointer: { x: mx, y: my },
+        pointerActive,
+        strength: HOVER_STRENGTH,
+        maxOffset: HOVER_MAX_OFFSET,
+        idleDrift,
+        baseX: config.offsetX,
+        baseY: config.offsetY,
+      }));
+      const alpha = photo3DDampingAlpha(dt);
+      smoothX += (target.x - smoothX) * alpha;
+      smoothY += (target.y - smoothY) * alpha;
+      if (Math.abs(target.x - smoothX) <= PHOTO3D_SETTLE_EPSILON) smoothX = target.x;
+      if (Math.abs(target.y - smoothY) <= PHOTO3D_SETTLE_EPSILON) smoothY = target.y;
       ox = smoothX;
       oy = smoothY;
+      keepRunning = idleDrift || !photo3DOffsetSettled({ x: smoothX, y: smoothY }, target);
     } else if (dragging) {
       ox = mx * 0.05;
       oy = my * 0.05;
+      keepRunning = true;
     }
 
+    if (!renderDirty && !keepRunning) {
+      stopLoop();
+      return;
+    }
+
+    inputResolutionUniform.set([
+      config.W,
+      config.H,
+      config.W,
+      config.H,
+      config.W,
+      config.H,
+      1,
+      1,
+    ]);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(program);
     gl.uniform3f(uniforms.offset, ox, oy, oz);
@@ -582,26 +655,19 @@ export const mountPhoto3D = (
     gl.uniform1f(uniforms.focusHighlightIntensity, config.highlight ? 1.0 : 0.0);
     gl.uniform1i(uniforms.originalWidthPx, config.W);
     gl.uniform1i(uniforms.originalHeightPx, config.H);
-    gl.uniform1i(uniforms.numberOfLayers, config.layers);
+    gl.uniform1i(uniforms.numberOfLayers, Math.max(1, Math.min(config.layers, PHOTO3D_MAX_LAYERS)));
     gl.uniform1f(uniforms.roll1, 0.0);
     gl.uniform2f(uniforms.sk1, 0, 0);
     gl.uniform2f(uniforms.sl1, 0, 0);
-    gl.uniform1fv(uniforms['invZmin[0]'], new Float32Array([INVZMIN, INVZMIN, INVZMIN, 0]));
-    gl.uniform1fv(uniforms['invZmax[0]'], new Float32Array([0, 0, 0, 0]));
-    gl.uniform1fv(uniforms['f1[0]'], new Float32Array([F1, F1, F1, 0]));
-    gl.uniform2fv(uniforms['iRes[0]'], new Float32Array([
-      config.W,
-      config.H,
-      config.W,
-      config.H,
-      config.W,
-      config.H,
-      1,
-      1,
-    ]));
+    gl.uniform1fv(uniforms['invZmin[0]'], invZMinUniform);
+    gl.uniform1fv(uniforms['invZmax[0]'], invZMaxUniform);
+    gl.uniform1fv(uniforms['f1[0]'], focalUniform);
+    gl.uniform2fv(uniforms['iRes[0]'], inputResolutionUniform);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    queueFrame();
+    renderDirty = false;
+    if (keepRunning || renderDirty) queueFrame();
+    else stopLoop();
   };
 
   const bind = (id: string, key: NumericConfigKey, format: (value: number) => string) => {
@@ -613,9 +679,10 @@ export const mountPhoto3D = (
       config[key] = parseFloat(input.value);
       if (output) output.textContent = format(config[key]);
       updateStats();
+      markDirty();
     };
 
-    input.addEventListener('input', update);
+    listen(input, 'input', update);
     update();
   };
 
@@ -630,14 +697,15 @@ export const mountPhoto3D = (
   const highlight = root.querySelector('[data-control="highlight"]');
   if (highlight instanceof HTMLInputElement) {
     highlight.checked = config.highlight;
-    highlight.addEventListener('change', () => {
+    listen(highlight, 'change', () => {
       config.highlight = highlight.checked;
       updateStats();
+      markDirty();
     });
   }
 
   const layers = root.querySelector('[data-layers]');
-  layers?.addEventListener('click', (event) => {
+  if (layers) listen(layers, 'click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement) || !target.dataset.n) return;
     config.layers = parseInt(target.dataset.n, 10);
@@ -647,6 +715,7 @@ export const mountPhoto3D = (
       }
     });
     updateStats();
+    markDirty();
   });
 
   [...(layers?.children || [])].forEach((button) => {
@@ -672,7 +741,7 @@ export const mountPhoto3D = (
     });
   };
 
-  loadButton?.addEventListener('click', loadFromInput);
+  if (loadButton) listen(loadButton, 'click', loadFromInput);
 
   const init = async () => {
     setStatus('Loading app');
@@ -733,10 +802,12 @@ export const mountPhoto3D = (
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(stage);
-  window.addEventListener('pagehide', () => {
+  cleanup.push(() => resizeObserver.disconnect());
+  const onPageHide = () => {
     resizeObserver.disconnect();
     controller.dispose();
-  }, { once: true });
+  };
+  listen(window, 'pagehide', onPageHide, { once: true });
 
   init().catch((error) => {
     console.error(error);
