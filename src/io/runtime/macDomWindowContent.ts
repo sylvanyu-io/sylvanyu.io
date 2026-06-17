@@ -519,9 +519,32 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     play.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
   };
 
+  let progressFrame = 0;
+  const syncProgress = () => {
+    if (!video.duration) return;
+    progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+  };
+  const stopProgressLoop = () => {
+    if (!progressFrame) return;
+    cancelAnimationFrame(progressFrame);
+    progressFrame = 0;
+  };
+  const tickProgress = () => {
+    progressFrame = 0;
+    syncProgress();
+    if (!video.paused && !video.ended) {
+      progressFrame = requestAnimationFrame(tickProgress);
+    }
+  };
+  const startProgressLoop = () => {
+    if (progressFrame || video.paused || video.ended) return;
+    progressFrame = requestAnimationFrame(tickProgress);
+  };
+
   const setClip = (index: number) => {
     activeIndex = index;
     const clip = clips[activeIndex];
+    stopProgressLoop();
     video.src = clip.src;
     video.poster = clip.poster;
     record.videoGlassController?.setPoster(clip.poster);
@@ -545,7 +568,10 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   play.addEventListener('click', () => {
     if (video.paused) {
       syncPlayButton(true);
-      video.play().catch(() => syncPlayButton(false));
+      video.play().catch(() => {
+        syncPlayButton(false);
+        stopProgressLoop();
+      });
     } else {
       syncPlayButton(false);
       video.pause();
@@ -553,24 +579,36 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   });
   skipBack.addEventListener('click', () => {
     video.currentTime = Math.max(0, video.currentTime - 15);
+    syncProgress();
   });
   skipForward.addEventListener('click', () => {
     video.currentTime = Math.min(video.duration || video.currentTime + 15, video.currentTime + 15);
+    syncProgress();
   });
   progress.addEventListener('input', () => {
     if (!video.duration) return;
     video.currentTime = (Number(progress.value) / 1000) * video.duration;
   });
   video.addEventListener('timeupdate', () => {
-    if (!video.duration) return;
-    progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+    if (!video.paused && !video.ended) return;
+    syncProgress();
   });
   video.addEventListener('play', () => {
     syncPlayButton(true);
+    startProgressLoop();
   });
   video.addEventListener('pause', () => {
     syncPlayButton(false);
+    stopProgressLoop();
+    syncProgress();
   });
+  video.addEventListener('ended', () => {
+    stopProgressLoop();
+    syncProgress();
+  });
+  video.addEventListener('loadedmetadata', syncProgress);
+  video.addEventListener('seeked', syncProgress);
+  record.cleanup.push(stopProgressLoop);
 
   syncPlayButton(false);
   syncMeta();
