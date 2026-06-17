@@ -914,7 +914,7 @@ export function buildMacCanvasLayout(
       x: photoX,
       y: photoY,
       w: photoW,
-      h: titleH + photoStageH + photoNoteH,
+      h: titleH + photoStageH + photoNoteH + 2,
       r: desktopWindows.radius,
       z: state.windows.photo.z,
       titleH,
@@ -1362,16 +1362,18 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 1.2;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
+  const statusScale = clampValue(Math.min(status.w / 244, status.h / 252), 0.78, 1.12);
+  const widgetInset = clampValue(20 * statusScale, 18, 24);
   if (clock) {
     const clockScale = clampValue(Math.min(clock.w / 244, clock.h / 96), 0.82, 1.16);
     const timeFont = 34 * clockScale;
     const dateFont = 10 * clockScale;
     const clockGap = 7 * clockScale;
     const clockBlockH = timeFont * 1.08 + clockGap + dateFont * 1.25;
-    const clockX = clock.x + clock.w * 0.5;
+    const clockX = clock.x + widgetInset;
     let clockY = clock.y + (clock.h - clockBlockH) * 0.5;
 
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
     ctx.font = `600 ${timeFont}px ${mono}`;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
     ctx.fillText(time, clockX, clockY);
@@ -1381,9 +1383,8 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
     ctx.fillText(date, clockX, clockY);
   }
 
-  const statusScale = clampValue(Math.min(status.w / 244, status.h / 252), 0.78, 1.12);
-  const statusW = Math.min(status.w - 28 * statusScale, 220 * statusScale);
-  const statusX = status.x + (status.w - statusW) * 0.5;
+  const statusW = Math.max(1, status.w - widgetInset * 2);
+  const statusX = status.x + widgetInset;
   const titleFont = 10 * statusScale;
   const bodyFont = 14 * statusScale;
   const emailFont = 11 * statusScale;
