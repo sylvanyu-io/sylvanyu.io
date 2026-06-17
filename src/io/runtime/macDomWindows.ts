@@ -110,6 +110,10 @@ function windowById(layout: MacCanvasLayout, id: WindowId) {
   return layout.windows.find((windowLayout) => windowLayout.id === id) ?? null;
 }
 
+function isMobileVideoWindow(layout: MacCanvasLayout, id: WindowId) {
+  return layout.mobile && id === 'video';
+}
+
 function contentClass(id: WindowId) {
   return `mac-dom-window__body mac-dom-window__body--${id}`;
 }
@@ -330,6 +334,21 @@ export function createMacDomWindows(
   function playRestore(record: MacDomWindowRecord, win: WindowLayout, layout: MacCanvasLayout) {
     if (!record.element.animate) return;
     cancelAnimation(record.id);
+    if (isMobileVideoWindow(layout, record.id)) {
+      const animation = record.element.animate(
+        [
+          { transform: rectTransform(win), opacity: 0 },
+          { transform: rectTransform(win), opacity: 1 },
+        ],
+        { duration: 180, easing: WINDOW_EASING },
+      );
+      animations.set(record.id, animation);
+      animation.finished.finally(() => {
+        if (animations.get(record.id) === animation) animations.delete(record.id);
+      });
+      return;
+    }
+
     const target = restoreTarget(layout, record.id, restoreOrigins.get(record.id) ?? 'dock');
     const animation = record.element.animate(
       [
@@ -366,13 +385,16 @@ export function createMacDomWindows(
       return true;
     }
 
-    const animation = record.element.animate(
-      [
+    const keyframes = isMobileVideoWindow(layout, id)
+      ? [
+        { transform: rectTransform(win), opacity: 1 },
+        { transform: rectTransform(win), opacity: 0 },
+      ]
+      : [
         { transform: rectTransform(win), opacity: 1 },
         { transform: targetTransform(win, target), opacity: 0.12 },
-      ],
-      { duration: MINIMIZE_DURATION, easing: WINDOW_EASING },
-    );
+      ];
+    const animation = record.element.animate(keyframes, { duration: MINIMIZE_DURATION, easing: WINDOW_EASING });
     animations.set(id, animation);
     animation.finished.then(() => {
       actions.setOpen(id, false);
@@ -397,7 +419,7 @@ export function createMacDomWindows(
     });
   }
 
-  const textTimer = window.setInterval(syncDynamicWindowTexts, 500);
+  const textTimer = window.setInterval(syncDynamicWindowTexts, 250);
 
   function sync(layout: MacCanvasLayout, state: MacCanvasState, options: MacDomWindowSyncOptions = {}) {
     latestLayout = layout;

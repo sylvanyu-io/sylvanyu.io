@@ -1,7 +1,7 @@
 import { galacean09Demos } from './galacean-0-9/demoCatalog';
 import { galaceanDemos, galaceanRepoUrl } from './galacean-1-1/demoCatalog';
 import { liquidGlassDemos } from './liquid-glass/demoCatalog';
-import photo3dThumbUrl from './photo3d/textures/sprite1.png?url';
+import photo3dThumbUrl from './photo3d/textures/sprite1.webp?url';
 
 type SourceLink = {
   label: string;

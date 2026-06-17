@@ -16,6 +16,10 @@ export const PHOTO3D_DEFAULT_CONFIG = {
   sourceHeight: 640,
 } as const;
 
+export const PHOTO3D_SMOOTHING_PER_SECOND = 3.4;
+export const PHOTO3D_SETTLE_EPSILON = 0.0002;
+export const PHOTO3D_OFFSET_QUANTUM = 0.0001;
+
 export type Photo3DAtlasMeta = {
   columns: number;
   rows: number;
@@ -341,6 +345,30 @@ export function loadPhoto3DShader(shaderUrl: string) {
 
 export function clampPhoto3DOffset(value: number, maxOffset: number) {
   return Math.min(maxOffset, Math.max(-maxOffset, value));
+}
+
+function quantizePhoto3DScalar(value: number, quantum = PHOTO3D_OFFSET_QUANTUM) {
+  const rounded = Math.round(value / quantum) * quantum;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+export function photo3DQuantizeOffset(offset: Photo3DPointer, quantum = PHOTO3D_OFFSET_QUANTUM): Photo3DPointer {
+  return {
+    x: quantizePhoto3DScalar(offset.x, quantum),
+    y: quantizePhoto3DScalar(offset.y, quantum),
+  };
+}
+
+export function photo3DDampingAlpha(dt: number, smoothingPerSecond = PHOTO3D_SMOOTHING_PER_SECOND) {
+  return 1 - Math.exp(-Math.max(0, dt) * smoothingPerSecond);
+}
+
+export function photo3DOffsetSettled(
+  current: Photo3DPointer,
+  target: Photo3DPointer,
+  epsilon = PHOTO3D_SETTLE_EPSILON,
+) {
+  return Math.abs(current.x - target.x) <= epsilon && Math.abs(current.y - target.y) <= epsilon;
 }
 
 export function photo3DTargetOffset({

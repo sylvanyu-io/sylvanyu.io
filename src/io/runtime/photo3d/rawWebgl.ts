@@ -5,6 +5,7 @@ import {
   PHOTO3D_INV_Z_MIN,
   PHOTO3D_MAX_LAYERS,
   PHOTO3D_RAW_VERTEX_SHADER,
+  PHOTO3D_SETTLE_EPSILON,
   PHOTO3D_UNIFORM_NAMES,
   type Photo3DAtlasMeta,
   type Photo3DSourceConfig,
@@ -12,10 +13,14 @@ import {
   createPhoto3DAtlasShader,
   createPhoto3DConfig,
   loadPhoto3DImage,
+  photo3DDampingAlpha,
+  photo3DOffsetSettled,
+  photo3DQuantizeOffset,
   photo3DAtlasCellHeight,
   photo3DAtlasCellWidth,
   photo3DTargetOffset,
 } from './core';
+import { MAC_RENDER_TUNING } from '../macCanvas/tuning';
 
 type Photo3DOptions = {
   shaderBody: string;
@@ -30,6 +35,7 @@ export type Photo3DController = {
   setMaxFps: (fps: number) => void;
   dispose: () => void;
   readonly active: boolean;
+  readonly rendering: boolean;
   readonly fps: number;
 };
 
@@ -192,9 +198,16 @@ export function mountPhoto3D(
   let pointerX = 0;
   let pointerY = 0;
   let fps = 0;
+  let renderDirty = true;
+  let disposed = false;
 
   const frameLimiter = createFrameLimiter(MAX_RENDER_FPS);
   const fpsSampler = createFpsSampler();
+  const cleanup: (() => void)[] = [];
+  const listen = (target: EventTarget, type: string, listener: EventListener, options?: AddEventListenerOptions) => {
+    target.addEventListener(type, listener, options);
+    cleanup.push(() => target.removeEventListener(type, listener, options));
+  };
 
   const layoutStage = () => {
     if (fit === 'stretch') return true;
@@ -242,7 +255,7 @@ export function mountPhoto3D(
     const size = stageSize();
     const width = size?.width ?? canvas.width;
     const height = size?.height ?? canvas.height;
-    setStat('fps', fps > 0 ? `${Math.round(fps)}` : '--');
+    setStat('fps', `${Math.round(fps)}`);
     setStat('view', `${width} x ${height}`);
     setStat('buffer', `${canvas.width} x ${canvas.height}`);
     setStat('image', `${config.sourceWidth} x ${config.sourceHeight}`);
@@ -255,7 +268,10 @@ export function mountPhoto3D(
     if (!size) return;
 
     const { width, height } = size;
-    const pixelRatio = window.devicePixelRatio || 1;
+    const dprLimit = window.matchMedia('(hover: none), (pointer: coarse)').matches
+      ? MAC_RENDER_TUNING.maxMobileDevicePixelRatio
+      : MAC_RENDER_TUNING.maxPhotoAppDevicePixelRatio;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, dprLimit);
     const backingScale = Math.min(
       pixelRatio,
       MAX_BACKING_EDGE / width,
@@ -270,12 +286,14 @@ export function mountPhoto3D(
     canvas.style.top = '0';
     if (canvas.width !== backingWidth) canvas.width = backingWidth;
     if (canvas.height !== backingHeight) canvas.height = backingHeight;
+    renderDirty = true;
     updateStats();
   };
 
   const loadAtlas = async (url: string) => {
     setStatus('Loading asset');
     const image = await loadPhoto3DImage(url);
+    if (atlasTexture) gl.deleteTexture(atlasTexture);
     atlasTexture = createTexture(gl, image);
     config.sourceWidth = atlasMeta.frameWidth;
     config.sourceHeight = atlasMeta.frameHeight;
@@ -339,33 +357,48 @@ export function mountPhoto3D(
     const rect = canvas.getBoundingClientRect();
     pointerX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointerY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+    renderDirty = true;
+    startLoop();
   };
 
   if (interaction === 'hover') {
     canvas.style.touchAction = 'pan-y';
-    canvas.addEventListener('pointermove', (event) => {
+    listen(canvas, 'pointermove', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       updatePointer(event);
       pointerActive = true;
     });
-    canvas.addEventListener('pointerdown', (event) => {
+    listen(canvas, 'pointerdown', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       updatePointer(event);
       pointerActive = true;
     });
-    canvas.addEventListener('pointerup', (event) => {
-      if (event.pointerType !== 'mouse') pointerActive = false;
+    listen(canvas, 'pointerup', (event) => {
+      if (!(event instanceof PointerEvent)) return;
+      if (event.pointerType !== 'mouse') {
+        pointerActive = false;
+        renderDirty = true;
+        startLoop();
+      }
     });
-    canvas.addEventListener('pointercancel', () => {
+    listen(canvas, 'pointercancel', () => {
       pointerActive = false;
+      renderDirty = true;
+      startLoop();
     });
-    canvas.addEventListener('pointerleave', () => {
+    listen(canvas, 'pointerleave', () => {
       pointerActive = false;
+      renderDirty = true;
+      startLoop();
     });
   } else {
-    canvas.addEventListener('pointermove', (event) => {
+    listen(canvas, 'pointermove', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
       updatePointer(event);
     });
-    canvas.addEventListener('pointerdown', (event) => {
+    listen(canvas, 'pointerdown', (event) => {
+      if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
       dragging = true;
       canvas.setPointerCapture(event.pointerId);
@@ -374,13 +407,15 @@ export function mountPhoto3D(
     const endPointerGesture = (event: PointerEvent) => {
       stopCanvasGesture(event);
       dragging = false;
+      renderDirty = true;
+      startLoop();
     };
-    canvas.addEventListener('pointerup', endPointerGesture);
-    canvas.addEventListener('pointercancel', endPointerGesture);
-    canvas.addEventListener('pointerleave', endPointerGesture);
-    canvas.addEventListener('wheel', stopCanvasGesture, { passive: false });
-    canvas.addEventListener('touchstart', stopCanvasGesture, { passive: false });
-    canvas.addEventListener('touchmove', stopCanvasGesture, { passive: false });
+    listen(canvas, 'pointerup', endPointerGesture as EventListener);
+    listen(canvas, 'pointercancel', endPointerGesture as EventListener);
+    listen(canvas, 'pointerleave', endPointerGesture as EventListener);
+    listen(canvas, 'wheel', stopCanvasGesture, { passive: false });
+    listen(canvas, 'touchstart', stopCanvasGesture, { passive: false });
+    listen(canvas, 'touchmove', stopCanvasGesture, { passive: false });
   }
 
   const recordFpsSample = (nowMs: number) => {
@@ -426,6 +461,7 @@ export function mountPhoto3D(
       root.dataset.renderActive = active ? 'true' : 'false';
       if (active) {
         resize();
+        renderDirty = true;
         startLoop();
       } else {
         stopLoop();
@@ -436,16 +472,28 @@ export function mountPhoto3D(
       if (nextFps === maxRenderFps) return;
       maxRenderFps = nextFps;
       if (running) resetFrameTiming();
+      renderDirty = true;
+      startLoop();
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
       stopLoop();
+      cleanup.forEach((dispose) => dispose());
       if (atlasTexture) {
         gl.deleteTexture(atlasTexture);
         atlasTexture = null;
       }
+      gl.deleteProgram(program);
+      canvas.remove();
+      delete root.__photo3dController;
+      delete root.dataset.mounted;
     },
     get active() {
       return renderActive;
+    },
+    get rendering() {
+      return running;
     },
     get fps() {
       return fps;
@@ -460,12 +508,14 @@ export function mountPhoto3D(
       queueFrame();
       return;
     }
+    const dt = frameLimiter.consumeDelta(time);
     recordFpsSample(time);
 
     let offsetX = config.offsetX;
     let offsetY = config.offsetY;
+    let keepRunning = false;
     if (interaction === 'hover') {
-      const target = photo3DTargetOffset({
+      const target = photo3DQuantizeOffset(photo3DTargetOffset({
         time: time * 0.001,
         pointer: { x: pointerX, y: pointerY },
         pointerActive,
@@ -474,27 +524,39 @@ export function mountPhoto3D(
         idleDrift,
         baseX: config.offsetX,
         baseY: config.offsetY,
-      });
+      }));
 
-      smoothX += (target.x - smoothX) * 0.055;
-      smoothY += (target.y - smoothY) * 0.055;
+      const alpha = photo3DDampingAlpha(dt);
+      smoothX += (target.x - smoothX) * alpha;
+      smoothY += (target.y - smoothY) * alpha;
+      if (Math.abs(target.x - smoothX) <= PHOTO3D_SETTLE_EPSILON) smoothX = target.x;
+      if (Math.abs(target.y - smoothY) <= PHOTO3D_SETTLE_EPSILON) smoothY = target.y;
       offsetX = smoothX;
       offsetY = smoothY;
+      keepRunning = idleDrift || !photo3DOffsetSettled({ x: smoothX, y: smoothY }, target);
     } else if (dragging) {
       offsetX = pointerX * 0.05;
       offsetY = pointerY * 0.05;
+      keepRunning = true;
     }
 
-    drawFrame(gl, uniforms, config, canvas, offsetX, offsetY);
-    queueFrame();
+    if (renderDirty || keepRunning) {
+      drawFrame(gl, uniforms, config, canvas, offsetX, offsetY);
+      renderDirty = false;
+    }
+
+    if (keepRunning || renderDirty) queueFrame();
+    else stopLoop();
   }
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(stage);
-  window.addEventListener('pagehide', () => {
+  cleanup.push(() => resizeObserver.disconnect());
+  const onPageHide = () => {
     resizeObserver.disconnect();
     controller.dispose();
-  }, { once: true });
+  };
+  listen(window, 'pagehide', onPageHide, { once: true });
 
   loadAtlas(atlasUrl)
     .then(() => startLoop())

@@ -12,6 +12,7 @@ import type { Lang } from '../content/common';
 import type { Photo3DController } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
+import { mountMacVideoGlass, type MacVideoGlassController } from './macVideoGlass';
 import { PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
@@ -39,6 +40,7 @@ export type MacDomWindowRecord = {
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
+  videoGlassController?: MacVideoGlassController | null;
   contentLang?: Lang;
   internalBack?: () => boolean;
 };
@@ -86,12 +88,32 @@ function setAppLoaderState(loader: Element | null | undefined, state: 'loading' 
   setText(loader.querySelector('[data-app-loader-text]'), state === 'ready' ? '' : label);
 }
 
+function setCanvasRendering(record: MacDomWindowRecord, rendering: boolean) {
+  const next = rendering ? 'true' : 'false';
+  if (record.element.dataset.canvasRendering !== next) {
+    record.element.dataset.canvasRendering = next;
+  }
+}
+
 function setText(element: Element | null | undefined, value: string) {
   if (element && element.textContent !== value) element.textContent = value;
 }
 
 function dispatchWindowAction(record: MacDomWindowRecord, detail: MacDomWindowActionEventDetail) {
   record.element.dispatchEvent(new CustomEvent(MAC_DOM_WINDOW_ACTION_EVENT, { bubbles: true, detail }));
+}
+
+function socialIcon(key: string) {
+  if (key === 'github') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.4a9.6 9.6 0 0 0-3 18.7c.48.1.66-.2.66-.46v-1.7c-2.68.58-3.24-1.14-3.24-1.14-.44-1.1-1.08-1.4-1.08-1.4-.88-.6.07-.6.07-.6.98.07 1.5 1 1.5 1 .86 1.48 2.27 1.06 2.82.8.09-.63.34-1.06.62-1.3-2.14-.24-4.4-1.07-4.4-4.76 0-1.05.38-1.9 1-2.58-.1-.25-.43-1.23.1-2.55 0 0 .82-.26 2.66 1a9.2 9.2 0 0 1 4.86 0c1.84-1.26 2.65-1 2.65-1 .54 1.32.2 2.3.1 2.55.63.68 1 1.53 1 2.58 0 3.7-2.26 4.52-4.4 4.76.35.3.66.9.66 1.8v2.54c0 .26.18.56.67.46A9.6 9.6 0 0 0 12 2.4Z" fill="currentColor"/></svg>';
+  }
+  if (key === 'linkedin') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.1 8.8h3.2v10.3H5.1V8.8Zm1.6-5a1.86 1.86 0 1 1 0 3.72 1.86 1.86 0 0 1 0-3.72Zm3.7 5h3.08v1.4h.04c.43-.82 1.48-1.69 3.05-1.69 3.26 0 3.86 2.15 3.86 4.94v5.66h-3.2v-5.02c0-1.2-.02-2.74-1.67-2.74-1.67 0-1.93 1.3-1.93 2.65v5.11h-3.2V8.8Z" fill="currentColor"/></svg>';
+  }
+  if (key === 'rednote') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4.2" width="16" height="15.6" rx="4" fill="currentColor"/><path d="M8 9.1h8M8 12h8M8 14.9h5.2" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="14" height="14" rx="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.4" cy="7.8" r="1.1" fill="currentColor"/></svg>';
 }
 
 function renderReadme(record: MacDomWindowRecord, lang: Lang) {
@@ -130,7 +152,7 @@ function renderReadme(record: MacDomWindowRecord, lang: Lang) {
     link.href = social.href;
     link.target = '_blank';
     link.rel = 'noreferrer';
-    link.textContent = social.icon;
+    link.innerHTML = socialIcon(social.icon);
     link.title = social.label;
     link.setAttribute('aria-label', social.label);
     link.dataset.social = social.key;
@@ -191,7 +213,7 @@ function imageAlt(title: string, caption: string) {
 }
 
 function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof mediaPhotos)[Lang][number]) {
-  record.body.querySelector('.mac-moments-preview')?.remove();
+  record.element.querySelector('.mac-moments-preview')?.remove();
 
   const overlay = div('mac-moments-preview');
   overlay.setAttribute('role', 'dialog');
@@ -219,7 +241,7 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
 
   const closePreview = () => {
     overlay.remove();
-    record.body.dataset.internalView = '';
+    delete record.body.dataset.internalView;
     record.internalBack = undefined;
     return true;
   };
@@ -234,7 +256,7 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
   });
 
   overlay.append(closeButton, imageWrap, caption);
-  record.body.append(overlay);
+  record.element.append(overlay);
   record.body.dataset.internalView = 'image';
   record.internalBack = closePreview;
 }
@@ -382,6 +404,8 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
 
 function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const clips = videoClips[lang];
+  record.videoGlassController?.dispose();
+  record.videoGlassController = null;
   record.body.replaceChildren();
 
   const requestedIndex = Number(record.element.dataset.videoClipIndex ?? 0);
@@ -389,6 +413,13 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
     : 0;
   const shell = div('mac-video');
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'mac-video__close';
+  close.setAttribute('aria-label', 'Close video player');
+  close.textContent = '×';
+  close.addEventListener('click', () => record.close.click());
+
   const stage = div('mac-video__stage');
   const video = document.createElement('video');
   video.className = 'mac-video__media';
@@ -397,12 +428,15 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   video.loop = true;
   video.playsInline = true;
   video.preload = 'metadata';
+  const glassCanvas = document.createElement('canvas');
+  glassCanvas.className = 'mac-video__glass';
+  glassCanvas.setAttribute('aria-hidden', 'true');
 
   const controls = div('mac-video__controls');
   const skipBack = document.createElement('button');
   skipBack.type = 'button';
   skipBack.className = 'mac-video__button mac-video__button--small';
-  skipBack.textContent = '15';
+  skipBack.innerHTML = '<span class="mac-video__skip-arrow" aria-hidden="true">↶</span><span>15</span>';
   skipBack.setAttribute('aria-label', 'Back 15 seconds');
   const play = document.createElement('button');
   play.type = 'button';
@@ -412,7 +446,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const skipForward = document.createElement('button');
   skipForward.type = 'button';
   skipForward.className = 'mac-video__button mac-video__button--small';
-  skipForward.textContent = '15';
+  skipForward.innerHTML = '<span>15</span><span class="mac-video__skip-arrow" aria-hidden="true">↷</span>';
   skipForward.setAttribute('aria-label', 'Forward 15 seconds');
 
   const progress = document.createElement('input');
@@ -423,7 +457,7 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   progress.value = '0';
   progress.setAttribute('aria-label', 'Video progress');
   controls.append(skipBack, play, skipForward, progress);
-  stage.append(video, controls);
+  stage.append(video, glassCanvas, controls);
 
   const meta = div('mac-video__meta');
   const metaTitle = document.createElement('h2');
@@ -446,14 +480,19 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     });
   };
 
+  const syncPlayButton = (playing: boolean) => {
+    play.textContent = playing ? 'Ⅱ' : '▶';
+    play.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
+  };
+
   const setClip = (index: number) => {
     activeIndex = index;
     const clip = clips[activeIndex];
     video.src = clip.src;
     video.poster = clip.poster;
+    record.videoGlassController?.setPoster(clip.poster);
     progress.value = '0';
-    play.textContent = '▶';
-    play.setAttribute('aria-label', 'Play video');
+    syncPlayButton(false);
     syncMeta();
   };
 
@@ -466,10 +505,15 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     playlist.append(item);
   });
 
+  play.addEventListener('pointerdown', () => {
+    syncPlayButton(video.paused);
+  }, { passive: true });
   play.addEventListener('click', () => {
     if (video.paused) {
-      video.play().catch(() => undefined);
+      syncPlayButton(true);
+      video.play().catch(() => syncPlayButton(false));
     } else {
+      syncPlayButton(false);
       video.pause();
     }
   });
@@ -488,17 +532,21 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
   });
   video.addEventListener('play', () => {
-    play.textContent = 'Ⅱ';
-    play.setAttribute('aria-label', 'Pause video');
+    syncPlayButton(true);
   });
   video.addEventListener('pause', () => {
-    play.textContent = '▶';
-    play.setAttribute('aria-label', 'Play video');
+    syncPlayButton(false);
   });
 
   syncMeta();
-  shell.append(stage, meta, playlist);
+  shell.append(close, stage, meta, playlist);
   record.body.append(shell);
+  const glassController = mountMacVideoGlass(stage, video, glassCanvas);
+  if (glassController) {
+    record.videoGlassController = glassController;
+    glassController.setActive(record.element.dataset.active === 'true');
+    record.cleanup.push(() => glassController.dispose());
+  }
 }
 
 async function mountPhotoIsland(record: MacDomWindowRecord) {
@@ -522,7 +570,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
       shaderBody,
       atlasMeta: PHOTO3D_APP_ATLAS_META,
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
-      idleDrift: true,
+      idleDrift: false,
       fit: 'cover',
     });
     if (controller) {
@@ -599,7 +647,8 @@ function renderReflection(record: MacDomWindowRecord) {
 
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   record.internalBack = undefined;
-  record.body.dataset.internalView = '';
+  record.element.querySelector('.mac-moments-preview')?.remove();
+  delete record.body.dataset.internalView;
   if (record.id === 'readme') renderReadme(record, lang);
   if (record.id === 'photo') renderPhoto(record, lang);
   if (record.id === 'reflection') renderReflection(record);
@@ -615,8 +664,9 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'photo') {
     const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
+    setCanvasRendering(record, photoActive && Boolean(record.photo3dController?.rendering));
     const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
-    const fpsText = photoFps > 0 ? Math.round(photoFps).toString().padStart(3, ' ') : '---';
+    const fpsText = Math.round(photoFps).toString().padStart(3, ' ');
     setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
     setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
     return;
@@ -625,8 +675,9 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   if (win.id === 'reflection') {
     const demo = macCanvasDemos[REFLECTION_DEMO_ID];
     const demoActive = record.canvasDemoHandle?.active ?? record.element.dataset.active === 'true';
+    setCanvasRendering(record, demoActive && Boolean(record.canvasDemoHandle?.rendering));
     const demoFps = demoActive ? record.canvasDemoHandle?.fps ?? 0 : 0;
-    const fpsText = demoFps > 0 ? Math.round(demoFps).toString().padStart(3, ' ') : '---';
+    const fpsText = Math.round(demoFps).toString().padStart(3, ' ');
     setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
     if (record.canvasDemoHud) {
       record.canvasDemoHud.hidden = false;
@@ -656,6 +707,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   }
 
   setText(record.accessory, '');
+  setCanvasRendering(record, false);
 }
 
 async function mountReflectionDemo(record: MacDomWindowRecord) {
@@ -735,6 +787,9 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
       record.canvasDemoHandle.pause?.();
     }
   }
+
+  record.videoGlassController?.setActive(active);
+  if (!active) setCanvasRendering(record, false);
 }
 
 export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
@@ -743,6 +798,7 @@ export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
   record.canvasDemoCleanup?.();
   record.canvasDemoCleanup = undefined;
   record.canvasDemoHandle = null;
+  setCanvasRendering(record, false);
 }
 
 export { PHOTO_APP_HUD_HEIGHT };

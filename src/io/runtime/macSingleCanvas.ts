@@ -17,6 +17,7 @@ import {
   drawMacMenubarOverlay,
   drawMacWidgetOverlay,
   hitTest,
+  isMacMobileViewport,
   loadMacUiAssets,
   MAC_MENUBAR_HEIGHT,
   MAC_WINDOW_IDS,
@@ -67,6 +68,7 @@ import {
   WALLPAPER_ATLAS,
   type FolderId,
 } from './macCanvas/apps';
+import { PHOTO3D_WALLPAPER_ATLAS_META } from './photo3d/core';
 
 const WINDOW_DRAG_LIMITS = {
   fallbackWidth: 320,
@@ -76,6 +78,7 @@ const WINDOW_DRAG_LIMITS = {
 
 const FOLDER_OPEN_DURATION_MS = 280;
 const FOLDER_CLOSE_DURATION_MS = 220;
+const PERF_HUD_PARAM = 'perf';
 
 const blurredBackdropFragmentShader = `
 precision highp float;
@@ -96,6 +99,41 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (handle: number) => void;
 };
 
+function cappedDevicePixelRatio(width: number, height: number, mobile: boolean) {
+  const viewportPixels = Math.max(1, width * height);
+  const deviceLimit = mobile
+    ? MAC_RENDER_TUNING.maxMobileDevicePixelRatio
+    : MAC_RENDER_TUNING.maxDesktopDevicePixelRatio;
+  const pixelBudgetLimit = Math.sqrt(MAC_RENDER_TUNING.maxCanvasRenderPixels / viewportPixels);
+  return Math.max(1, Math.min(window.devicePixelRatio || 1, deviceLimit, pixelBudgetLimit));
+}
+
+function createPerfHud(root: HTMLElement) {
+  const enabled = new URLSearchParams(window.location.search).get(PERF_HUD_PARAM);
+  if (enabled !== '1' && enabled !== 'true') return null;
+
+  const hud = document.createElement('pre');
+  hud.className = 'mac-perf-hud';
+  hud.setAttribute('aria-hidden', 'true');
+  hud.style.cssText = [
+    'position:fixed',
+    'left:10px',
+    'bottom:10px',
+    'z-index:9999',
+    'margin:0',
+    'padding:8px 10px',
+    'border:1px solid rgba(255,255,255,.24)',
+    'border-radius:6px',
+    'color:rgba(238,255,240,.92)',
+    'background:rgba(0,8,12,.72)',
+    'font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
+    'pointer-events:none',
+    'white-space:pre',
+  ].join(';');
+  root.append(hud);
+  return hud;
+}
+
 function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
   const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
   const dots = layout.dock.slots.map((slot) => (state.windows[slot.id].open ? '1' : '0')).join('');
@@ -106,6 +144,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   if (!(rootInput instanceof HTMLElement) || rootInput.dataset.macSingleCanvasMounted === 'true') return;
   const root: HTMLElement = rootInput;
   root.dataset.macSingleCanvasMounted = 'true';
+  const perfHud = createPerfHud(root);
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-mac-single-canvas]');
   if (!canvasEl) return;
@@ -114,7 +153,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const placeholder = makePlaceholderTexture();
   const state = createInitialMacCanvasState();
   const pointer = new THREE.Vector2(0, 0);
-  const gyro = createGyroPointer();
+  const gyro = createGyroPointer(() => markRenderDirty());
   let pointerActive = false;
   let gyroPromptAttempted = false;
   let assets: MacUiAssets | null = null;
@@ -136,6 +175,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     };
   }
 
+  function sameSafeInsets(a: SafeInsets, b: SafeInsets) {
+    return a.top === b.top && a.bottom === b.bottom;
+  }
+
   let safeInsets = readSafeInsets();
   let cssWidth = 1;
   let cssHeight = 1;
@@ -150,6 +193,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   let layout = buildMacCanvasLayout(1, 1, state, layoutOptions());
   let layoutDirty = true;
+  let renderDirty = true;
   // Cache keys for the layout-stable canvas layers (icons, dock). They only
   // change when the layout, language, window-open state, or assets change, so
   // they are rebuilt on rebuildLayout() instead of every frame.
@@ -166,6 +210,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let backgroundHeight = 1;
   let folderBackdropWidth = 1;
   let folderBackdropHeight = 1;
+  let lastPerfHudUpdateMs = 0;
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -262,6 +307,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function markLayoutDirty() {
     layoutDirty = true;
+    renderDirty = true;
+    start();
+  }
+
+  function markRenderDirty() {
+    renderDirty = true;
     start();
   }
 
@@ -332,17 +383,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return true;
   }
 
-  function closeOtherWindows(activeId: WindowId) {
+  function closeOtherWindows(activeId: WindowId, preserveVideo = false) {
     MAC_WINDOW_IDS.forEach((id) => {
+      if (preserveVideo && id === 'video') return;
       if (id !== activeId) state.windows[id].open = false;
     });
   }
 
-  function topOpenWindowId() {
+  function topOpenWindowId(excludeVideo = false) {
     let activeId: WindowId | null = null;
     let activeZ = -Infinity;
 
     MAC_WINDOW_IDS.forEach((id) => {
+      if (excludeVideo && id === 'video') return;
       const win = state.windows[id];
       if (!win.open || win.z <= activeZ) return;
       activeId = id;
@@ -353,7 +406,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function openWindow(id: WindowId, updateHistory = true) {
-    if (layout.mobile) closeOtherWindows(id);
+    if (layout.mobile && id !== 'video') closeOtherWindows(id);
     state.windows[id].open = true;
     bringWindowFront(state, id);
     markLayoutDirty();
@@ -362,12 +415,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function enforceMobileSingleWindow() {
     if (!layout.mobile) return false;
-    const openCount = MAC_WINDOW_IDS.filter((id) => state.windows[id].open).length;
-    if (openCount <= 1) return false;
+    const videoOpen = state.windows.video.open;
+    const nonVideoOpenCount = MAC_WINDOW_IDS.filter((id) => id !== 'video' && state.windows[id].open).length;
+    if (nonVideoOpenCount <= 1) return false;
 
-    const activeId = topOpenWindowId();
+    const activeId = topOpenWindowId(true) ?? topOpenWindowId();
     if (!activeId) return false;
-    closeOtherWindows(activeId);
+    closeOtherWindows(activeId, videoOpen);
     return true;
   }
 
@@ -469,36 +523,69 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function refreshLayerKeys() {
     const assetFlag = assets ? 1 : 0;
-    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.label ?? ''}`).join(',');
+    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.labelKey ?? ''}`).join(',');
     iconsCacheKey = `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assetFlag}:${iconSig}`;
     dockCacheKey = dockStateKey(layout, state, assets);
   }
 
   function resize() {
     const bounds = root.getBoundingClientRect();
-    cssWidth = Math.max(1, Math.round(bounds.width));
-    cssHeight = Math.max(1, Math.round(bounds.height));
-    safeInsets = readSafeInsets();
-    const desiredPixelRatio = Math.min(window.devicePixelRatio || 1, MAC_RENDER_TUNING.maxDevicePixelRatio);
-    pixelRatio = desiredPixelRatio;
-    backgroundPixelRatio = Math.min(
-      desiredPixelRatio,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssWidth,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssHeight,
+    const nextCssWidth = Math.max(1, Math.round(bounds.width));
+    const nextCssHeight = Math.max(1, Math.round(bounds.height));
+    const nextSafeInsets = readSafeInsets();
+    const mobileViewport = isMacMobileViewport(nextCssWidth, nextCssHeight);
+    const nextPixelRatio = cappedDevicePixelRatio(nextCssWidth, nextCssHeight, mobileViewport);
+    const nextBackgroundPixelRatio = Math.min(
+      nextPixelRatio,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssWidth,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssHeight,
     );
-    renderWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
-    renderHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
-    baseWidth = Math.max(1, Math.round(renderWidth * MAC_RENDER_TUNING.baseRenderScale));
-    baseHeight = Math.max(1, Math.round(renderHeight * MAC_RENDER_TUNING.baseRenderScale));
-    backgroundWidth = Math.max(1, Math.round(cssWidth * backgroundPixelRatio));
-    backgroundHeight = Math.max(1, Math.round(cssHeight * backgroundPixelRatio));
+    const nextRenderWidth = Math.max(1, Math.round(nextCssWidth * nextPixelRatio));
+    const nextRenderHeight = Math.max(1, Math.round(nextCssHeight * nextPixelRatio));
+    const nextBaseWidth = Math.max(1, Math.round(nextRenderWidth * MAC_RENDER_TUNING.baseRenderScale));
+    const nextBaseHeight = Math.max(1, Math.round(nextRenderHeight * MAC_RENDER_TUNING.baseRenderScale));
+    const nextBackgroundWidth = Math.max(1, Math.round(nextCssWidth * nextBackgroundPixelRatio));
+    const nextBackgroundHeight = Math.max(1, Math.round(nextCssHeight * nextBackgroundPixelRatio));
     const folderBackdropPixelRatio = Math.min(
-      pixelRatio * MAC_RENDER_TUNING.folderBackdropScale,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssWidth,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / cssHeight,
+      nextPixelRatio * MAC_RENDER_TUNING.folderBackdropScale,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssWidth,
+      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssHeight,
     );
-    folderBackdropWidth = Math.max(1, Math.round(cssWidth * folderBackdropPixelRatio));
-    folderBackdropHeight = Math.max(1, Math.round(cssHeight * folderBackdropPixelRatio));
+    const nextFolderBackdropWidth = Math.max(1, Math.round(nextCssWidth * folderBackdropPixelRatio));
+    const nextFolderBackdropHeight = Math.max(1, Math.round(nextCssHeight * folderBackdropPixelRatio));
+
+    if (
+      backgroundTarget
+      && cssWidth === nextCssWidth
+      && cssHeight === nextCssHeight
+      && pixelRatio === nextPixelRatio
+      && backgroundPixelRatio === nextBackgroundPixelRatio
+      && renderWidth === nextRenderWidth
+      && renderHeight === nextRenderHeight
+      && baseWidth === nextBaseWidth
+      && baseHeight === nextBaseHeight
+      && backgroundWidth === nextBackgroundWidth
+      && backgroundHeight === nextBackgroundHeight
+      && folderBackdropWidth === nextFolderBackdropWidth
+      && folderBackdropHeight === nextFolderBackdropHeight
+      && sameSafeInsets(safeInsets, nextSafeInsets)
+    ) {
+      return;
+    }
+
+    cssWidth = nextCssWidth;
+    cssHeight = nextCssHeight;
+    safeInsets = nextSafeInsets;
+    pixelRatio = nextPixelRatio;
+    backgroundPixelRatio = nextBackgroundPixelRatio;
+    renderWidth = nextRenderWidth;
+    renderHeight = nextRenderHeight;
+    baseWidth = nextBaseWidth;
+    baseHeight = nextBaseHeight;
+    backgroundWidth = nextBackgroundWidth;
+    backgroundHeight = nextBackgroundHeight;
+    folderBackdropWidth = nextFolderBackdropWidth;
+    folderBackdropHeight = nextFolderBackdropHeight;
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
@@ -513,15 +600,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     disposeTargets();
 
-    // backgroundTarget renders the wallpaper at MAC_RENDER_TUNING.baseRenderScale and is
-    // upscaled to the screen; the glass blur owns a separate chain sized to
-    // backgroundWidth/Height (capped at MAC_RENDER_TUNING.maxBackgroundRenderEdge), since the
-    // frosted backdrop never needs full device-pixel detail.
+    // backgroundTarget renders only the wallpaper at
+    // MAC_RENDER_TUNING.baseRenderScale and is upscaled to the screen. Text,
+    // icons, and DOM windows remain on the native canvas/DOM layers.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
     folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
 
     layoutDirty = true;
+    renderDirty = true;
     start();
   }
 
@@ -538,8 +625,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, null);
   }
 
-  function renderWallpaper(time: number, parallaxActive: boolean) {
-    if (!backgroundTarget) return;
+  function renderWallpaper(time: number, parallaxActive: boolean, dt: number) {
+    if (!backgroundTarget) return false;
 
     const basePixelRatio = baseHeight / Math.max(cssHeight, 1);
     const shadeHeightPx = Math.max(
@@ -547,18 +634,19 @@ export function mountMacSingleCanvas(rootInput: Element) {
       cssHeight * MAC_WALLPAPER_MOTION.shadeHeightRatio,
     ) * basePixelRatio;
     if (wallpaperPass) {
-      wallpaperPass.render(renderer, backgroundTarget, {
+      return wallpaperPass.render(renderer, backgroundTarget, {
         time,
         pointer,
         pointerActive: parallaxActive,
         strength: MAC_WALLPAPER_MOTION.strength,
         maxOffset: MAC_WALLPAPER_MOTION.maxOffset,
-        idleDrift: true,
+        idleDrift: MAC_WALLPAPER_MOTION.idleDrift,
         overscan: MAC_WALLPAPER_MOTION.overscan,
         shadeHeight: shadeHeightPx,
         shadeStrength: MAC_RENDER_TUNING.wallpaperShadeStrength,
+        dt,
+        smoothingPerSecond: MAC_WALLPAPER_MOTION.smoothingPerSecond,
       });
-      return;
     }
 
     coverUniforms.uScene.value = placeholder;
@@ -567,6 +655,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     coverUniforms.uResolution.value.set(baseWidth, baseHeight);
     coverUniforms.uShade.value.set(shadeHeightPx, MAC_RENDER_TUNING.wallpaperShadeStrength);
     renderPass(renderer, scene, camera, passMesh, coverMaterial, backgroundTarget);
+    return true;
   }
 
   function drawRectLayer(
@@ -807,8 +896,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.maxCanvasFps);
   const fpsSampler = createFpsSampler();
   let activeCanvasFpsLimit = MAC_FPS_TUNING.maxCanvasFps;
-  let activeWindowHasCanvasCache = false;
   const startTime = performance.now();
+  let lastClockKey = '';
 
   function clearQueuedFrame() {
     cancelAnimationFrame(raf);
@@ -822,22 +911,41 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return Boolean(layout.folder && (!layout.mobile || layout.windows.length === 0));
   }
 
-  function refreshActiveWindowCanvasCache() {
-    activeWindowHasCanvasCache = !folderOwnsScreen()
+  function activeWindowHasRenderingCanvas() {
+    return !folderOwnsScreen()
       && !layout.mobile
-      && Boolean(root.querySelector('.mac-dom-window[data-active="true"] [data-mac-window-canvas]'));
+      && Boolean(root.querySelector('.mac-dom-window[data-active="true"][data-canvas-rendering="true"]'));
   }
 
   function currentCanvasFpsLimit() {
     if (folderOwnsScreen()) return MAC_FPS_TUNING.maxCanvasFps;
     if (mobileWindowOpen()) return 0;
-    return activeWindowHasCanvasCache ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
+    return activeWindowHasRenderingCanvas() ? MAC_FPS_TUNING.busyBackgroundFps : MAC_FPS_TUNING.maxCanvasFps;
   }
 
   function resetFrameTiming(nowMs = performance.now(), fpsLimit = currentCanvasFpsLimit()) {
     activeCanvasFpsLimit = fpsLimit;
     if (fpsLimit > 0) frameLimiter.reset(nowMs, fpsLimit);
     fpsSampler.reset(nowMs);
+  }
+
+  function updatePerfHud(nowMs: number, status: string, displayFpsLimit = activeCanvasFpsLimit) {
+    if (!perfHud || (status !== 'frozen' && nowMs - lastPerfHudUpdateMs < 250)) return;
+    lastPerfHudUpdateMs = nowMs;
+    const photoDebug = wallpaperPass?.getDebug();
+    perfHud.textContent = [
+      `fps ${Math.round(state.fps)} / cap ${displayFpsLimit}`,
+      `state ${status}`,
+      `dpr ${pixelRatio.toFixed(2)} native ${(window.devicePixelRatio || 1).toFixed(2)} ${layout.mobile ? 'mobile' : 'desktop'}`,
+      `canvas ${renderWidth}x${renderHeight}`,
+      `base ${baseWidth}x${baseHeight}`,
+      `blur ${backgroundWidth}x${backgroundHeight}`,
+      photoDebug
+        ? `photo3d ${photoDebug.rendered ? 'draw' : 'skip'} ${photoDebug.reason} dx ${photoDebug.dx.toExponential(1)} dy ${photoDebug.dy.toExponential(1)}`
+        : 'photo3d idle',
+      `dom canvases ${root.querySelectorAll('canvas').length}`,
+      `dirty layout:${layoutDirty ? 1 : 0} render:${renderDirty ? 1 : 0}`,
+    ].join('\n');
   }
 
   function suspend() {
@@ -862,7 +970,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function frame(nowMs: number) {
-    if (updateFolderAnimation(nowMs)) layoutDirty = true;
+    const folderWasAnimating = Boolean(folderAnimation);
+    if (updateFolderAnimation(nowMs)) {
+      layoutDirty = true;
+      renderDirty = true;
+    }
+    const folderAnimating = folderWasAnimating || Boolean(folderAnimation);
 
     // Layout, window DOM sync, and the layout-stable cache keys only change on
     // interaction/resize. The steady-state frame skips all of it and the DOM
@@ -873,7 +986,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
         suppressActiveWindow: folderOwnsScreen(),
         allowPhotoMount: Boolean(wallpaperPass),
       });
-      refreshActiveWindowCanvasCache();
     }
 
     if (!shouldRenderFrame(nowMs)) {
@@ -887,17 +999,39 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (sampledFps > 0) state.fps = sampledFps;
 
     const langTarget = state.lang === 'zh' ? 1 : 0;
+    const langWasAnimating = Math.abs(langTarget - langAnim) >= 0.001;
     langAnim += (langTarget - langAnim) * (1 - Math.exp(-dt * 14));
     if (Math.abs(langTarget - langAnim) < 0.001) langAnim = langTarget;
+    const langAnimating = langWasAnimating || Math.abs(langTarget - langAnim) >= 0.001;
 
     // Tilt drives the wallpaper whenever no pointer is engaged.
     const useGyro = !pointerActive && gyro.active;
     if (useGyro) pointer.set(gyro.x, gyro.y);
 
     const now = new Date();
-    if (!layout.folder) renderWallpaper(time, pointerActive || useGyro);
+    const clockKey = frameMinuteKey(now);
+    if (clockKey !== lastClockKey) {
+      lastClockKey = clockKey;
+      renderDirty = true;
+    }
+    const wallpaperRendered = !layout.folder
+      ? renderWallpaper(time, pointerActive || useGyro, dt)
+      : false;
+    const animationActive = folderAnimating
+      || langAnimating
+      || wallpaperRendered
+      || folderReleaseAfterRender;
+    if (!animationActive && state.fps !== 0) {
+      state.fps = 0;
+      renderDirty = true;
+    }
+    const shouldComposite = renderDirty
+      || wallpaperRendered
+      || folderAnimating
+      || langAnimating
+      || folderReleaseAfterRender;
 
-    if (backgroundTarget) {
+    if (backgroundTarget && shouldComposite) {
       if (layout.folder) {
         const backdropAlpha = folderBackdropAlpha();
         let liveBlurred: THREE.Texture | null = null;
@@ -927,6 +1061,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
         renderHomeScreen(null, blurred, now);
         scheduleFolderBackdropPreheat();
       }
+      renderDirty = false;
     }
 
     if (folderReleaseAfterRender) {
@@ -936,7 +1071,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
       markLayoutDirty();
     }
 
-    if (running) queueFrame();
+    const keepRunning = animationActive || renderDirty;
+    updatePerfHud(nowMs, keepRunning ? 'running' : 'frozen', keepRunning ? activeCanvasFpsLimit : 0);
+    if (keepRunning) {
+      if (running) queueFrame();
+    } else {
+      suspend();
+    }
   }
 
   function start() {
@@ -1002,6 +1143,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       THREE.MathUtils.clamp(-(point.normalizedY * 2 - 1), -1, 1),
     );
     pointerActive = true;
+    markRenderDirty();
   }
 
   const onPointerMove = (event: PointerEvent) => {
@@ -1014,6 +1156,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const onPointerLeave = () => {
     pointerActive = false;
     canvas.style.cursor = 'default';
+    markRenderDirty();
   };
 
   const onClick = (event: MouseEvent) => {
@@ -1026,7 +1169,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   const onVisibilityChange = () => {
     if (document.hidden) stop();
-    else start();
+    else markRenderDirty();
   };
 
   const onPopState = mobileNav.handlePopState;
@@ -1037,12 +1180,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   const onRootPointerLeave = () => {
     pointerActive = false;
+    markRenderDirty();
   };
 
   // Touch pointers vanish after the gesture; release the wallpaper back to
   // idle drift / gyro instead of freezing on the last tap position.
   const onRootPointerEnd = (event: PointerEvent) => {
-    if (event.pointerType === 'touch') pointerActive = false;
+    if (event.pointerType === 'touch') {
+      pointerActive = false;
+      markRenderDirty();
+    }
   };
 
   function requestGyroFromGestureOnce() {
@@ -1072,6 +1219,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('popstate', onPopState);
+  const clockTimer = window.setInterval(markRenderDirty, 60_000);
   canvas.style.touchAction = 'none';
   gyro.enable();
   markLayoutDirty();
@@ -1087,7 +1235,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // freshly-loaded glyphs actually rasterize into their layers.
       markLayoutDirty();
     }),
-    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers).then((pass) => {
+    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
       wallpaperPass = pass;
       // Desktop opens Photo3D.app by default; its mount path will fetch the
       // atlas once. Only preload while the app is closed, mainly for mobile.
@@ -1116,6 +1264,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     window.removeEventListener('popstate', onPopState);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('pagehide', onPageHide);
+    window.clearInterval(clockTimer);
     gyro.dispose();
     safeAreaProbe.remove();
     mobileNav.destroy();
@@ -1130,6 +1279,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     geometry.dispose();
     coverMaterial.dispose();
     uiRectMaterial.dispose();
+    upscaleMaterial.dispose();
     blurredBackdropMaterial.dispose();
     renderer.dispose();
   };

@@ -23,10 +23,20 @@
   var MAX_EDGE = 2048;
   var MAX_FPS = 60;
   var FPS_SAMPLE_MS = 1000;
+  var MAX_DT = 0.25;
+  var SMOOTHING_PER_SECOND = 3.4;
+  var SETTLE_EPSILON = 0.0002;
+  var OFFSET_QUANTUM = 0.0001;
   var shaderCache = {};
 
   // When bundled into a standalone file, assets are inlined as blob URLs under window.__resources.
-  var ASSET_IDS = { 'assets/sprite1.png': 'sprite1', 'assets/sprite2.png': 'sprite2', 'assets/photo3d.fs': 'photo3dfs' };
+  var ASSET_IDS = {
+    'assets/sprite1.png': 'sprite1',
+    'assets/sprite2.png': 'sprite2',
+    'assets/sprite1.webp': 'sprite1',
+    'assets/sprite2.webp': 'sprite2',
+    'assets/photo3d.fs': 'photo3dfs'
+  };
   function resolveAsset(u) {
     var key = (u || '').replace(/^\.\//, '');
     var id = ASSET_IDS[key];
@@ -62,6 +72,15 @@
 
   function clamp(v, min, max) {
     return Math.min(max, Math.max(min, v));
+  }
+  function quantize(v) {
+    return Math.round(v / OFFSET_QUANTUM) * OFFSET_QUANTUM;
+  }
+  function dampingAlpha(dt) {
+    return 1 - Math.exp(-SMOOTHING_PER_SECOND * dt);
+  }
+  function offsetSettled(x, y, tx, ty) {
+    return Math.abs(x - tx) <= SETTLE_EPSILON && Math.abs(y - ty) <= SETTLE_EPSILON;
   }
 
   function splitSprite(image) {
@@ -161,14 +180,29 @@
       this._uniforms = {}; this._textures = {};
       this._raf = 0;
       this._frameClockTime = 0;
+      this._lastRenderTime = performance.now();
       this._activeFrameLimit = MAX_FPS;
       this._ready = false;
+      this._dirty = true;
+      this._invZMinUniform = new Float32Array([INVZMIN, INVZMIN, INVZMIN, 0]);
+      this._invZMaxUniform = new Float32Array([0, 0, 0, 0]);
+      this._focalUniform = new Float32Array([F1, F1, F1, 0]);
+      this._inputResolutionUniform = new Float32Array(8);
 
-      var gl = this._canvas.getContext('webgl', { alpha: false, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: true });
+      var gl = this._canvas.getContext('webgl', { alpha: false, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: false });
       this._gl = gl;
 
-      this._onMove = function (e) { self._updatePointer(e); self._pointerActive = true; };
-      this._onLeave = function () { self._pointerActive = false; };
+      this._onMove = function (e) {
+        self._updatePointer(e);
+        self._pointerActive = true;
+        self._dirty = true;
+        self._scheduleFrame();
+      };
+      this._onLeave = function () {
+        self._pointerActive = false;
+        self._dirty = true;
+        self._scheduleFrame();
+      };
       var target = this._track === 'window' ? window : this;
       target.addEventListener('pointermove', this._onMove);
       target.addEventListener('pointerdown', this._onMove);
@@ -207,6 +241,21 @@
       }
       if (this._track === 'window' && this._onLeave) {
         document.documentElement.removeEventListener('pointerleave', this._onLeave);
+      } else if (this._onLeave) {
+        this.removeEventListener('pointerleave', this._onLeave);
+        this.removeEventListener('pointercancel', this._onLeave);
+      }
+      if (this._gl) {
+        var gl = this._gl;
+        var seen = [];
+        for (var key in this._textures) {
+          var tex = this._textures[key];
+          if (tex && seen.indexOf(tex) < 0) {
+            seen.push(tex);
+            gl.deleteTexture(tex);
+          }
+        }
+        if (this._program) gl.deleteProgram(this._program);
       }
       this._mounted = false;
     }
@@ -252,6 +301,8 @@
       var bh = Math.max(1, Math.round(h * scale));
       if (this._canvas.width !== bw) this._canvas.width = bw;
       if (this._canvas.height !== bh) this._canvas.height = bh;
+      this._dirty = true;
+      this._scheduleFrame();
     }
 
     _compile(type, source) {
@@ -336,6 +387,7 @@
       this._ready = true;
       this.dataset.state = 'ready';
       this._resetFrameLimiter(performance.now());
+      this._dirty = true;
       this._scheduleFrame();
     }
 
@@ -372,6 +424,7 @@
     _scheduleFrame() {
       var self = this;
       if (!this._mounted || !this._ready) return;
+      if (this._raf) return;
       this._raf = requestAnimationFrame(function (t) { self._frame(t); });
     }
 
@@ -388,10 +441,13 @@
 
     _frame(time) {
       if (!this._mounted || !this._ready) return;
+      this._raf = 0;
       if (!this._shouldRenderFrame(time)) {
         this._scheduleFrame();
         return;
       }
+      var dt = Math.min(MAX_DT, Math.max(0.001, (time - this._lastRenderTime) / 1000));
+      this._lastRenderTime = time;
       var gl = this._gl, cfg = this._cfg, u = this._uniforms;
       this._recordFpsSample(time);
 
@@ -404,8 +460,19 @@
         targetX = clamp(cfg.offsetX + Math.sin(s * 0.5) * 0.016, -this._maxOffset, this._maxOffset);
         targetY = clamp(cfg.offsetY + Math.cos(s * 0.37) * 0.011, -this._maxOffset, this._maxOffset);
       }
-      this._smoothX += (targetX - this._smoothX) * 0.055;
-      this._smoothY += (targetY - this._smoothY) * 0.055;
+      targetX = quantize(targetX);
+      targetY = quantize(targetY);
+      var alpha = dampingAlpha(dt);
+      this._smoothX += (targetX - this._smoothX) * alpha;
+      this._smoothY += (targetY - this._smoothY) * alpha;
+      if (Math.abs(targetX - this._smoothX) <= SETTLE_EPSILON) this._smoothX = targetX;
+      if (Math.abs(targetY - this._smoothY) <= SETTLE_EPSILON) this._smoothY = targetY;
+      var keepRunning = this._idleDrift || !offsetSettled(this._smoothX, this._smoothY, targetX, targetY);
+      if (!this._dirty && !keepRunning) {
+        this._fps = 0;
+        return;
+      }
+      this._inputResolutionUniform.set([cfg.W, cfg.H, cfg.W, cfg.H, cfg.W, cfg.H, 1, 1]);
 
       gl.viewport(0, 0, this._canvas.width, this._canvas.height);
       gl.useProgram(this._program);
@@ -422,12 +489,13 @@
       gl.uniform1f(u.roll1, 0.0);
       gl.uniform2f(u.sk1, 0, 0);
       gl.uniform2f(u.sl1, 0, 0);
-      gl.uniform1fv(u['invZmin[0]'], new Float32Array([INVZMIN, INVZMIN, INVZMIN, 0]));
-      gl.uniform1fv(u['invZmax[0]'], new Float32Array([0, 0, 0, 0]));
-      gl.uniform1fv(u['f1[0]'], new Float32Array([F1, F1, F1, 0]));
-      gl.uniform2fv(u['iRes[0]'], new Float32Array([cfg.W, cfg.H, cfg.W, cfg.H, cfg.W, cfg.H, 1, 1]));
+      gl.uniform1fv(u['invZmin[0]'], this._invZMinUniform);
+      gl.uniform1fv(u['invZmax[0]'], this._invZMaxUniform);
+      gl.uniform1fv(u['f1[0]'], this._focalUniform);
+      gl.uniform2fv(u['iRes[0]'], this._inputResolutionUniform);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      this._scheduleFrame();
+      this._dirty = false;
+      if (keepRunning || this._dirty) this._scheduleFrame();
     }
   }
 

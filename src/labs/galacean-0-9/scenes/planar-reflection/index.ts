@@ -118,27 +118,31 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
   const frameLimiter = createFrameLimiter(MAX_RENDER_FPS)
   const fpsSampler = createFpsSampler()
   let raf = 0
+  let renderActive = false
   let running = false
   let destroyed = false
+  let renderDirty = true
+  let interacting = false
+  let settleFrames = 0
   let maxRenderFps = MAX_RENDER_FPS
   let fps = 0
+  const cleanup: (() => void)[] = []
 
   const queueFrame = () => {
-    if (!running || destroyed) return
+    if (!running || !renderActive || destroyed) return
     raf = requestAnimationFrame(frame)
   }
 
-  const frame = (nowMs: number) => {
-    if (!running || destroyed) return
-    queueFrame()
-    if (!frameLimiter.shouldRender(nowMs, maxRenderFps)) return
-
-    engine.update()
-    fps = fpsSampler.record(nowMs)
+  const stopLoop = () => {
+    running = false
+    cancelAnimationFrame(raf)
+    raf = 0
+    fps = 0
+    fpsSampler.reset()
   }
 
-  const resume = () => {
-    if (running || destroyed) return
+  const startLoop = () => {
+    if (running || !renderActive || destroyed) return
     running = true
     const nowMs = performance.now()
     ;(engine as ManualLoopEngine).time?._reset?.()
@@ -147,12 +151,68 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
     queueFrame()
   }
 
-  const pause = () => {
-    running = false
-    cancelAnimationFrame(raf)
-    fps = 0
-    fpsSampler.reset()
+  const requestRender = (frames = 1) => {
+    renderDirty = true
+    settleFrames = Math.max(settleFrames, frames)
+    startLoop()
   }
+
+  const frame = (nowMs: number) => {
+    if (!running || !renderActive || destroyed) return
+    if (!frameLimiter.shouldRender(nowMs, maxRenderFps)) {
+      queueFrame()
+      return
+    }
+
+    engine.update()
+    fps = fpsSampler.record(nowMs)
+    renderDirty = false
+    if (!interacting && settleFrames > 0) settleFrames -= 1
+
+    if (renderDirty || interacting || settleFrames > 0) {
+      queueFrame()
+    } else {
+      stopLoop()
+    }
+  }
+
+  const resume = () => {
+    if (renderActive || destroyed) return
+    renderActive = true
+    requestRender(2)
+  }
+
+  const pause = () => {
+    renderActive = false
+    interacting = false
+    renderDirty = false
+    settleFrames = 0
+    stopLoop()
+  }
+
+  const beginInteraction = () => {
+    interacting = true
+    requestRender()
+  }
+  const continueInteraction = () => {
+    if (interacting) requestRender()
+  }
+  const endInteraction = () => {
+    if (!interacting) return
+    interacting = false
+    requestRender(8)
+  }
+  const listen = (target: EventTarget, type: string, listener: EventListener, options?: AddEventListenerOptions) => {
+    target.addEventListener(type, listener, options)
+    cleanup.push(() => target.removeEventListener(type, listener, options))
+  }
+  const canvasElement = engine.canvas._webCanvas
+  listen(canvasElement, 'pointerdown', beginInteraction)
+  listen(window, 'pointermove', continueInteraction)
+  listen(window, 'pointerup', endInteraction)
+  listen(window, 'pointercancel', endInteraction)
+  listen(canvasElement, 'pointerleave', endInteraction)
+  listen(canvasElement, 'wheel', () => requestRender(8), { passive: true })
 
   resume()
 
@@ -167,18 +227,24 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
       frameLimiter.reset(performance.now(), maxRenderFps)
       fpsSampler.reset()
       fps = 0
+      requestRender()
     },
     resize() {
       engine.canvas.resizeByClientSize()
+      requestRender(2)
     },
     destroy() {
       destroyed = true
       pause()
+      cleanup.forEach((dispose) => dispose())
       document.body.classList.remove('galacean-stats-open')
       document.querySelectorAll('.gl-perf').forEach((node) => node.remove())
       ;(engine as WebGLEngine & { destroy?: () => void }).destroy?.()
     },
     get active() {
+      return renderActive
+    },
+    get rendering() {
       return running
     },
     get fps() {

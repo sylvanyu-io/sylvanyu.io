@@ -26,7 +26,7 @@ export type GyroPointer = {
   dispose: () => void;
 };
 
-export function createGyroPointer(): GyroPointer {
+export function createGyroPointer(onChange?: () => void): GyroPointer {
   let active = false;
   let listening = false;
   let x = 0;
@@ -62,8 +62,11 @@ export function createGyroPointer(): GyroPointer {
     neutralBeta += (beta - neutralBeta) * NEUTRAL_FOLLOW;
     neutralGamma += (gamma - neutralGamma) * NEUTRAL_FOLLOW;
 
-    x = Math.max(-1, Math.min(1, (gamma - neutralGamma) / TILT_RANGE_DEG));
-    y = Math.max(-1, Math.min(1, (neutralBeta - beta) / TILT_RANGE_DEG));
+    const nextX = Math.max(-1, Math.min(1, (gamma - neutralGamma) / TILT_RANGE_DEG));
+    const nextY = Math.max(-1, Math.min(1, (neutralBeta - beta) / TILT_RANGE_DEG));
+    if (Math.abs(nextX - x) > 0.0005 || Math.abs(nextY - y) > 0.0005) onChange?.();
+    x = nextX;
+    y = nextY;
     active = true;
   };
 
