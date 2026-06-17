@@ -124,7 +124,9 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   videoTexture.magFilter = THREE.LinearFilter;
   videoTexture.generateMipmaps = false;
 
-  let posterTexture: THREE.Texture | null = video.poster ? loadPosterTexture(video.poster, renderOnce) : null;
+  let posterTexture: THREE.Texture | null = null;
+  let posterTextureReady = false;
+  let posterLoadId = 0;
   let sourceTarget: THREE.WebGLRenderTarget | null = null;
   let cssWidth = 1;
   let cssHeight = 1;
@@ -155,13 +157,34 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     return video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
   }
 
+  function setPosterTexture(src: string) {
+    posterLoadId += 1;
+    const loadId = posterLoadId;
+    posterTextureReady = false;
+    posterTexture?.dispose();
+    posterTexture = null;
+    if (!src) return;
+
+    const texture = loadPosterTexture(src, () => {
+      if (disposed || loadId !== posterLoadId) return;
+      posterTextureReady = true;
+      renderOnce();
+      start();
+    });
+    posterTexture = texture;
+  }
+
   function shouldLoop() {
     return active && !document.hidden && !video.paused && !video.ended && hasLiveVideoFrame();
   }
 
   function sourceTexture() {
-    if (posterTexture && video.paused && video.currentTime <= 0.05) return posterTexture;
-    return hasLiveVideoFrame() ? videoTexture : posterTexture ?? placeholder;
+    if (hasLiveVideoFrame()) {
+      videoTexture.needsUpdate = true;
+      return videoTexture;
+    }
+    if (posterTexture && posterTextureReady) return posterTexture;
+    return null;
   }
 
   function resize() {
@@ -201,10 +224,16 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     if (needsResize || !sourceTarget) resize();
     if (!sourceTarget) return;
 
-    sourceUniforms.uScene.value = sourceTexture();
-    renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
+    const texture = sourceTexture();
     renderer.setRenderTarget(null);
     renderer.clear(true, true, true);
+    if (!texture) {
+      frameLimiter.consumeDelta(nowMs);
+      return;
+    }
+
+    sourceUniforms.uScene.value = texture;
+    renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
     glassPipeline.renderPanels(sourceTarget.texture, collectPanels(), cssWidth, cssHeight, null);
     frameLimiter.consumeDelta(nowMs);
   }
@@ -275,6 +304,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   video.addEventListener('play', onPlay);
   video.addEventListener('pause', onPause);
   document.addEventListener('visibilitychange', onVisibilityChange);
+  setPosterTexture(video.poster);
   renderOnce();
   start();
 
@@ -289,8 +319,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
       }
     },
     setPoster(src) {
-      posterTexture?.dispose();
-      posterTexture = src ? loadPosterTexture(src, renderOnce) : null;
+      setPosterTexture(src);
       renderOnce();
       start();
     },
