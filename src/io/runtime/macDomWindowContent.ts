@@ -402,7 +402,7 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
       poster.alt = clip.title;
       const play = document.createElement('span');
       play.className = 'mac-moment__video-play';
-      play.textContent = '▶';
+      play.innerHTML = '<span class="mac-moment__video-play-icon" aria-hidden="true"></span>';
       const label = document.createElement('span');
       label.className = 'mac-moment__video-label';
       label.textContent = clip.title;
