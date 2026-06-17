@@ -264,6 +264,9 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) closePreview();
   });
+  imageWrap.addEventListener('click', (event) => {
+    if (event.target === imageWrap) closePreview();
+  });
 
   overlay.append(closeButton, imageWrap, caption);
   record.element.append(overlay);
