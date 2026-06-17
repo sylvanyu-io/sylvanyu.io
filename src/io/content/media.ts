@@ -114,7 +114,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
   body: string;
   photoIndexes: number[];
   videoClipIndex?: number;
-  reactions: string;
 }>> = {
   en: [
     {
@@ -123,7 +122,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       time: 'today 22:18',
       body: 'Keeping a small visual notebook for rendering taste: soft depth, glass edges, water, and a few things that should eventually become proper photos.',
       photoIndexes: [0, 1, 2, 3, 4, 5],
-      reactions: 'Jun, L. Chen and 7 others liked this',
     },
     {
       author: 'Camera memo',
@@ -132,7 +130,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       body: 'The useful part of a personal site is not only the copy. It is also a place to keep tiny interface experiments alive.',
       photoIndexes: [],
       videoClipIndex: 0,
-      reactions: '1 comment · saved to references',
     },
     {
       author: 'Travel draft',
@@ -140,7 +137,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       time: '2026.06.08',
       body: 'Placeholder slots for travel, food, museums, plants, and other non-work things. The shell is ready; real photos can replace these assets later.',
       photoIndexes: [2, 3, 5],
-      reactions: 'private draft',
     },
   ],
   zh: [
@@ -150,7 +146,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       time: '今天 22:18',
       body: '给渲染审美留一个小视觉笔记：柔和深度、玻璃边缘、水体，还有一些以后应该换成真实照片的东西。',
       photoIndexes: [0, 1, 2, 3, 4, 5],
-      reactions: 'Jun、L. Chen 等 7 人觉得不错',
     },
     {
       author: '相册备忘',
@@ -159,7 +154,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       body: '个人网站有用的地方不只在文案，也在于能把一些小界面实验长期留在现场。',
       photoIndexes: [],
       videoClipIndex: 0,
-      reactions: '1 条评论 · 已存入参考',
     },
     {
       author: '旅行草稿',
@@ -167,7 +161,6 @@ export const mediaMomentPosts: Record<Lang, Array<{
       time: '2026.06.08',
       body: '这里先放旅行、食物、展览、植物和其他非工作内容的入口。壳子先准备好，真实照片后面再替换。',
       photoIndexes: [2, 3, 5],
-      reactions: '私人草稿',
     },
   ],
 };

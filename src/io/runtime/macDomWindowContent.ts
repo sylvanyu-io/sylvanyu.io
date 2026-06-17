@@ -212,6 +212,16 @@ function imageAlt(title: string, caption: string) {
   return `${title}. ${caption}`;
 }
 
+function momentMediaLabel(lang: Lang, imageCount: number, hasVideo: boolean) {
+  if (hasVideo) return lang === 'zh' ? '视频' : 'VIDEO';
+  if (imageCount > 0) return lang === 'zh' ? `${imageCount} 张图` : `${imageCount} ${imageCount === 1 ? 'IMAGE' : 'IMAGES'}`;
+  return lang === 'zh' ? '文字' : 'TEXT';
+}
+
+function momentKindLabel(lang: Lang) {
+  return lang === 'zh' ? '视觉笔记' : 'VISUAL NOTE';
+}
+
 function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof mediaPhotos)[Lang][number]) {
   record.element.querySelector('.mac-moments-preview')?.remove();
 
@@ -377,23 +387,19 @@ function renderMoments(record: MacDomWindowRecord, lang: Lang) {
       });
     }
 
-    const footer = div('mac-moment__footer');
+    const metaBar = div('mac-moment__meta');
     const time = document.createElement('time');
     time.textContent = entry.time;
-    const action = document.createElement('button');
-    action.type = 'button';
-    action.className = 'mac-moment__more';
-    action.textContent = '··';
-    action.setAttribute('aria-label', 'Post actions');
-    footer.append(time, action);
-
-    const reactions = div('mac-moment__reactions');
-    reactions.textContent = entry.reactions;
+    const kind = document.createElement('span');
+    kind.textContent = momentKindLabel(lang);
+    const media = document.createElement('span');
+    media.textContent = momentMediaLabel(lang, images.length, Boolean(clip));
+    metaBar.append(time, kind, media);
 
     content.append(author, body);
     if (images.length) content.append(grid);
     if (videoButton) content.append(videoButton);
-    content.append(footer, reactions);
+    content.append(metaBar);
     article.append(avatar, content);
     list.append(article);
   });
