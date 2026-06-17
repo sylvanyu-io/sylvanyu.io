@@ -1357,10 +1357,9 @@
     right: 14px;
     top: 14px;
     z-index: 1;
-    display: grid;
+    display: block;
     width: 34px;
     height: 34px;
-    place-items: center;
     border: 1px solid rgba(255, 255, 255, .32);
     border-radius: 50%;
     color: #fff;
@@ -1368,8 +1367,29 @@
     cursor: pointer;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    font-size: 22px;
-    line-height: 1;
+    font-size: 0;
+    line-height: 0;
+  }
+
+  .mac-moments-preview__close::before,
+  .mac-moments-preview__close::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 15px;
+    height: 2.5px;
+    border-radius: 999px;
+    background: currentColor;
+    transform-origin: center;
+  }
+
+  .mac-moments-preview__close::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .mac-moments-preview__close::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
   }
 
   .mac-moments-preview__image-wrap {
