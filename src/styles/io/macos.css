@@ -882,83 +882,157 @@
   }
 
   .mac-dom-window__body--projects {
-    padding: 24px 24px 20px;
+    padding: 0;
+    background:
+      linear-gradient(180deg, rgba(238, 239, 222, .96), rgba(226, 224, 207, .94) 58%, rgba(207, 220, 184, .9)),
+      rgba(232, 234, 214, .94);
   }
 
-  .mac-project {
+  .mac-dom-window[data-window-id="projects"] .mac-dom-window__titlebar {
+    background:
+      linear-gradient(180deg, rgba(242, 243, 229, .78), rgba(230, 230, 213, .64));
+    border-bottom-color: rgba(76, 82, 58, .13);
+  }
+
+  .mac-projects {
+    min-height: 100%;
+    padding: 18px 20px 20px;
+    color: #20242a;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .03) 220px);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .mac-projects__header {
+    padding: 0 0 16px;
+    border-bottom: 1px solid rgba(34, 37, 44, .12);
+  }
+
+  .mac-projects__header-copy {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 90px;
-    column-gap: 18px;
-    padding: 0 0 20px;
+    gap: 6px;
+    min-width: 0;
   }
 
-  .mac-project:last-child {
-    padding-bottom: 0;
+  .mac-projects__eyebrow,
+  .mac-project__meta,
+  .mac-project__metric {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0;
   }
 
+  .mac-projects__eyebrow {
+    color: rgba(82, 99, 128, .84);
+    font-size: 10px;
+    font-weight: 820;
+    line-height: 1.25;
+  }
+
+  .mac-projects__header h2,
+  .mac-projects__header p,
   .mac-project h2,
   .mac-project p {
     margin: 0;
   }
 
-  .mac-project h2 {
-    color: #17191c;
-    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.12;
+  .mac-projects__header h2 {
+    color: #1f2328;
+    font-size: 20px;
+    font-weight: 820;
+    line-height: 1.04;
   }
 
-  .mac-project__meta {
-    margin-top: 4px !important;
-    color: rgba(86, 88, 96, .62);
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 9px;
-    font-weight: 600;
-    line-height: 1.1;
-  }
-
-  .mac-project__body {
-    margin-top: 7px !important;
-    color: rgba(72, 74, 82, .78);
-    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
-    font-size: 12px;
-    font-weight: 500;
+  .mac-projects__header p {
+    max-width: 430px;
+    color: rgba(32, 36, 43, .66);
+    font-size: 12.5px;
+    font-weight: 560;
     line-height: 1.45;
   }
 
-  /* Mobile sheets have room for the full descriptions. */
-  .mac-dom-window[data-mobile="true"] .mac-project {
-    padding: 14px 0 18px;
+  .mac-projects__list {
+    display: grid;
+    padding-top: 4px;
+  }
+
+  .mac-project {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 82px;
+    gap: 18px;
+    padding: 15px 0 16px 34px;
+    border-bottom: 1px solid rgba(34, 37, 44, .1);
+  }
+
+  .mac-project:last-child {
+    border-bottom: 0;
+  }
+
+  .mac-project::before {
+    content: attr(data-index);
+    position: absolute;
+    left: 0;
+    top: 17px;
+    width: 22px;
+    color: rgba(82, 99, 128, .74);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: left;
+  }
+
+  .mac-project h2 {
+    color: #20242a;
+    font-size: 15px;
+    font-weight: 780;
+    letter-spacing: 0;
+    line-height: 1.15;
+  }
+
+  .mac-project__meta {
+    margin-top: 5px !important;
+    color: rgba(82, 99, 128, .7);
+    font-size: 9px;
+    font-weight: 760;
+    line-height: 1.25;
+  }
+
+  .mac-project__body {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 8px !important;
+    color: rgba(38, 42, 49, .76);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 12.5px;
+    font-weight: 520;
+    line-height: 1.46;
   }
 
   .mac-project__metric {
-    display: flex;
-    align-items: flex-start;
-    flex-direction: column;
+    display: grid;
+    align-content: start;
     justify-self: end;
+    justify-items: end;
     min-width: 0;
-    padding-top: 18px;
+    padding-top: 2px;
     text-align: right;
   }
 
   .mac-project__metric strong {
-    align-self: flex-end;
-    color: #2f6fd0;
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(82, 99, 128, .96);
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 840;
     line-height: 1;
   }
 
   .mac-project__metric span {
-    align-self: flex-end;
+    max-width: 84px;
     margin-top: 7px;
-    color: rgba(86, 88, 96, .62);
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(32, 36, 43, .5);
     font-size: 9px;
-    font-weight: 600;
-    line-height: 1.1;
+    font-weight: 760;
+    line-height: 1.25;
   }
 
   .mac-dom-window__body--album {

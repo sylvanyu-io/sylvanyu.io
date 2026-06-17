@@ -181,9 +181,28 @@ function renderWorklog(record: MacDomWindowRecord, lang: Lang) {
 function renderProjects(record: MacDomWindowRecord, lang: Lang) {
   record.body.replaceChildren();
 
-  desktopProjects[lang].forEach((project) => {
+  const projects = desktopProjects[lang];
+  const shell = div('mac-projects');
+  const header = div('mac-projects__header');
+  const headerCopy = div('mac-projects__header-copy');
+  const eyebrow = document.createElement('span');
+  eyebrow.className = 'mac-projects__eyebrow';
+  eyebrow.textContent = lang === 'zh' ? 'PROJECT INDEX / 视觉系统' : 'PROJECT INDEX / VISUAL SYSTEMS';
+  const title = document.createElement('h2');
+  title.textContent = lang === 'zh' ? '从引擎到产品现场' : 'Systems that reached product';
+  const intro = document.createElement('p');
+  intro.textContent = lang === 'zh'
+    ? '把实时渲染、编辑器、AI 基建和跨端运行时放在同一个可扫读的项目索引里。'
+    : 'A scan-first index of real-time rendering, editor tooling, AI infrastructure, and cross-platform runtime work.';
+  headerCopy.append(eyebrow, title, intro);
+  header.append(headerCopy);
+  shell.append(header);
+
+  const list = div('mac-projects__list');
+  projects.forEach((project, index) => {
     const article = document.createElement('article');
     article.className = 'mac-project';
+    article.dataset.index = String(index + 1).padStart(2, '0');
 
     const copy = div('mac-project__copy');
     const title = document.createElement('h2');
@@ -204,8 +223,11 @@ function renderProjects(record: MacDomWindowRecord, lang: Lang) {
     metric.append(value, label);
 
     article.append(copy, metric);
-    record.body.append(article);
+    list.append(article);
   });
+
+  shell.append(list);
+  record.body.append(shell);
 }
 
 function imageAlt(title: string, caption: string) {
