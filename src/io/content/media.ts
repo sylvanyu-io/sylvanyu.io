@@ -12,14 +12,14 @@ export const mediaWindowCopy: Record<Lang, {
     albumIntro: 'A lightweight place for hobby photos, travel scraps, and visual references.',
     momentsTitle: 'Visual notes',
     momentsIntro: 'A feed-style variant for hobby photos, travel notes, and everyday visual scraps.',
-    videoAccessory: 'GLASS UI',
+    videoAccessory: 'PLAYER',
   },
   zh: {
     albumTitle: '相册草稿',
     albumIntro: '一个放兴趣照片、旅行片段和视觉参考的轻量相册入口。',
     momentsTitle: '视觉碎片',
     momentsIntro: '朋友圈 / ins 风格的信息流版本，适合放兴趣照片、旅行和日常。',
-    videoAccessory: '玻璃 UI',
+    videoAccessory: '播放器',
   },
 };
 
@@ -176,9 +176,9 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/media-demo.mp4',
       poster: '/io-design/assets/demo-background.jpg',
-      title: 'Glass player prototype',
+      title: 'Player prototype',
       date: '2026.06',
-      caption: 'A lightweight local clip for testing glass controls, scrubber layout, and optional metadata below the player.',
+      caption: 'A lightweight local clip for testing player controls, scrubber layout, and optional metadata below the player.',
     },
     {
       src: '/io-design/assets/media-demo.mp4',
@@ -190,9 +190,9 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/media-demo.mp4',
       poster: '/io-design/assets/demo-background.jpg',
-      title: '玻璃播放器原型',
+      title: '播放器原型',
       date: '2026.06',
-      caption: '用于测试玻璃控件、进度条布局，以及播放器下方可选文字 / 日期信息的本地轻量视频。',
+      caption: '用于测试播放器控件、进度条布局，以及播放器下方可选文字 / 日期信息的本地轻量视频。',
     },
     {
       src: '/io-design/assets/media-demo.mp4',
