@@ -121,7 +121,7 @@ export const MAC_APPS: MacAppDefinition[] = [
   },
   {
     id: 'video',
-    title: 'GlassPlayer.app',
+    title: 'Player.app',
     icon: 'icon-video.svg',
     labelKey: 'iconVideo',
     home: false,
