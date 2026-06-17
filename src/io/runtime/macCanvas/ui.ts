@@ -1,6 +1,6 @@
 import { desktopCopy } from '../../data';
 import type { Lang } from '../../content/common';
-import { drawTextLine, macMono as mono, macSans as sans } from './canvasText';
+import { macMono as mono, macSans as sans } from './canvasText';
 import { DOCK_GLASS, FOLDER_ICON_GLASS, FOLDER_PANEL_GLASS } from './tuning';
 import {
   DOCK_APPS,
@@ -1327,40 +1327,105 @@ function drawDesktopIcons(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout
   });
 }
 
+function clampValue(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines = 3) {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let line = '';
+
+  words.forEach((word) => {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      if (lines.length < maxLines) lines.push(line);
+      line = word;
+      return;
+    }
+    line = next;
+  });
+
+  if (line && lines.length < maxLines) lines.push(line);
+  return lines;
+}
+
 function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, state: MacCanvasState, now: Date) {
   const copy = desktopCopy[state.lang];
   const { clock, status } = layout.widgets;
-  const statusX = status.x + 18;
-  const statusW = status.w - 36;
-  // Two columns spread across wider mobile widgets; the desktop rail keeps 100.
-  const statColGap = status.w > 260 ? Math.round(statusW * 0.5) : 100;
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const date = now.toISOString().slice(0, 10).replace(/-/g, '.');
 
   ctx.save();
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = 'top';
   ctx.shadowColor = 'rgba(0, 10, 6, 0.68)';
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 1.2;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
   if (clock) {
-    const clockX = clock.x + 18;
-    ctx.font = `600 34px ${mono}`;
-    ctx.fillText(time, clockX, clock.y + 38);
-    ctx.font = `500 10px ${mono}`;
+    const clockScale = clampValue(Math.min(clock.w / 244, clock.h / 96), 0.82, 1.16);
+    const timeFont = 34 * clockScale;
+    const dateFont = 10 * clockScale;
+    const clockGap = 7 * clockScale;
+    const clockBlockH = timeFont * 1.08 + clockGap + dateFont * 1.25;
+    const clockX = clock.x + clock.w * 0.5;
+    let clockY = clock.y + (clock.h - clockBlockH) * 0.5;
+
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${timeFont}px ${mono}`;
+    ctx.fillStyle = 'rgba(246, 250, 255, 0.94)';
+    ctx.fillText(time, clockX, clockY);
+    clockY += timeFont * 1.08 + clockGap;
+    ctx.font = `500 ${dateFont}px ${mono}`;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.62)';
-    ctx.fillText(date, clockX, clock.y + 66);
+    ctx.fillText(date, clockX, clockY);
   }
 
-  ctx.font = `600 10px ${mono}`;
+  const statusScale = clampValue(Math.min(status.w / 244, status.h / 252), 0.78, 1.12);
+  const statusW = Math.min(status.w - 28 * statusScale, 220 * statusScale);
+  const statusX = status.x + (status.w - statusW) * 0.5;
+  const titleFont = 10 * statusScale;
+  const bodyFont = 14 * statusScale;
+  const emailFont = 11 * statusScale;
+  const statValueFont = 15 * statusScale;
+  const statLabelFont = 9 * statusScale;
+  const bodyLineH = 20 * statusScale;
+  const titleGap = 22 * statusScale;
+  const bodyGap = 24 * statusScale;
+  const emailGap = 22 * statusScale;
+  const statLabelGap = 5 * statusScale;
+  const statRowGap = 10 * statusScale;
+
+  ctx.textAlign = 'left';
+  ctx.font = `600 ${bodyFont}px ${sans}`;
+  const bodyLines = wrapCanvasText(ctx, copy.statusBody, statusW, 3);
+  const statRowH = statValueFont * 1.15 + statLabelGap + statLabelFont * 1.2;
+  const statusBlockH = titleFont * 1.25
+    + titleGap
+    + bodyLines.length * bodyLineH
+    + bodyGap
+    + emailFont * 1.25
+    + emailGap
+    + statRowH * 2
+    + statRowGap;
+  let y = status.y + (status.h - statusBlockH) * 0.5;
+
+  ctx.font = `600 ${titleFont}px ${mono}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.66)';
-  ctx.fillText(copy.statusTitle, statusX, status.y + 27);
-  ctx.font = `600 14px ${sans}`;
+  ctx.fillText(copy.statusTitle, statusX, y);
+  y += titleFont * 1.25 + titleGap;
+
+  ctx.font = `600 ${bodyFont}px ${sans}`;
   ctx.fillStyle = 'rgba(246, 250, 255, 0.9)';
-  drawTextLine(ctx, copy.statusBody, statusX, status.y + 59, statusW, 20, 3);
-  ctx.font = `500 11px ${mono}`;
+  bodyLines.forEach((line, index) => {
+    ctx.fillText(line, statusX, y + index * bodyLineH);
+  });
+  y += bodyLines.length * bodyLineH + bodyGap;
+
+  ctx.font = `500 ${emailFont}px ${mono}`;
   ctx.fillStyle = 'rgba(204, 226, 255, 0.86)';
-  ctx.fillText(copy.statusFoot, statusX, status.y + 126);
+  ctx.fillText(copy.statusFoot, statusX, y);
+  y += emailFont * 1.25 + emailGap;
 
   const wallpaperFps = Math.round(state.fps).toString();
   const stats = [
@@ -1369,18 +1434,18 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
     ['Predy', copy.wWallpaper],
     ['MCP', copy.wUptime],
   ];
-  ctx.font = `700 15px ${mono}`;
+  const statColGap = Math.round(statusW * 0.54);
   stats.forEach((item, index) => {
     const col = index % 2;
     const row = Math.floor(index / 2);
     const sx = statusX + col * statColGap;
-    const sy = status.y + 159 + row * 44;
+    const sy = y + row * (statRowH + statRowGap);
+    ctx.font = `700 ${statValueFont}px ${mono}`;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.9)';
     ctx.fillText(item[0], sx, sy);
-    ctx.font = `500 9px ${mono}`;
+    ctx.font = `500 ${statLabelFont}px ${mono}`;
     ctx.fillStyle = 'rgba(246, 250, 255, 0.58)';
-    ctx.fillText(item[1], sx, sy + 18);
-    ctx.font = `700 15px ${mono}`;
+    ctx.fillText(item[1], sx, sy + statValueFont * 1.15 + statLabelGap);
   });
   ctx.restore();
 }

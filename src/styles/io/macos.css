@@ -436,55 +436,31 @@
   .mac-dom-window__body {
     position: relative;
     height: calc(100% - var(--mac-window-title-h, 34px));
-    overflow: hidden;
-  }
-
-  /* Desktop windows are fixed-size, so content-heavy bodies scroll instead of
-     clipping. The scrollbar is tinted warm to sit on the paper rather than
-     showing the OS default high-contrast gray bar. */
-  .mac-dom-window__body--readme,
-  .mac-dom-window__body--worklog,
-  .mac-dom-window__body--projects,
-  .mac-dom-window__body--album,
-  .mac-dom-window__body--moments {
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(64, 58, 46, .34) transparent;
   }
 
-  .mac-dom-window__body--readme::-webkit-scrollbar,
-  .mac-dom-window__body--worklog::-webkit-scrollbar,
-  .mac-dom-window__body--projects::-webkit-scrollbar,
-  .mac-dom-window__body--album::-webkit-scrollbar,
-  .mac-dom-window__body--moments::-webkit-scrollbar {
+  /* Fixed-size desktop windows scroll instead of clipping when a compact
+     viewport gives an app less vertical room than its content expects. */
+  .mac-dom-window__body::-webkit-scrollbar {
     width: 9px;
   }
 
-  .mac-dom-window__body--readme::-webkit-scrollbar-track,
-  .mac-dom-window__body--worklog::-webkit-scrollbar-track,
-  .mac-dom-window__body--projects::-webkit-scrollbar-track,
-  .mac-dom-window__body--album::-webkit-scrollbar-track,
-  .mac-dom-window__body--moments::-webkit-scrollbar-track {
+  .mac-dom-window__body::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .mac-dom-window__body--readme::-webkit-scrollbar-thumb,
-  .mac-dom-window__body--worklog::-webkit-scrollbar-thumb,
-  .mac-dom-window__body--projects::-webkit-scrollbar-thumb,
-  .mac-dom-window__body--album::-webkit-scrollbar-thumb,
-  .mac-dom-window__body--moments::-webkit-scrollbar-thumb {
+  .mac-dom-window__body::-webkit-scrollbar-thumb {
     background: rgba(64, 58, 46, .32);
     border: 2px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
   }
 
-  .mac-dom-window__body--readme::-webkit-scrollbar-thumb:hover,
-  .mac-dom-window__body--worklog::-webkit-scrollbar-thumb:hover,
-  .mac-dom-window__body--projects::-webkit-scrollbar-thumb:hover,
-  .mac-dom-window__body--album::-webkit-scrollbar-thumb:hover,
-  .mac-dom-window__body--moments::-webkit-scrollbar-thumb:hover {
+  .mac-dom-window__body::-webkit-scrollbar-thumb:hover {
     background: rgba(64, 58, 46, .5);
     background-clip: padding-box;
   }
@@ -496,7 +472,6 @@
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--projects,
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--album,
   .mac-dom-window[data-mobile="true"] .mac-dom-window__body--moments {
-    overflow-y: auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
@@ -671,16 +646,16 @@
     right: 0;
     bottom: 0;
     z-index: 3;
-    height: var(--mac-photo-hud-h, 25px);
-    padding: 8px 12px 0;
+    min-height: var(--mac-photo-hud-h, 25px);
+    padding: 7px 12px 6px;
     overflow: hidden;
     color: rgba(255, 255, 255, .72);
     background: rgba(10, 12, 13, .88);
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 10px;
     font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
+    line-height: 1.25;
+    white-space: normal;
   }
 
   .mac-photo__note {
@@ -737,17 +712,17 @@
     right: 0;
     bottom: 0;
     z-index: 3;
-    height: 25px;
-    padding: 8px 12px 0;
+    min-height: 25px;
+    padding: 7px 12px 6px;
     overflow: hidden;
     color: rgba(230, 250, 255, .72);
     background: rgba(4, 7, 10, .84);
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 10px;
     font-weight: 500;
-    line-height: 1;
+    line-height: 1.25;
     pointer-events: none;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .mac-demo__hud[hidden] {
