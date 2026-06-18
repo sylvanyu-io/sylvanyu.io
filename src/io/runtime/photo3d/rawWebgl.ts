@@ -33,6 +33,7 @@ type Photo3DOptions = {
 export type Photo3DController = {
   setActive: (active: boolean) => void;
   setMaxFps: (fps: number) => void;
+  resize: () => void;
   dispose: () => void;
   readonly active: boolean;
   readonly rendering: boolean;
@@ -454,6 +455,11 @@ export function mountPhoto3D(
     queueFrame();
   };
 
+  const resizeAndRender = () => {
+    resize();
+    if (renderActive) startLoop();
+  };
+
   const controller: Photo3DController = {
     setActive(active) {
       if (renderActive === active) return;
@@ -474,6 +480,9 @@ export function mountPhoto3D(
       if (running) resetFrameTiming();
       renderDirty = true;
       startLoop();
+    },
+    resize() {
+      resizeAndRender();
     },
     dispose() {
       if (disposed) return;
@@ -549,7 +558,8 @@ export function mountPhoto3D(
     else stopLoop();
   }
 
-  const resizeObserver = new ResizeObserver(resize);
+  const resizeObserver = new ResizeObserver(resizeAndRender);
+  resizeObserver.observe(wrap);
   resizeObserver.observe(stage);
   cleanup.push(() => resizeObserver.disconnect());
   const onPageHide = () => {

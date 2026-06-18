@@ -452,7 +452,7 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
 
   if (windowLayout.id === 'photo') {
     const noteH = windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH;
-    const stageH = Math.max(1, windowLayout.h - windowLayout.titleH - noteH);
+    const stageH = Math.max(1, windowLayout.h - windowLayout.titleH - noteH - 2);
     windowLayout.stage = {
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH,

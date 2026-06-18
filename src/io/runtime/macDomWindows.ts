@@ -315,6 +315,7 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
     element.style.setProperty('--mac-photo-stage-h', `${Math.max(1, win.stage.h)}px`);
     element.style.setProperty('--mac-photo-hud-h', `${PHOTO_APP_HUD_HEIGHT}px`);
     element.style.setProperty('--mac-photo-note-h', `${win.note.h}px`);
+    record.photo3dController?.resize();
   }
 
   if (win.id === 'reflection' && win.stage) {
