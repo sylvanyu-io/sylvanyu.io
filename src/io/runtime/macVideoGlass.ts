@@ -138,6 +138,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   let disposed = false;
   let needsResize = true;
   let panelsDirty = true;
+  let sourceReady = false;
   let cachedPanels: GlassPanelInput[] = [];
 
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.videoGlassFps);
@@ -179,6 +180,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   }
 
   function sourceTexture() {
+    if (video.seeking && sourceReady) return null;
     if (hasLiveVideoFrame()) {
       videoTexture.needsUpdate = true;
       return videoTexture;
@@ -198,6 +200,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     disposeTarget(sourceTarget);
     sourceTarget = makeRenderTarget(deviceWidth, deviceHeight);
     glassPipeline.resize(deviceWidth, deviceHeight);
+    sourceReady = false;
     needsResize = false;
     panelsDirty = true;
   }
@@ -227,13 +230,15 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     const texture = sourceTexture();
     renderer.setRenderTarget(null);
     renderer.clear(true, true, true);
-    if (!texture) {
+    if (texture) {
+      sourceUniforms.uScene.value = texture;
+      renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
+      sourceReady = true;
+    } else if (!sourceReady) {
       frameLimiter.consumeDelta(nowMs);
       return;
     }
 
-    sourceUniforms.uScene.value = texture;
-    renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
     glassPipeline.renderPanels(sourceTarget.texture, collectPanels(), cssWidth, cssHeight, null);
     frameLimiter.consumeDelta(nowMs);
   }
@@ -300,6 +305,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   };
 
   video.addEventListener('loadeddata', onVideoFrame);
+  video.addEventListener('seeking', onVideoFrame);
   video.addEventListener('seeked', onVideoFrame);
   video.addEventListener('play', onPlay);
   video.addEventListener('pause', onPause);
@@ -334,6 +340,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
       stop();
       resizeObserver.disconnect();
       video.removeEventListener('loadeddata', onVideoFrame);
+      video.removeEventListener('seeking', onVideoFrame);
       video.removeEventListener('seeked', onVideoFrame);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
