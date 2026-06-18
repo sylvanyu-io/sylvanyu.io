@@ -342,11 +342,99 @@
     cursor: grabbing;
   }
 
+  .mac-dom-window[data-resizing="true"] {
+    transition: none;
+  }
+
+  .mac-dom-window__resize-handle {
+    position: absolute;
+    z-index: 5;
+    background: transparent;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="n"] {
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 10px;
+    cursor: ns-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="e"] {
+    top: 18px;
+    right: 0;
+    bottom: 18px;
+    width: 10px;
+    cursor: ew-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="s"] {
+    right: 18px;
+    bottom: 0;
+    left: 18px;
+    height: 10px;
+    cursor: ns-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="w"] {
+    top: 18px;
+    bottom: 18px;
+    left: 0;
+    width: 10px;
+    cursor: ew-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="ne"],
+  .mac-dom-window__resize-handle[data-resize-edge="sw"] {
+    width: 20px;
+    height: 20px;
+    cursor: nesw-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="nw"],
+  .mac-dom-window__resize-handle[data-resize-edge="se"] {
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="nw"] {
+    width: 8px;
+    height: 8px;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="ne"] {
+    top: 0;
+    right: 0;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="se"] {
+    right: 0;
+    bottom: 0;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="sw"] {
+    bottom: 0;
+    left: 0;
+  }
+
+  .mac-dom-window__resize-handle[data-resize-edge="nw"] {
+    top: 0;
+    left: 0;
+  }
+
   .mac-dom-window[data-mobile="true"] .mac-dom-window__titlebar {
     box-sizing: border-box;
     padding-top: var(--mac-safe-top, 0px);
     cursor: default;
     touch-action: none;
+  }
+
+  .mac-dom-window[data-mobile="true"] .mac-dom-window__resize-handle {
+    display: none;
   }
 
   .mac-dom-window__close {

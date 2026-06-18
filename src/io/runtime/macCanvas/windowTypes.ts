@@ -41,6 +41,8 @@ export type WindowState = {
   z: number;
   x?: number;
   y?: number;
+  w?: number;
+  h?: number;
 };
 
 export type WindowStateMap = Record<WindowId, WindowState>;

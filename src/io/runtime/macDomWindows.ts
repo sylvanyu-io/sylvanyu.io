@@ -17,6 +17,13 @@ type MacDomWindowActions = {
   bringFront: (id: WindowId) => void;
   setOpen: (id: WindowId, open: boolean) => void;
   moveWindow: (id: WindowId, x: number, y: number) => void;
+  resizeWindow: (
+    id: WindowId,
+    edge: ResizeEdge,
+    startRect: Rect,
+    deltaX: number,
+    deltaY: number,
+  ) => void;
   requestClose?: (id: WindowId) => boolean;
 };
 
@@ -41,9 +48,22 @@ type DragState = {
   offsetY: number;
 };
 
+type ResizeEdge = 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
+
+type ResizeState = {
+  id: WindowId;
+  pointerId: number;
+  edge: ResizeEdge;
+  startX: number;
+  startY: number;
+  startRect: Rect;
+  handle: HTMLElement;
+};
+
 const MINIMIZE_DURATION = 240;
 const RESTORE_DURATION = 260;
 const WINDOW_EASING = 'cubic-bezier(.2,.8,.2,1)';
+const RESIZE_EDGES: ResizeEdge[] = ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'];
 
 const BACK_CHEVRON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
   + '<path d="M15 4.8 L7.6 12 L15 19.2" fill="none" stroke="currentColor" stroke-width="2.4" '
@@ -132,13 +152,20 @@ function createWindowElement(id: WindowId, root: HTMLElement, actions: MacDomWin
   const title = div('mac-dom-window__title');
   const accessory = div('mac-dom-window__accessory');
   const body = div(contentClass(id));
+  const resizeHandles = RESIZE_EDGES.map((edge) => {
+    const handle = div('mac-dom-window__resize-handle');
+    handle.dataset.resizeEdge = edge;
+    handle.setAttribute('aria-hidden', 'true');
+    return handle;
+  });
   const cleanup: (() => void)[] = [];
 
   titlebar.append(close, title, accessory);
-  element.append(titlebar, body);
+  element.append(titlebar, body, ...resizeHandles);
 
   const record: MacDomWindowRecord = { id, element, title, accessory, close, body, cleanup };
   let dragState: DragState | null = null;
+  let resizeState: ResizeState | null = null;
 
   const listen = <K extends keyof DocumentEventMap>(
     type: K,
@@ -172,19 +199,67 @@ function createWindowElement(id: WindowId, root: HTMLElement, actions: MacDomWin
     event.preventDefault();
   });
 
+  resizeHandles.forEach((handle) => {
+    handle.addEventListener('pointerdown', (event) => {
+      const edge = handle.dataset.resizeEdge as ResizeEdge | undefined;
+      const layout = currentLayout(root);
+      const win = layout ? windowById(layout, id) : null;
+      if (!edge || !layout || layout.mobile || !win) return;
+
+      actions.bringFront(id);
+      dragState = null;
+      resizeState = {
+        id,
+        pointerId: event.pointerId,
+        edge,
+        startX: event.clientX,
+        startY: event.clientY,
+        startRect: { x: win.x, y: win.y, w: win.w, h: win.h },
+        handle,
+      };
+      element.dataset.resizing = 'true';
+      handle.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  });
+
   listen('pointermove', (event) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    const rect = root.getBoundingClientRect();
-    actions.moveWindow(id, event.clientX - rect.left - dragState.offsetX, event.clientY - rect.top - dragState.offsetY);
-    event.preventDefault();
+    if (dragState && dragState.pointerId === event.pointerId) {
+      const rect = root.getBoundingClientRect();
+      actions.moveWindow(id, event.clientX - rect.left - dragState.offsetX, event.clientY - rect.top - dragState.offsetY);
+      event.preventDefault();
+      return;
+    }
+
+    if (resizeState && resizeState.pointerId === event.pointerId) {
+      actions.resizeWindow(
+        id,
+        resizeState.edge,
+        resizeState.startRect,
+        event.clientX - resizeState.startX,
+        event.clientY - resizeState.startY,
+      );
+      event.preventDefault();
+    }
   });
 
   const endPointerDrag = (event: PointerEvent) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    dragState = null;
-    element.dataset.dragging = 'false';
-    if (titlebar.hasPointerCapture(event.pointerId)) titlebar.releasePointerCapture(event.pointerId);
-    event.preventDefault();
+    if (dragState && dragState.pointerId === event.pointerId) {
+      dragState = null;
+      element.dataset.dragging = 'false';
+      if (titlebar.hasPointerCapture(event.pointerId)) titlebar.releasePointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+
+    if (resizeState && resizeState.pointerId === event.pointerId) {
+      const handle = resizeState.handle;
+      resizeState = null;
+      element.dataset.resizing = 'false';
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      event.preventDefault();
+    }
   };
 
   listen('pointerup', endPointerDrag);

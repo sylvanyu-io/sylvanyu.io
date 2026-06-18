@@ -76,6 +76,22 @@ const WINDOW_DRAG_LIMITS = {
   bottomMargin: 60,
 } as const;
 
+type WindowResizeEdge = 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
+
+const WINDOW_RESIZE_LIMITS = {
+  screenMargin: 12,
+  minSize: {
+    readme: { w: 360, h: 360 },
+    photo: { w: 260, h: 320 },
+    reflection: { w: 360, h: 280 },
+    worklog: { w: 420, h: 300 },
+    projects: { w: 420, h: 380 },
+    album: { w: 380, h: 360 },
+    moments: { w: 360, h: 420 },
+    video: { w: 520, h: 360 },
+  } satisfies Record<WindowId, { w: number; h: number }>,
+} as const;
+
 const FOLDER_OPEN_DURATION_MS = 280;
 const FOLDER_CLOSE_DURATION_MS = 220;
 const PERF_HUD_PARAM = 'perf';
@@ -439,6 +455,49 @@ export function mountMacSingleCanvas(rootInput: Element) {
     };
   }
 
+  function resizeRectFromStart(edge: WindowResizeEdge, start: Rect, deltaX: number, deltaY: number): Rect {
+    const rect = { ...start };
+    if (edge.includes('e')) rect.w = start.w + deltaX;
+    if (edge.includes('s')) rect.h = start.h + deltaY;
+    if (edge.includes('w')) {
+      rect.x = start.x + deltaX;
+      rect.w = start.w - deltaX;
+    }
+    if (edge.includes('n')) {
+      rect.y = start.y + deltaY;
+      rect.h = start.h - deltaY;
+    }
+    return rect;
+  }
+
+  function clampWindowResize(
+    id: WindowId,
+    edge: WindowResizeEdge,
+    start: Rect,
+    deltaX: number,
+    deltaY: number,
+  ) {
+    const proposed = resizeRectFromStart(edge, start, deltaX, deltaY);
+    const minSize = WINDOW_RESIZE_LIMITS.minSize[id];
+    const minLeft = WINDOW_RESIZE_LIMITS.screenMargin;
+    const minTop = MAC_MENUBAR_HEIGHT;
+    const maxRight = Math.max(minLeft + minSize.w, cssWidth - WINDOW_RESIZE_LIMITS.screenMargin);
+    const maxBottom = Math.max(minTop + minSize.h, cssHeight - WINDOW_RESIZE_LIMITS.screenMargin);
+    const maxW = Math.max(minSize.w, maxRight - minLeft);
+    const maxH = Math.max(minSize.h, maxBottom - minTop);
+    const w = THREE.MathUtils.clamp(proposed.w, minSize.w, maxW);
+    const h = THREE.MathUtils.clamp(proposed.h, minSize.h, maxH);
+    const x = edge.includes('w') ? start.x + start.w - w : proposed.x;
+    const y = edge.includes('n') ? start.y + start.h - h : proposed.y;
+
+    return {
+      x: Math.round(THREE.MathUtils.clamp(x, minLeft, maxRight - w)),
+      y: Math.round(THREE.MathUtils.clamp(y, minTop, maxBottom - h)),
+      w: Math.round(w),
+      h: Math.round(h),
+    };
+  }
+
   const domWindows = createMacDomWindows(root, {
     bringFront(id) {
       bringWindowFront(state, id);
@@ -456,6 +515,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
       const next = clampWindowPosition(id, x, y);
       state.windows[id].x = next.x;
       state.windows[id].y = next.y;
+      markLayoutDirty();
+    },
+    resizeWindow(id, edge, startRect, deltaX, deltaY) {
+      const next = clampWindowResize(id, edge, startRect, deltaX, deltaY);
+      state.windows[id].x = next.x;
+      state.windows[id].y = next.y;
+      state.windows[id].w = next.w;
+      state.windows[id].h = next.h;
       markLayoutDirty();
     },
     requestClose(id) {

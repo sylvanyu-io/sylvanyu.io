@@ -446,13 +446,13 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
     const saved = state.windows[windowLayout.id];
     if (typeof saved.x === 'number') windowLayout.x = saved.x;
     if (typeof saved.y === 'number') windowLayout.y = saved.y;
+    if (typeof saved.w === 'number') windowLayout.w = saved.w;
+    if (typeof saved.h === 'number') windowLayout.h = saved.h;
   }
 
   if (windowLayout.id === 'photo') {
-    const stageH = windowLayout.stage?.h ?? Math.max(
-      1,
-      windowLayout.h - windowLayout.titleH - (windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH),
-    );
+    const noteH = windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH;
+    const stageH = Math.max(1, windowLayout.h - windowLayout.titleH - noteH);
     windowLayout.stage = {
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH,
@@ -463,7 +463,7 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
       x: windowLayout.x,
       y: windowLayout.y + windowLayout.titleH + stageH,
       w: windowLayout.w,
-      h: windowLayout.note?.h ?? LAYOUT.windows.defaultNoteH,
+      h: noteH,
     };
   }
 
