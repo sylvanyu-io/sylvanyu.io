@@ -1788,8 +1788,20 @@
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    -webkit-appearance: none;
     appearance: none;
     accent-color: #fff;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mac-video__scrub:focus,
+  .mac-video__scrub:focus-visible {
+    outline: none;
+  }
+
+  .mac-video__scrub::-moz-focus-outer {
+    border: 0;
   }
 
   .mac-video__scrub::-webkit-slider-runnable-track {
@@ -1807,6 +1819,7 @@
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+    -webkit-appearance: none;
     appearance: none;
   }
 
