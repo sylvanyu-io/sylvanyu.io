@@ -348,7 +348,7 @@
 
   .mac-dom-window__resize-handle {
     position: absolute;
-    z-index: 5;
+    z-index: 40;
     background: transparent;
     touch-action: none;
     user-select: none;
