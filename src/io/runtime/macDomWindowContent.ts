@@ -520,9 +520,16 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   };
 
   let progressFrame = 0;
+  let scrubbing = false;
+  let resumeAfterScrub = false;
+  let scrubPointerId: number | null = null;
   const syncProgress = () => {
-    if (!video.duration) return;
+    if (!video.duration || scrubbing) return;
     progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+  };
+  const seekToProgress = () => {
+    if (!video.duration) return;
+    video.currentTime = (Number(progress.value) / 1000) * video.duration;
   };
   const stopProgressLoop = () => {
     if (!progressFrame) return;
@@ -539,6 +546,34 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const startProgressLoop = () => {
     if (progressFrame || video.paused || video.ended) return;
     progressFrame = requestAnimationFrame(tickProgress);
+  };
+  const beginScrub = (event: PointerEvent) => {
+    if (!video.duration) return;
+    scrubbing = true;
+    scrubPointerId = event.pointerId;
+    resumeAfterScrub = !video.paused && !video.ended;
+    stopProgressLoop();
+    if (resumeAfterScrub) video.pause();
+    progress.setPointerCapture(event.pointerId);
+  };
+  const endScrub = (event: PointerEvent) => {
+    if (!scrubbing || scrubPointerId !== event.pointerId) return;
+    const shouldResume = resumeAfterScrub;
+    scrubbing = false;
+    resumeAfterScrub = false;
+    scrubPointerId = null;
+    if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId);
+    seekToProgress();
+    if (!shouldResume) {
+      syncProgress();
+      return;
+    }
+    syncPlayButton(true);
+    video.play().catch(() => {
+      syncPlayButton(false);
+      stopProgressLoop();
+      syncProgress();
+    });
   };
 
   const setClip = (index: number) => {
@@ -585,9 +620,14 @@ function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     video.currentTime = Math.min(video.duration || video.currentTime + 15, video.currentTime + 15);
     syncProgress();
   });
+  progress.addEventListener('pointerdown', beginScrub);
+  progress.addEventListener('pointerup', endScrub);
+  progress.addEventListener('pointercancel', endScrub);
   progress.addEventListener('input', () => {
-    if (!video.duration) return;
-    video.currentTime = (Number(progress.value) / 1000) * video.duration;
+    seekToProgress();
+  });
+  progress.addEventListener('change', () => {
+    if (!scrubbing) syncProgress();
   });
   video.addEventListener('timeupdate', () => {
     if (!video.paused && !video.ended) return;
