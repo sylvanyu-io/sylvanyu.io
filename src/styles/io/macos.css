@@ -764,8 +764,14 @@
   }
 
   .mac-dom-window__body--reflection {
+    overflow: hidden;
+    scrollbar-width: none;
     padding: 0;
     background: #050609;
+  }
+
+  .mac-dom-window__body--reflection::-webkit-scrollbar {
+    display: none;
   }
 
   .mac-demo__stage {
