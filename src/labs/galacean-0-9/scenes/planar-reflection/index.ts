@@ -24,6 +24,8 @@ import { createFpsSampler, createFrameLimiter } from '../../../../io/runtime/can
 import type { CanvasDemoHandle } from '../../../../io/runtime/canvasDemoTypes'
 
 const MAX_RENDER_FPS = 60
+const CAMERA_SETTLE_EPSILON = 0.00025
+const CAMERA_SETTLE_EPSILON_SQ = CAMERA_SETTLE_EPSILON * CAMERA_SETTLE_EPSILON
 const PLANAR_REFLECTION_ENV_URL = '/io-design/assets/planar-reflection-env.bin'
 const PLANAR_REFLECTION_TEXTURE_URL = '/io-design/assets/planar-reflection-uv.png'
 
@@ -126,7 +128,38 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
   let settleFrames = 0
   let maxRenderFps = MAX_RENDER_FPS
   let fps = 0
+  let cameraSampleReady = false
+  let lastCameraPx = 0
+  let lastCameraPy = 0
+  let lastCameraPz = 0
+  let lastCameraRx = 0
+  let lastCameraRy = 0
+  let lastCameraRz = 0
   const cleanup: (() => void)[] = []
+
+  const sampleCameraMotion = () => {
+    const position = cameraEntity.transform.position
+    const rotation = cameraEntity.transform.rotation
+    const positionDeltaSq =
+      (position.x - lastCameraPx) ** 2
+      + (position.y - lastCameraPy) ** 2
+      + (position.z - lastCameraPz) ** 2
+    const rotationDeltaSq =
+      (rotation.x - lastCameraRx) ** 2
+      + (rotation.y - lastCameraRy) ** 2
+      + (rotation.z - lastCameraRz) ** 2
+    const moving = cameraSampleReady
+      && (positionDeltaSq > CAMERA_SETTLE_EPSILON_SQ || rotationDeltaSq > CAMERA_SETTLE_EPSILON_SQ)
+
+    lastCameraPx = position.x
+    lastCameraPy = position.y
+    lastCameraPz = position.z
+    lastCameraRx = rotation.x
+    lastCameraRy = rotation.y
+    lastCameraRz = rotation.z
+    cameraSampleReady = true
+    return moving
+  }
 
   const queueFrame = () => {
     if (!running || !renderActive || destroyed) return
@@ -165,11 +198,12 @@ export async function initScene(canvas: HTMLCanvasElement | string): Promise<Can
     }
 
     engine.update()
+    const cameraMoving = sampleCameraMotion()
     fps = fpsSampler.record(nowMs)
     renderDirty = false
     if (!interacting && settleFrames > 0) settleFrames -= 1
 
-    if (renderDirty || interacting || settleFrames > 0) {
+    if (renderDirty || interacting || settleFrames > 0 || cameraMoving) {
       queueFrame()
     } else {
       stopLoop()
