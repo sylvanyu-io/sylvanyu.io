@@ -42,6 +42,16 @@ export type Photo3DController = {
 
 const MAX_BACKING_EDGE = 2048;
 const MAX_RENDER_FPS = 60;
+const MIN_CAMERA_Z_SCALE = 0.2;
+const MAX_CAMERA_Z_SCALE = 1.3;
+const WHEEL_DOLLY_SPEED = 0.00155;
+const CAMERA_DOLLY_SMOOTHING_PER_SECOND = 4.8;
+const CAMERA_DOLLY_SETTLE_EPSILON = 0.0015;
+const CAMERA_PARALLAX_GAIN = 0.42;
+const HOVER_SMOOTHING_PER_SECOND = 12;
+const HOVER_PARALLAX_STRENGTH = 0.062;
+const HOVER_PARALLAX_MAX_OFFSET = 0.085;
+const DRAG_PARALLAX_STRENGTH = 0.075;
 const LEGACY_SAMPLER_UNIFORMS: Photo3DUniformName[] = [
   'disparity0',
   'disparity1',
@@ -198,6 +208,10 @@ export function mountPhoto3D(
   let smoothY = PHOTO3D_DEFAULT_CONFIG.offsetY;
   let pointerX = 0;
   let pointerY = 0;
+  let cameraZScale = 1;
+  let targetCameraZScale = 1;
+  let pinchStartDistance = 0;
+  let pinchStartCameraZScale = 1;
   let fps = 0;
   let renderDirty = true;
   let disposed = false;
@@ -209,6 +223,36 @@ export function mountPhoto3D(
     target.addEventListener(type, listener, options);
     cleanup.push(() => target.removeEventListener(type, listener, options));
   };
+  const activePointers = new Map<number, { x: number; y: number }>();
+
+  const clampCameraZScale = (value: number) => (
+    Math.min(MAX_CAMERA_Z_SCALE, Math.max(MIN_CAMERA_Z_SCALE, value))
+  );
+
+  const setTargetCameraZScale = (value: number) => {
+    const next = clampCameraZScale(value);
+    if (Math.abs(next - targetCameraZScale) < CAMERA_DOLLY_SETTLE_EPSILON) return;
+    targetCameraZScale = next;
+    renderDirty = true;
+    startLoop();
+  };
+
+  const activePointerDistance = () => {
+    const points = [...activePointers.values()];
+    if (points.length < 2) return 0;
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  };
+
+  const beginPinchDolly = () => {
+    pinchStartDistance = activePointerDistance();
+    pinchStartCameraZScale = targetCameraZScale;
+  };
+
+  const updatePinchDolly = () => {
+    const distance = activePointerDistance();
+    if (pinchStartDistance <= 0 || distance <= 0) return;
+    setTargetCameraZScale(pinchStartCameraZScale * (distance / pinchStartDistance));
+  };
 
   const layoutStage = () => {
     if (fit === 'stretch') return true;
@@ -218,6 +262,7 @@ export function mountPhoto3D(
     if (wrapWidth <= 0 || wrapHeight <= 0 || config.sourceWidth <= 0 || config.sourceHeight <= 0) return false;
 
     const aspect = config.sourceWidth / config.sourceHeight;
+    const fitY = Math.min(1, Math.max(0, Number(root.dataset.fitY ?? 0.5)));
     let width = wrapWidth;
     let height = width / aspect;
     const needsHeightConstraint = fit === 'contain' ? height > wrapHeight : height < wrapHeight;
@@ -225,10 +270,9 @@ export function mountPhoto3D(
       height = wrapHeight;
       width = height * aspect;
     }
-
     stage.style.position = 'absolute';
     stage.style.left = `${Math.round((wrapWidth - width) * 0.5)}px`;
-    stage.style.top = `${Math.round((wrapHeight - height) * 0.5)}px`;
+    stage.style.top = `${Math.round((wrapHeight - height) * fitY)}px`;
     stage.style.right = 'auto';
     stage.style.bottom = 'auto';
     stage.style.width = `${Math.max(1, Math.round(width))}px`;
@@ -354,10 +398,17 @@ export function mountPhoto3D(
     event.stopPropagation();
   };
 
+  const handleWheelDolly = (event: Event) => {
+    const deltaY = (event as WheelEvent).deltaY;
+    if (typeof deltaY !== 'number') return;
+    stopCanvasGesture(event);
+    setTargetCameraZScale(targetCameraZScale * Math.exp(-deltaY * WHEEL_DOLLY_SPEED));
+  };
+
   const updatePointer = (event: PointerEvent) => {
     const rect = canvas.getBoundingClientRect();
-    pointerX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointerY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+    pointerX = -(((event.clientX - rect.left) / rect.width) * 2 - 1);
+    pointerY = ((event.clientY - rect.top) / rect.height) * 2 - 1;
     renderDirty = true;
     startLoop();
   };
@@ -392,29 +443,46 @@ export function mountPhoto3D(
       renderDirty = true;
       startLoop();
     });
+    listen(canvas, 'wheel', handleWheelDolly, { passive: false });
   } else {
+    canvas.style.touchAction = 'none';
     listen(canvas, 'pointermove', (event) => {
       if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
+      if (activePointers.has(event.pointerId)) {
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      }
+      if (activePointers.size >= 2) {
+        updatePinchDolly();
+        return;
+      }
       updatePointer(event);
     });
     listen(canvas, 'pointerdown', (event) => {
       if (!(event instanceof PointerEvent)) return;
       stopCanvasGesture(event);
-      dragging = true;
+      activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       canvas.setPointerCapture(event.pointerId);
+      if (activePointers.size >= 2) {
+        dragging = false;
+        beginPinchDolly();
+        return;
+      }
+      dragging = true;
       updatePointer(event);
     });
     const endPointerGesture = (event: PointerEvent) => {
       stopCanvasGesture(event);
-      dragging = false;
+      activePointers.delete(event.pointerId);
+      if (activePointers.size >= 2) beginPinchDolly();
+      if (activePointers.size === 0) dragging = false;
       renderDirty = true;
       startLoop();
     };
     listen(canvas, 'pointerup', endPointerGesture as EventListener);
     listen(canvas, 'pointercancel', endPointerGesture as EventListener);
     listen(canvas, 'pointerleave', endPointerGesture as EventListener);
-    listen(canvas, 'wheel', stopCanvasGesture, { passive: false });
+    listen(canvas, 'wheel', handleWheelDolly, { passive: false });
     listen(canvas, 'touchstart', stopCanvasGesture, { passive: false });
     listen(canvas, 'touchmove', stopCanvasGesture, { passive: false });
   }
@@ -528,14 +596,14 @@ export function mountPhoto3D(
         time: time * 0.001,
         pointer: { x: pointerX, y: pointerY },
         pointerActive,
-        strength: 0.045,
-        maxOffset: 0.06,
+        strength: HOVER_PARALLAX_STRENGTH,
+        maxOffset: HOVER_PARALLAX_MAX_OFFSET,
         idleDrift,
         baseX: config.offsetX,
         baseY: config.offsetY,
       }));
 
-      const alpha = photo3DDampingAlpha(dt);
+      const alpha = photo3DDampingAlpha(dt, HOVER_SMOOTHING_PER_SECOND);
       smoothX += (target.x - smoothX) * alpha;
       smoothY += (target.y - smoothY) * alpha;
       if (Math.abs(target.x - smoothX) <= PHOTO3D_SETTLE_EPSILON) smoothX = target.x;
@@ -544,17 +612,22 @@ export function mountPhoto3D(
       offsetY = smoothY;
       keepRunning = idleDrift || !photo3DOffsetSettled({ x: smoothX, y: smoothY }, target);
     } else if (dragging) {
-      offsetX = pointerX * 0.05;
-      offsetY = pointerY * 0.05;
+      offsetX = pointerX * DRAG_PARALLAX_STRENGTH;
+      offsetY = pointerY * DRAG_PARALLAX_STRENGTH;
       keepRunning = true;
     }
 
-    if (renderDirty || keepRunning) {
-      drawFrame(gl, uniforms, config, canvas, offsetX, offsetY);
+    const cameraAlpha = photo3DDampingAlpha(dt, CAMERA_DOLLY_SMOOTHING_PER_SECOND);
+    cameraZScale += (targetCameraZScale - cameraZScale) * cameraAlpha;
+    const cameraMoving = Math.abs(targetCameraZScale - cameraZScale) > CAMERA_DOLLY_SETTLE_EPSILON;
+    if (!cameraMoving) cameraZScale = targetCameraZScale;
+
+    if (renderDirty || keepRunning || cameraMoving) {
+      drawFrame(gl, uniforms, config, canvas, offsetX, offsetY, cameraZScale);
       renderDirty = false;
     }
 
-    if (keepRunning || renderDirty) queueFrame();
+    if (keepRunning || cameraMoving || renderDirty) queueFrame();
     else stopLoop();
   }
 
@@ -585,9 +658,11 @@ function drawFrame(
   canvas: HTMLCanvasElement,
   offsetX: number,
   offsetY: number,
+  cameraZScale: number,
 ) {
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.uniform3f(uniforms.offset, offsetX, offsetY, config.offsetZ);
+  const parallaxScale = 1 + (cameraZScale - 1) * CAMERA_PARALLAX_GAIN;
+  gl.uniform3f(uniforms.offset, offsetX * parallaxScale, offsetY * parallaxScale, config.offsetZ * cameraZScale);
   gl.uniform1f(uniforms.focus, config.focus);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
