@@ -3,6 +3,7 @@ import type { GlassParams } from './tuning';
 export const MAC_WINDOW_IDS = [
   'readme',
   'photo',
+  'spatial',
   'reflection',
   'worklog',
   'projects',

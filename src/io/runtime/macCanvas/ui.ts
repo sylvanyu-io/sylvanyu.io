@@ -182,18 +182,19 @@ const LAYOUT = {
     minPhotoStageAspect: 0.72,
     maxPhotoStageAspect: 2.6,
     defaultPhotoAspect: 0.75,
-    defaultNoteH: 112,
-    photoMobileNoteH: 116,
+    defaultNoteH: 250,
+    photoMobileNoteH: 286,
     photoMobileMinStageH: 120,
     photoDesktopMinStageH: 160,
-    photoBaseW: 320,
+    photoBaseW: 560,
     photoMinWindowH: 390,
     photoHeightMargin: 116,
-    photoX: 600,
+    photoX: 560,
     photoY: 58,
     readme: { x: 130, y: 64, w: 430, h: 500 },
     worklog: { x: 240, y: 130, w: 560, h: 408 },
     reflection: { x: 430, y: 118, w: 540, h: 360 },
+    spatial: { x: 210, y: 82, w: 720, h: 500 },
     projects: { x: 180, y: 72, w: 620, h: 540 },
     album: { x: 260, y: 74, w: 520, h: 500 },
     moments: { x: 300, y: 58, w: 450, h: 560 },
@@ -328,7 +329,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
   if (tier === 'compact') {
     return {
       ...base,
-      photoBaseW: 286,
+      photoBaseW: 520,
       photoMinWindowH: 368,
       photoHeightMargin: 104,
       photoX: 520,
@@ -336,6 +337,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
       readme: { x: 116, y: 58, w: 400, h: 470 },
       worklog: { x: 200, y: 116, w: 520, h: 384 },
       reflection: { x: 354, y: 106, w: 500, h: 342 },
+      spatial: { x: 150, y: 74, w: 640, h: 460 },
       projects: { x: 150, y: 68, w: 560, h: 500 },
       album: { x: 230, y: 70, w: 480, h: 462 },
       moments: { x: 260, y: 58, w: 418, h: 510 },
@@ -345,13 +347,14 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
   if (tier === 'spacious') {
     return {
       ...base,
-      photoBaseW: 360,
+      photoBaseW: 620,
       photoHeightMargin: 132,
-      photoX: 680,
+      photoX: 640,
       photoY: 74,
       readme: { x: 152, y: 78, w: 470, h: 540 },
       worklog: { x: 282, y: 150, w: 640, h: 452 },
       reflection: { x: 504, y: 136, w: 620, h: 404 },
+      spatial: { x: 250, y: 104, w: 820, h: 560 },
       projects: { x: 212, y: 88, w: 700, h: 596 },
       album: { x: 322, y: 92, w: 580, h: 544 },
       moments: { x: 360, y: 76, w: 510, h: 610 },
@@ -904,8 +907,8 @@ export function buildMacCanvasLayout(
     const basePhotoW = desktopWindows.photoBaseW;
     const photoMaxWindowH = Math.max(desktopWindows.photoMinWindowH, height - desktopWindows.photoHeightMargin);
     const photoMaxStageH = Math.max(desktopWindows.photoDesktopMinStageH, photoMaxWindowH - titleH - photoNoteH);
-    const photoW = Math.round(Math.min(basePhotoW, photoMaxStageH * photoAspect));
-    const photoStageH = Math.round(photoW / photoAspect);
+    const photoW = Math.round(basePhotoW);
+    const photoStageH = Math.round(Math.min(photoW / photoAspect, photoMaxStageH));
     const photoX = desktopWindows.photoX;
     const photoY = desktopWindows.photoY;
     photo = {
@@ -957,6 +960,15 @@ export function buildMacCanvasLayout(
         w: desktopWindows.reflection.w,
         h: desktopWindows.reflection.h - titleH,
       },
+  };
+
+  const spatial: WindowLayout = {
+    id: 'spatial',
+    title: appTitle('spatial'),
+    ...(mobile ? fullscreen : { ...desktopWindows.spatial, w: photo.w, h: photo.h }),
+    r: mobile ? 0 : desktopWindows.radius,
+    z: state.windows.spatial.z,
+    titleH,
   };
 
   const projects: WindowLayout = {
@@ -1056,7 +1068,7 @@ export function buildMacCanvasLayout(
     });
   }
 
-  [readme, photo, reflection, worklog, projects, album, moments, video].forEach((windowLayout) => {
+  [readme, photo, spatial, reflection, worklog, projects, album, moments, video].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
     placeWindow(state, windowLayout, mobile);
     windows.push(windowLayout);

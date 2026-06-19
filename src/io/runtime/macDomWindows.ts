@@ -388,7 +388,12 @@ export function createMacDomWindows(
 
   layer.addEventListener(MAC_DOM_WINDOW_ACTION_EVENT, (event) => {
     const detail = (event as CustomEvent<MacDomWindowActionEventDetail>).detail;
-    if (!detail || detail.type !== 'open-window') return;
+    if (!detail) return;
+    if (detail.type === 'focus-window') {
+      actions.bringFront(detail.id);
+      return;
+    }
+    if (detail.type !== 'open-window') return;
     if (detail.id === 'video' && detail.clipIndex !== undefined) {
       const videoRecord = records.get('video');
       if (videoRecord) {

@@ -82,7 +82,8 @@ const WINDOW_RESIZE_LIMITS = {
   screenMargin: 12,
   minSize: {
     readme: { w: 360, h: 360 },
-    photo: { w: 260, h: 320 },
+    photo: { w: 500, h: 440 },
+    spatial: { w: 500, h: 440 },
     reflection: { w: 360, h: 280 },
     worklog: { w: 420, h: 300 },
     projects: { w: 420, h: 380 },

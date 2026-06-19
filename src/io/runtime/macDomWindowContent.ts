@@ -21,6 +21,8 @@ import {
   PHOTO3D_SHADER_URL,
   PHOTO_APP_ATLAS,
   REFLECTION_DEMO_ID,
+  SPATIAL_SCENE_SOURCE_URL,
+  SPATIAL_SCENE_VIEWER_URL,
 } from './macCanvas/apps';
 import { MAC_FPS_TUNING } from './macCanvas/tuning';
 
@@ -40,18 +42,25 @@ export type MacDomWindowRecord = {
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
+  spatialFrame?: HTMLIFrameElement | null;
   videoGlassController?: MacVideoGlassController | null;
   contentLang?: Lang;
   internalBack?: () => boolean;
 };
 
 export const MAC_DOM_WINDOW_ACTION_EVENT = 'mac-dom-window-action';
+export const MAC_BACKGROUND_POINTER_BLOCK_EVENT = 'mac-background-pointer-block';
 
-export type MacDomWindowActionEventDetail = {
-  type: 'open-window';
-  id: WindowId;
-  clipIndex?: number;
-};
+export type MacDomWindowActionEventDetail =
+  | {
+      type: 'open-window';
+      id: WindowId;
+      clipIndex?: number;
+    }
+  | {
+      type: 'focus-window';
+      id: WindowId;
+    };
 
 const VIDEO_SKIP_BACK_SVG = '<svg viewBox="0 0 47 45" fill="none" focusable="false"><path d="M17.7049 17.1654L13.5649 20.2254V18.1454L17.8649 14.9454H19.5449V29.0454H17.7049V17.1654ZM27.2205 29.3454C26.1805 29.3454 25.2939 29.1454 24.5605 28.7454C23.8405 28.3321 23.2939 27.7854 22.9205 27.1054C22.5472 26.4254 22.3605 25.6721 22.3605 24.8454H24.2405C24.2672 25.4321 24.4072 25.9454 24.6605 26.3854C24.9139 26.8121 25.2605 27.1454 25.7005 27.3854C26.1405 27.6121 26.6339 27.7254 27.1805 27.7254C27.8339 27.7254 28.3939 27.5921 28.8605 27.3254C29.3405 27.0587 29.7072 26.6854 29.9605 26.2054C30.2139 25.7121 30.3405 25.1387 30.3405 24.4854C30.3405 23.8587 30.2072 23.3121 29.9405 22.8454C29.6739 22.3787 29.3005 22.0187 28.8205 21.7654C28.3539 21.4987 27.8272 21.3654 27.2405 21.3654C26.6139 21.3654 26.0539 21.5187 25.5605 21.8254C25.0672 22.1187 24.7139 22.5254 24.5005 23.0454H22.5005L23.2605 14.9454H31.7405V16.6054H24.8605L24.4405 21.0654C24.7339 20.6921 25.1339 20.3854 25.6405 20.1454C26.1605 19.8921 26.7939 19.7654 27.5405 19.7654C28.3805 19.7654 29.1605 19.9587 29.8805 20.3454C30.6005 20.7321 31.1805 21.2854 31.6205 22.0054C32.0605 22.7121 32.2805 23.5387 32.2805 24.4854C32.2805 25.4587 32.0605 26.3187 31.6205 27.0654C31.1805 27.7987 30.5739 28.3654 29.8005 28.7654C29.0405 29.1521 28.1805 29.3454 27.2205 29.3454Z" fill="currentColor"></path><path d="M5.63397 24.5454C6.01888 25.2121 6.98113 25.2121 7.36603 24.5454L11.2631 17.7954C11.648 17.1287 11.1669 16.2954 10.3971 16.2954L2.60288 16.2954C1.83308 16.2954 1.35196 17.1287 1.73686 17.7954L5.63397 24.5454Z" fill="currentColor"></path><path d="M6.61285 17.3867C7.53426 13.9479 9.45469 10.8596 12.1313 8.51231C14.8079 6.165 18.1204 4.6641 21.65 4.19942C25.1796 3.73474 28.7678 4.32714 31.9607 5.90172C35.1536 7.47629 37.8079 9.96232 39.588 13.0454C41.368 16.1285 42.1938 19.6702 41.961 23.2227C41.7281 26.7751 40.4471 30.1787 38.2799 33.0031C36.1126 35.8275 33.1566 37.9458 29.7854 39.0902C26.4143 40.2345 22.7795 40.3535 19.3408 39.4321" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
 const VIDEO_SKIP_FORWARD_SVG = '<svg viewBox="0 0 47 45" fill="none" focusable="false"><path d="M15.7049 17.1654L11.5649 20.2254V18.1454L15.8649 14.9454H17.5449V29.0454H15.7049V17.1654ZM25.2205 29.3454C24.1805 29.3454 23.2939 29.1454 22.5605 28.7454C21.8405 28.3321 21.2939 27.7854 20.9205 27.1054C20.5472 26.4254 20.3605 25.6721 20.3605 24.8454H22.2405C22.2672 25.4321 22.4072 25.9454 22.6605 26.3854C22.9139 26.8121 23.2605 27.1454 23.7005 27.3854C24.1405 27.6121 24.6339 27.7254 25.1805 27.7254C25.8339 27.7254 26.3939 27.5921 26.8605 27.3254C27.3405 27.0587 27.7072 26.6854 27.9605 26.2054C28.2139 25.7121 28.3405 25.1387 28.3405 24.4854C28.3405 23.8587 28.2072 23.3121 27.9405 22.8454C27.6739 22.3787 27.3005 22.0187 26.8205 21.7654C26.3539 21.4987 25.8272 21.3654 25.2405 21.3654C24.6139 21.3654 24.0539 21.5187 23.5605 21.8254C23.0672 22.1187 22.7139 22.5254 22.5005 23.0454H20.5005L21.2605 14.9454H29.7405V16.6054H22.8605L22.4405 21.0654C22.7339 20.6921 23.1339 20.3854 23.6405 20.1454C24.1605 19.8921 24.7939 19.7654 25.5405 19.7654C26.3805 19.7654 27.1605 19.9587 27.8805 20.3454C28.6005 20.7321 29.1805 21.2854 29.6205 22.0054C30.0605 22.7121 30.2805 23.5387 30.2805 24.4854C30.2805 25.4587 30.0605 26.3187 29.6205 27.0654C29.1805 27.7987 28.5739 28.3654 27.8005 28.7654C27.0405 29.1521 26.1805 29.3454 25.2205 29.3454Z" fill="currentColor"></path><path d="M40.4109 24.5454C40.026 25.2121 39.0638 25.2121 38.6789 24.5454L34.7818 17.7954C34.3969 17.1287 34.878 16.2954 35.6478 16.2954L43.442 16.2954C44.2118 16.2954 44.693 17.1287 44.3081 17.7954L40.4109 24.5454Z" fill="currentColor"></path><path d="M39.4321 17.3867C38.5107 13.9479 36.5902 10.8596 33.9136 8.51231C31.237 6.165 27.9245 4.6641 24.3949 4.19942C20.8653 3.73474 17.2771 4.32714 14.0842 5.90172C10.8913 7.47629 8.23698 9.96232 6.45695 13.0454C4.67692 16.1285 3.85111 19.6702 4.08395 23.2227C4.31679 26.7751 5.59782 30.1787 7.76505 33.0031C9.93228 35.8275 12.8884 37.9458 16.2595 39.0902C19.6306 40.2345 23.2654 40.3535 26.7042 39.4321" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
@@ -104,6 +113,107 @@ function setText(element: Element | null | undefined, value: string) {
 
 function dispatchWindowAction(record: MacDomWindowRecord, detail: MacDomWindowActionEventDetail) {
   record.element.dispatchEvent(new CustomEvent(MAC_DOM_WINDOW_ACTION_EVENT, { bubbles: true, detail }));
+}
+
+function dispatchBackgroundPointerBlock(record: MacDomWindowRecord, blocked: boolean) {
+  record.element.dispatchEvent(new CustomEvent(MAC_BACKGROUND_POINTER_BLOCK_EVENT, {
+    bubbles: true,
+    detail: { blocked },
+  }));
+}
+
+type ComparePanelContent = {
+  kind: 'photo' | 'spatial';
+  sourceTitle: string;
+  sourceMeta: string;
+  sourceAlt: string;
+  note: string;
+  metrics: [string, string][];
+};
+
+function photoCompareContent(lang: Lang): ComparePanelContent {
+  const copy = desktopCopy[lang];
+  return {
+    kind: 'photo',
+    sourceTitle: lang === 'zh' ? 'Photo3D 原图' : 'Photo3D source',
+    sourceMeta: '1124x2436 JPG',
+    sourceAlt: lang === 'zh' ? 'Photo3D 当前原图输入' : 'Current Photo3D source input',
+    note: copy.photoNote,
+    metrics: [
+      ['2L', lang === 'zh' ? 'LDI 分层' : 'LDI layers'],
+      ['1.8 MB', lang === 'zh' ? 'atlas 大小' : 'atlas size'],
+      ['WebP', lang === 'zh' ? '无损 atlas' : 'lossless atlas'],
+    ],
+  };
+}
+
+function spatialCompareContent(lang: Lang): ComparePanelContent {
+  const copy = desktopCopy[lang];
+  return {
+    kind: 'spatial',
+    sourceTitle: lang === 'zh' ? 'Photo3D 原图' : 'Photo3D source',
+    sourceMeta: '1124x2436 JPG',
+    sourceAlt: lang === 'zh' ? 'Photo3D 当前原图输入' : 'Current Photo3D source input',
+    note: copy.spatialNote,
+    metrics: [
+      ['590K', lang === 'zh' ? 'splats' : 'splats'],
+      ['9.2 MB', lang === 'zh' ? '压缩 PLY' : 'compressed PLY'],
+      ['D50', lang === 'zh' ? '质量档位' : 'quality ladder'],
+    ],
+  };
+}
+
+function syncComparePanel(details: HTMLElement, content: ComparePanelContent) {
+  setText(details.querySelector('[data-compare-source-title]'), content.sourceTitle);
+  setText(details.querySelector('[data-compare-source-meta]'), content.sourceMeta);
+  setText(details.querySelector('[data-compare-note]'), content.note);
+  const image = details.querySelector('[data-compare-source-image]');
+  if (image instanceof HTMLImageElement) {
+    image.src = SPATIAL_SCENE_SOURCE_URL;
+    image.alt = content.sourceAlt;
+  }
+  details.querySelectorAll('[data-compare-metric]').forEach((element, index) => {
+    const metric = content.metrics[index];
+    if (!metric) return;
+    setText(element.querySelector('[data-compare-metric-value]'), metric[0]);
+    setText(element.querySelector('[data-compare-metric-label]'), metric[1]);
+  });
+}
+
+function createComparePanel(content: ComparePanelContent) {
+  const details = div(`mac-compare__details mac-compare__details--${content.kind}`);
+  details.dataset.compareDetails = content.kind;
+
+  const source = div('mac-compare__source');
+  const sourceImage = document.createElement('img');
+  sourceImage.dataset.compareSourceImage = '';
+  const sourceCopy = div('mac-compare__source-copy');
+  const sourceTitle = document.createElement('strong');
+  sourceTitle.dataset.compareSourceTitle = '';
+  const sourceMeta = document.createElement('span');
+  sourceMeta.dataset.compareSourceMeta = '';
+  sourceCopy.append(sourceTitle, sourceMeta);
+  source.append(sourceImage, sourceCopy);
+
+  const note = document.createElement('p');
+  note.className = 'mac-compare__note';
+  note.dataset.compareNote = '';
+
+  const metrics = div('mac-compare__metrics');
+  content.metrics.forEach(() => {
+    const item = div('mac-compare__metric');
+    item.dataset.compareMetric = '';
+    const strong = document.createElement('strong');
+    strong.dataset.compareMetricValue = '';
+    const span = document.createElement('span');
+    span.dataset.compareMetricLabel = '';
+    item.append(strong, span);
+    metrics.append(item);
+  });
+
+  details.append(source, note, metrics);
+  syncComparePanel(details, content);
+  return { details, note };
 }
 
 function socialIcon(key: string) {
@@ -698,9 +808,9 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
 }
 
 function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
-  const copy = desktopCopy[lang];
   if (record.photoNote) {
-    record.photoNote.textContent = copy.photoNote;
+    const details = record.body.querySelector('[data-compare-details="photo"]');
+    if (details instanceof HTMLElement) syncComparePanel(details, photoCompareContent(lang));
     return;
   }
 
@@ -710,6 +820,7 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   const photoRoot = div('mac-photo__island');
   photoRoot.dataset.photo3dRoot = '';
   photoRoot.dataset.localAtlas = PHOTO_APP_ATLAS;
+  photoRoot.dataset.fitY = '0.32';
   const wrap = div('mac-photo__wrap');
   wrap.dataset.photo3dWrap = '';
   const photoStage = div('mac-photo__canvas-stage');
@@ -720,19 +831,24 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   status.classList.add('mac-photo__status');
   status.dataset.photo3dStatus = '';
 
+  const viewerLabel = div('mac-photo__viewer-label');
+  const viewerTitle = document.createElement('strong');
+  viewerTitle.textContent = 'Photo3D / LDI';
+  const viewerMeta = document.createElement('span');
+  viewerMeta.textContent = lang === 'zh' ? '无损 WebP atlas' : 'lossless WebP atlas';
+  viewerLabel.append(viewerTitle, viewerMeta);
+
   const hud = div('mac-photo__hud');
   record.photoHud = hud;
 
   wrap.append(photoStage);
   photoRoot.append(wrap, status);
-  stage.append(photoRoot, hud);
+  stage.append(photoRoot, viewerLabel, hud);
 
-  const note = document.createElement('p');
-  note.className = 'mac-photo__note';
-  note.textContent = copy.photoNote;
+  const { details, note } = createComparePanel(photoCompareContent(lang));
   record.photoNote = note;
 
-  record.body.append(stage, note);
+  record.body.append(stage, details);
 }
 
 function renderReflection(record: MacDomWindowRecord) {
@@ -758,12 +874,82 @@ function renderReflection(record: MacDomWindowRecord) {
   record.body.append(stage);
 }
 
+function renderSpatial(record: MacDomWindowRecord, lang: Lang) {
+  record.spatialFrame = null;
+  record.body.replaceChildren();
+
+  const shell = div('mac-spatial');
+  const viewer = div('mac-spatial__viewer');
+  const frame = document.createElement('iframe');
+  frame.className = 'mac-spatial__frame';
+  frame.src = SPATIAL_SCENE_VIEWER_URL;
+  frame.title = 'Apple SHARP Gaussian spatial scene viewer';
+  frame.loading = 'lazy';
+  frame.allow = 'fullscreen';
+  record.spatialFrame = frame;
+
+  const viewerLabel = div('mac-spatial__viewer-label');
+  const viewerTitle = document.createElement('strong');
+  viewerTitle.textContent = 'SHARP / Spark.js';
+  const viewerMeta = document.createElement('span');
+  viewerMeta.textContent = lang === 'zh' ? '单图 Gaussian scene baseline' : 'single-image Gaussian scene baseline';
+  viewerLabel.append(viewerTitle, viewerMeta);
+  const loader = createAppLoader(MAC_LOADING_COPY.app);
+  loader.classList.add('mac-spatial__status');
+  viewer.append(frame, viewerLabel, loader);
+
+  const { details } = createComparePanel(spatialCompareContent(lang));
+  shell.append(viewer, details);
+  record.body.append(shell);
+
+  frame.addEventListener('load', () => {
+    frame.contentWindow?.postMessage({
+      type: 'spatial-scene-active',
+      active: record.element.dataset.active === 'true',
+    }, window.location.origin);
+  }, { once: true });
+
+  const resetSpatialPointer = () => {
+    frame.contentWindow?.postMessage({ type: 'spatial-scene-reset-pointer' }, window.location.origin);
+    dispatchBackgroundPointerBlock(record, false);
+  };
+  viewer.addEventListener('pointerleave', resetSpatialPointer);
+  record.element.addEventListener('pointerleave', resetSpatialPointer);
+  record.cleanup.push(() => {
+    viewer.removeEventListener('pointerleave', resetSpatialPointer);
+    record.element.removeEventListener('pointerleave', resetSpatialPointer);
+  });
+
+  const handleFrameMessage = (event: MessageEvent) => {
+    if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+    if (event.data?.type === 'spatial-scene-pointerdown') {
+      dispatchWindowAction(record, { type: 'focus-window', id: record.id });
+      dispatchBackgroundPointerBlock(record, true);
+      return;
+    }
+    if (event.data?.type === 'spatial-scene-pointerenter') {
+      if (record.element.dataset.active === 'true') dispatchBackgroundPointerBlock(record, true);
+      return;
+    }
+    if (event.data?.type === 'spatial-scene-pointerleave') {
+      resetSpatialPointer();
+      return;
+    }
+    if (event.data?.type === 'sharp-viewer-ready') {
+      setAppLoaderState(loader, 'ready', '');
+    }
+  };
+  window.addEventListener('message', handleFrameMessage);
+  record.cleanup.push(() => window.removeEventListener('message', handleFrameMessage));
+}
+
 export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   record.internalBack = undefined;
   record.element.querySelector('.mac-moments-preview')?.remove();
   delete record.body.dataset.internalView;
   if (record.id === 'readme') renderReadme(record, lang);
   if (record.id === 'photo') renderPhoto(record, lang);
+  if (record.id === 'spatial') renderSpatial(record, lang);
   if (record.id === 'reflection') renderReflection(record);
   if (record.id === 'worklog') renderWorklog(record, lang);
   if (record.id === 'projects') renderProjects(record, lang);
@@ -796,6 +982,13 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
       record.canvasDemoHud.hidden = false;
       setText(record.canvasDemoHud, `FPS ${fpsText}    ${demo.engine}    ${demo.label}`);
     }
+    return;
+  }
+
+  if (win.id === 'spatial') {
+    const active = record.element.dataset.active === 'true';
+    setText(record.accessory, active ? 'SHARP D50' : 'IDLE');
+    setCanvasRendering(record, false);
     return;
   }
 
@@ -902,6 +1095,13 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
   }
 
   record.videoGlassController?.setActive(active);
+  record.spatialFrame?.contentWindow?.postMessage({
+    type: 'spatial-scene-active',
+    active,
+  }, window.location.origin);
+  if (!active && (record.id === 'photo' || record.id === 'spatial')) {
+    dispatchBackgroundPointerBlock(record, false);
+  }
   if (!active) setCanvasRendering(record, false);
 }
 

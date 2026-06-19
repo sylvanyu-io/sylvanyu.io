@@ -4,6 +4,7 @@ import { PHOTO3D_APP_ATLAS_META } from '../photo3d/core';
 export type IconLabelKey =
   | 'iconReadme'
   | 'iconPhoto'
+  | 'iconSpatial'
   | 'iconReflection'
   | 'iconLog'
   | 'iconProjects'
@@ -35,6 +36,8 @@ export const MAC_ASSET_BASE = '/io-design/assets/';
 export const PHOTO3D_SHADER_URL = `${MAC_ASSET_BASE}photo3d.fs`;
 export const WALLPAPER_ATLAS = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas.webp`;
 export const PHOTO_APP_ATLAS = `${MAC_ASSET_BASE}photo3d-app-atlas.webp`;
+export const SPATIAL_SCENE_VIEWER_URL = `${MAC_ASSET_BASE}sharp/spatial-scene-viewer.html`;
+export const SPATIAL_SCENE_SOURCE_URL = `${MAC_ASSET_BASE}sharp/portrait-source.jpg`;
 export const REFLECTION_DEMO_ID = 'planar-reflection';
 
 export const PHOTO_APP_META = {
@@ -68,6 +71,16 @@ export const MAC_APPS: MacAppDefinition[] = [
     dock: true,
     initialOpen: true,
     initialZ: 12,
+  },
+  {
+    id: 'spatial',
+    title: 'SpatialScene.app',
+    icon: 'icon-spatial.svg',
+    labelKey: 'iconSpatial',
+    home: false,
+    dock: false,
+    initialOpen: false,
+    initialZ: 10,
   },
   {
     id: 'reflection',
@@ -138,7 +151,7 @@ export const MAC_FOLDERS: MacFolderDefinition[] = [
     id: LABS_FOLDER_ID,
     title: 'Labs',
     labelKey: 'iconLabs',
-    items: ['photo', 'reflection'],
+    items: ['photo', 'spatial', 'reflection'],
   },
 ];
 

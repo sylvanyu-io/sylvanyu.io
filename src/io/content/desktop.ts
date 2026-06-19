@@ -14,8 +14,10 @@ export const desktopCopy: Record<Lang, {
   readmeBody: string;
   chips: string[];
   photoNote: string;
+  spatialNote: string;
   iconReadme: string;
   iconPhoto: string;
+  iconSpatial: string;
   iconReflection: string;
   iconLog: string;
   iconProjects: string;
@@ -38,9 +40,13 @@ export const desktopCopy: Record<Lang, {
     readmeBody:
       'I turn motion-heavy product ideas into production renderers, editors, and runtime infrastructure. Currently building Predy at RedNote across Web, RN, iOS, and Android; previously on the open-source Galacean engine inside Alipay.',
     chips: ['REAL-TIME RENDERING', 'PRODUCT ENGINEERING', 'EDITOR TOOLING & AI INFRA'],
-    photoNote: 'Offline AI makes depth / mask / inpainted RGBD layers → a lightweight LDI WebGL shader. The same asset shape feeds Metal and RN.',
+    photoNote:
+      'Same source photo, product path: offline depth / mask / inpainted RGBD layers are packed into a lossless WebP atlas and rendered by a lightweight LDI shader. This is the fast cross-platform route to compare against the SHARP Gaussian baseline.',
+    spatialNote:
+      'Same source photo, frontier path: Apple SHARP-style single-image Gaussian scene as a high-quality baseline. Useful for judging detail, occlusion, runtime cost, and product-fit tradeoffs against the lightweight Photo3D LDI path.',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
+    iconSpatial: 'SpatialScene.app',
     iconReflection: 'Reflection.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
@@ -63,9 +69,13 @@ export const desktopCopy: Record<Lang, {
     readmeBody:
       '我把重动效产品需求做成能上线的渲染器、编辑器和运行时基建。现在在小红书做 Predy，覆盖 Web / RN / iOS / Android；此前在支付宝的开源 Galacean 引擎团队。',
     chips: ['实时渲染', '产品工程', '编辑器工具链 & AI 基建'],
-    photoNote: '离线 AI 生成深度 / 分割 / 修补后的 RGBD 分层资产 → 端侧轻量 LDI WebGL shader；同一资产形态接 Metal 和 RN。',
+    photoNote:
+      '同一张原图，产品化路径：离线生成深度 / 分割 / 修补后的 RGBD 分层资产，打进无损 WebP atlas，再用轻量 LDI shader 实时渲染；这是和 SHARP Gaussian baseline 对照的快路径。',
+    spatialNote:
+      '同一张原图，前沿路径：Apple SHARP 风格的单图 Gaussian scene 高质量 baseline；用来观察细节、遮挡、运行时成本和产品化取舍，对照的是 Photo3D 的轻量 LDI 路线。',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
+    iconSpatial: '空间场景.app',
     iconReflection: '平面反射.app',
     iconLog: 'work.log',
     iconProjects: 'projects/',
@@ -105,7 +115,7 @@ export const desktopProjects: Record<Lang, Array<{
       title: 'Photo3D',
       meta: 'REDNOTE · AI ASSET PIPELINE',
       body:
-        'A practical spatial-photo route for mobile products: avoid heavy 3DGS-style runtime cost, generate depth / masks / inpainted layers offline, pack them as RGBD textures, then render with a lightweight LDI path across WebGL, Metal, and RN with graceful layer fallback.',
+        'A practical spatial-photo route for mobile products: generate depth / masks / inpainted layers offline, pack them as RGBD textures, then render with a lightweight LDI path across WebGL, Metal, and RN. I also keep SHARP / Gaussian scene baselines around to measure the quality ceiling and runtime tradeoff.',
       metric: '0–3',
       metricLabel: 'layer fallback',
     },
@@ -155,7 +165,7 @@ export const desktopProjects: Record<Lang, Array<{
       title: 'Photo3D',
       meta: '小红书 · AI 资产管线',
       body:
-        '面向移动端产品的空间照片方案：没有走运行时成本更重的 3DGS，而是离线生成深度 / 分割 / 修补后的多层 RGBD 纹理，再用轻量 LDI 路径接 WebGL、Metal 和 RN，并支持层级降级。',
+        '面向移动端产品的空间照片方案：离线生成深度 / 分割 / 修补后的多层 RGBD 纹理，再用轻量 LDI 路径接 WebGL、Metal 和 RN，并保留 SHARP / Gaussian scene baseline 来衡量质量上限与运行时成本。',
       metric: '0–3',
       metricLabel: '层级降级',
     },
