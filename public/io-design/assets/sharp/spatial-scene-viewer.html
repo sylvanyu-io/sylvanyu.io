@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Photo3D SHARP Spatial Scene</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #080b0c;
+        color: #f4f1e8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #080b0c;
+        overscroll-behavior: none;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .hud {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        min-height: 25px;
+        padding: 7px 12px 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 11px;
+        align-items: center;
+        overflow: hidden;
+        color: rgb(244 241 232 / 72%);
+        background: rgb(10 12 13 / 88%);
+        font: 500 10px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+        pointer-events: none;
+        white-space: normal;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 1em;
+      }
+
+      .loader {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 50% 48%, rgb(255 255 255 / 14%), transparent 0 42px),
+          linear-gradient(180deg, rgb(8 12 14 / 18%), rgb(8 12 14 / 34%));
+      }
+
+      .loader[hidden] {
+        display: none;
+      }
+
+      .loader__ring {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 2px solid rgb(255 255 255 / 30%);
+        border-top-color: rgb(255 255 255 / 95%);
+        box-shadow:
+          0 0 18px rgb(255 255 255 / 16%),
+          inset 0 0 10px rgb(255 255 255 / 10%);
+        animation: loader-spin 0.86s linear infinite;
+      }
+
+      .loader__ring::after {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border-radius: inherit;
+        background: rgb(255 255 255 / 76%);
+        box-shadow: 0 0 12px rgb(255 255 255 / 28%);
+        animation: loader-pulse 1.2s ease-in-out infinite;
+      }
+
+      .loader__text {
+        max-width: min(220px, calc(100% - 28px));
+        color: rgb(255 214 214 / 90%);
+        font: 500 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+        text-align: center;
+        text-shadow: 0 1px 4px rgb(0 0 0 / 56%);
+      }
+
+      .loader[data-state="error"] .loader__ring {
+        border-color: rgb(255 118 118 / 38%);
+        border-top-color: rgb(255 146 146 / 96%);
+        animation-duration: 1.2s;
+      }
+
+      .error {
+        color: #ffb4a8;
+      }
+
+      @keyframes loader-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes loader-pulse {
+        0%,
+        100% {
+          opacity: 0.62;
+          transform: scale(0.86);
+        }
+
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="loader" id="loader" data-state="loading" role="status" aria-live="polite" aria-label="Loading app">
+      <span class="loader__ring" aria-hidden="true"></span>
+      <span class="loader__text" id="loader-text">Loading app</span>
+    </div>
+    <div class="hud" id="hud" aria-live="polite">
+      <span class="pill" id="splats">-- splats</span>
+      <span class="pill" id="fov">-- deg</span>
+      <span class="pill" id="camera">cam --</span>
+      <span class="pill" id="fps">-- fps</span>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { SparkRenderer, SplatLoader, SplatMesh } from "@sparkjsdev/spark";
+
+      const params = new URLSearchParams(window.location.search);
+      const metadataUrl = params.get("meta") || "/io-design/assets/sharp/portrait-sharp-d50.metadata.json";
+      const transformMode = params.get("transform") || "sharp";
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const maxRenderFps = 60;
+      const minFrameMs = 1000 / maxRenderFps;
+      const fixedCameraZoom = 1.16;
+      const maxCameraXY = 0.1;
+      const minCameraZ = 0;
+      const maxCameraZ = 0.16;
+      const cameraZWheelScale = 0.00012;
+      const cameraZPinchScale = 0.16;
+      const pointerFollow = 0.18;
+      const cameraZFollow = 0.28;
+      const pointerSettleEpsilon = 0.001;
+      const pointerSettleEpsilonSq = pointerSettleEpsilon * pointerSettleEpsilon;
+      const cameraZSettleEpsilon = 0.0001;
+      const loaderEl = document.querySelector("#loader");
+      const loaderTextEl = document.querySelector("#loader-text");
+      const splatsEl = document.querySelector("#splats");
+      const fovEl = document.querySelector("#fov");
+      const cameraEl = document.querySelector("#camera");
+      const fpsEl = document.querySelector("#fps");
+
+      const setLoader = (text, state = "loading") => {
+        loaderEl.hidden = state === "ready";
+        loaderEl.dataset.state = state;
+        loaderEl.setAttribute("aria-label", text);
+        loaderTextEl.textContent = state === "ready" ? "" : text;
+      };
+
+      const preventDefaultGesture = (event) => {
+        event.preventDefault();
+      };
+      document.addEventListener("contextmenu", preventDefaultGesture);
+      document.addEventListener("gesturestart", preventDefaultGesture);
+      document.addEventListener("gesturechange", preventDefaultGesture);
+      document.addEventListener("gestureend", preventDefaultGesture);
+      document.addEventListener("touchstart", preventDefaultGesture, { passive: false });
+      document.addEventListener("touchmove", preventDefaultGesture, { passive: false });
+
+      const metadata = await fetch(metadataUrl).then((response) => {
+        if (!response.ok) throw new Error(`Could not load ${metadataUrl}: ${response.status}`);
+        return response.json();
+      });
+
+      splatsEl.textContent = `${metadata.gaussianCount.toLocaleString()} splats`;
+      fovEl.textContent = `${metadata.intrinsics.verticalFovDeg.toFixed(1)} deg vfov`;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x080b0c);
+
+      const camera = new THREE.PerspectiveCamera(
+        metadata.intrinsics.verticalFovDeg,
+        window.innerWidth / window.innerHeight,
+        0.01,
+        1000,
+      );
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const spark = new SparkRenderer({ renderer });
+      scene.add(spark);
+
+      const loader = new SplatLoader();
+      let splatMesh = null;
+      let viewerActive = true;
+      let running = false;
+      let renderDirty = true;
+      let frameCount = 0;
+      let lastFpsTime = performance.now();
+      let lastRenderTime = 0;
+      const pointerTarget = new THREE.Vector2();
+      const pointerCurrent = new THREE.Vector2();
+      let pinchStartDistance = 0;
+      let pinchStartCameraZ = 0;
+      const activePointers = new Map();
+      let cameraZTarget = clamp(Number(params.get("camZ") || 0), minCameraZ, maxCameraZ);
+      let cameraZCurrent = cameraZTarget;
+
+      const focusDepth = metadata.depth.focusDepthM;
+      const lookAt = new THREE.Vector3(0, 0, -focusDepth);
+
+      const setCamera = () => {
+        const dx = pointerCurrent.x * maxCameraXY;
+        const dy = pointerCurrent.y * maxCameraXY;
+        const dz = cameraZCurrent;
+        camera.position.set(dx, dy, dz);
+        camera.lookAt(lookAt);
+        camera.zoom = fixedCameraZoom;
+        camera.updateProjectionMatrix();
+        cameraEl.textContent = `cam ${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)} / z ${fixedCameraZoom.toFixed(2)}`;
+      };
+
+      const getPointerDistance = () => {
+        const points = [...activePointers.values()];
+        if (points.length < 2) return 0;
+        return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      };
+
+      const updatePointerTarget = (event) => {
+        pointerTarget.x = clamp((event.clientX / window.innerWidth - 0.5) * 2, -1, 1);
+        pointerTarget.y = clamp(-(event.clientY / window.innerHeight - 0.5) * 2, -1, 1);
+      };
+
+      const notifyPointerBlock = (blocked) => {
+        window.parent?.postMessage({
+          type: blocked ? "spatial-scene-pointerenter" : "spatial-scene-pointerleave",
+        }, window.location.origin);
+      };
+
+      const resetPointerXY = () => {
+        pointerTarget.set(0, 0);
+        activePointers.clear();
+        requestRender();
+      };
+
+      const beginPinch = () => {
+        pinchStartDistance = getPointerDistance();
+        pinchStartCameraZ = cameraZTarget;
+      };
+
+      const updatePinchCameraZ = () => {
+        const distance = getPointerDistance();
+        if (pinchStartDistance > 0 && distance > 0) {
+          cameraZTarget = clamp(
+            pinchStartCameraZ + (pinchStartDistance / distance - 1) * cameraZPinchScale,
+            minCameraZ,
+            maxCameraZ,
+          );
+        }
+      };
+
+      const stopLoop = () => {
+        if (running) renderer.setAnimationLoop(null);
+        running = false;
+        frameCount = 0;
+        lastFpsTime = performance.now();
+        lastRenderTime = 0;
+        fpsEl.textContent = "0 fps";
+      };
+
+      const startLoop = () => {
+        if (!viewerActive || running) return;
+        running = true;
+        renderer.setAnimationLoop(renderFrame);
+      };
+
+      const requestRender = () => {
+        renderDirty = true;
+        startLoop();
+      };
+
+      const renderFrame = (time = performance.now()) => {
+        if (!viewerActive) {
+          stopLoop();
+          return;
+        }
+        if (time - lastRenderTime < minFrameMs) return;
+        lastRenderTime = time;
+        frameCount += 1;
+        const now = time;
+        const elapsed = now - lastFpsTime;
+        if (elapsed >= 500) {
+          fpsEl.textContent = `${Math.round((frameCount * 1000) / elapsed)} fps`;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+        pointerCurrent.lerp(pointerTarget, pointerFollow);
+        if (pointerCurrent.distanceToSquared(pointerTarget) <= pointerSettleEpsilonSq) {
+          pointerCurrent.copy(pointerTarget);
+        }
+        cameraZCurrent += (cameraZTarget - cameraZCurrent) * cameraZFollow;
+        if (Math.abs(cameraZTarget - cameraZCurrent) <= cameraZSettleEpsilon) {
+          cameraZCurrent = cameraZTarget;
+        }
+        const pointerMoving = pointerCurrent.distanceToSquared(pointerTarget) > pointerSettleEpsilonSq;
+        const cameraZMoving = Math.abs(cameraZTarget - cameraZCurrent) > cameraZSettleEpsilon;
+        setCamera();
+        renderer.render(scene, camera);
+        renderDirty = false;
+        if (!pointerMoving && !cameraZMoving) stopLoop();
+      };
+
+      const setViewerActive = (active) => {
+        viewerActive = active;
+        if (viewerActive) requestRender();
+        else {
+          resetPointerXY();
+          stopLoop();
+        }
+      };
+
+      setLoader("Loading asset");
+      loader
+        .loadAsync(metadata.splatUrl, (event) => {
+          if (event.type === "progress" && event.lengthComputable) {
+            setLoader(`Loading ${Math.round((event.loaded / event.total) * 100)}%`);
+          }
+        })
+        .then((packedSplats) => {
+          splatMesh = new SplatMesh({ packedSplats });
+          if (transformMode !== "none") splatMesh.quaternion.set(1, 0, 0, 0);
+          scene.add(splatMesh);
+          window.__SHARP_VIEWER__ = { camera, metadata, renderer, scene, splatMesh };
+          setLoader("", "ready");
+          requestRender();
+          window.parent?.postMessage({ type: "sharp-viewer-ready" }, window.location.origin);
+        })
+        .catch((error) => {
+          console.error(error);
+          setLoader(error.message || "Failed to load splats", "error");
+        });
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          notifyPointerBlock(true);
+          cameraZTarget = clamp(cameraZTarget + event.deltaY * cameraZWheelScale, minCameraZ, maxCameraZ);
+          requestRender();
+        },
+        { passive: false },
+      );
+
+      window.addEventListener("pointerenter", () => {
+        notifyPointerBlock(true);
+      });
+
+      window.addEventListener("pointerleave", () => {
+        resetPointerXY();
+        notifyPointerBlock(false);
+      });
+
+      window.addEventListener("pointerdown", (event) => {
+        window.parent?.postMessage({ type: "spatial-scene-pointerdown" }, window.location.origin);
+        notifyPointerBlock(true);
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        event.target.setPointerCapture?.(event.pointerId);
+        if (activePointers.size === 1) updatePointerTarget(event);
+        else if (activePointers.size === 2) beginPinch();
+        requestRender();
+      });
+
+      window.addEventListener("pointermove", (event) => {
+        notifyPointerBlock(true);
+        if (activePointers.has(event.pointerId)) {
+          activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        }
+        if (activePointers.size >= 2) {
+          updatePinchCameraZ();
+          requestRender();
+          return;
+        }
+        updatePointerTarget(event);
+        requestRender();
+      });
+
+      const endPointer = (event) => {
+        activePointers.delete(event.pointerId);
+        if (activePointers.size === 2) beginPinch();
+        requestRender();
+      };
+      window.addEventListener("pointerup", endPointer);
+      window.addEventListener("pointercancel", endPointer);
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        requestRender();
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === "spatial-scene-active") setViewerActive(Boolean(event.data.active));
+        if (event.data?.type === "spatial-scene-reset-pointer") resetPointerXY();
+      });
+
+      requestRender();
+    </script>
+  </body>
+</html>

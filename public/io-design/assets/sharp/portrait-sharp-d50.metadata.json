@@ -1,0 +1,42 @@
+{
+  "source": "/io-design/assets/sharp/portrait-sharp-d50.compressed.ply",
+  "cameraSource": "Apple SHARP raw PLY, compressed to D50 for the web demo",
+  "splatUrl": "/io-design/assets/sharp/portrait-sharp-d50.compressed.ply",
+  "gaussianCount": 589824,
+  "image": {
+    "width": 1124,
+    "height": 2436,
+    "aspect": 0.4614121510673235
+  },
+  "intrinsics": {
+    "fx": 1860.1943359375,
+    "fy": 1860.1943359375,
+    "cx": 562.0,
+    "cy": 1218.0,
+    "verticalFovDeg": 66.43117618787726,
+    "horizontalFovDeg": 33.6211255694185
+  },
+  "depth": {
+    "disparityQuantiles": [
+      0.0935608297586441,
+      0.6483083367347717
+    ],
+    "nearDepthM": 1.542475922855683,
+    "farDepthM": 10.688233554358893,
+    "focusDepthM": 10.688233554358893
+  },
+  "interaction": {
+    "maxLateralOffsetM": 0.17796723580783672,
+    "maxForwardOffsetM": 0.23137138842835245
+  },
+  "colorSpace": 0,
+  "version": [
+    1,
+    5,
+    0
+  ],
+  "coordinateSystem": {
+    "sharp": "OpenCV: +x right, +y down, +z forward",
+    "webTransform": "Rotate scene 180 degrees around X: [x, y, z] -> [x, -y, -z]"
+  }
+}
