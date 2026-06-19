@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createMacDomWindows } from './macDomWindows';
+import { MAC_BACKGROUND_POINTER_BLOCK_EVENT } from './macDomWindowContent';
 import { scheduleIdleImagePreload } from './assetPreload';
 import {
   createPhoto3DPass,
@@ -172,6 +173,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const pointer = new THREE.Vector2(0, 0);
   const gyro = createGyroPointer(() => markRenderDirty());
   let pointerActive = false;
+  let backgroundPointerBlocked = false;
+  let hoverBackgroundPointerBlocked = false;
+  let appBackgroundPointerBlocked = false;
   let gyroPromptAttempted = false;
   let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
@@ -980,9 +984,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function activeWindowHasRenderingCanvas() {
+    const activeRenderingWindow = root.querySelector<HTMLElement>('.mac-dom-window[data-active="true"][data-canvas-rendering="true"]');
+    const windowId = activeRenderingWindow?.dataset.windowId;
     return !folderOwnsScreen()
       && !layout.mobile
-      && Boolean(root.querySelector('.mac-dom-window[data-active="true"][data-canvas-rendering="true"]'));
+      && Boolean(activeRenderingWindow)
+      && windowId !== 'photo'
+      && windowId !== 'spatial';
   }
 
   function currentCanvasFpsLimit() {
@@ -1073,7 +1081,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const langAnimating = langWasAnimating || Math.abs(langTarget - langAnim) >= 0.001;
 
     // Tilt drives the wallpaper whenever no pointer is engaged.
-    const useGyro = !pointerActive && gyro.active;
+    const useGyro = !backgroundPointerBlocked && !pointerActive && gyro.active;
     if (useGyro) pointer.set(gyro.x, gyro.y);
 
     const now = new Date();
@@ -1082,7 +1090,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       lastClockKey = clockKey;
       renderDirty = true;
     }
-    const wallpaperRendered = !layout.folder
+    const wallpaperRendered = !layout.folder && !backgroundPointerBlocked
       ? renderWallpaper(time, pointerActive || useGyro, dt)
       : false;
     const animationActive = folderAnimating
@@ -1214,7 +1222,51 @@ export function mountMacSingleCanvas(rootInput: Element) {
     markRenderDirty();
   }
 
+  function targetBlocksBackgroundPointer(target: EventTarget | null) {
+    if (!(target instanceof Element)) return false;
+    const windowElement = target.closest<HTMLElement>('.mac-dom-window');
+    if (!windowElement || windowElement.hidden || windowElement.dataset.active !== 'true') return false;
+    if (windowElement.dataset.windowId === 'photo') {
+      return Boolean(target.closest('[data-photo3d-stage]'));
+    }
+    if (windowElement.dataset.windowId === 'spatial') {
+      return Boolean(target.closest('.mac-spatial__viewer'));
+    }
+    return false;
+  }
+
+  function setBackgroundPointerBlocked(blocked: boolean) {
+    if (backgroundPointerBlocked === blocked) return;
+    backgroundPointerBlocked = blocked;
+    root.dataset.backgroundPointerBlocked = blocked ? 'true' : 'false';
+    if (blocked) {
+      pointerActive = false;
+      if (state.fps !== 0) {
+        state.fps = 0;
+        markRenderDirty();
+      }
+    }
+  }
+
+  function syncBackgroundPointerBlocked() {
+    setBackgroundPointerBlocked(hoverBackgroundPointerBlocked || appBackgroundPointerBlocked);
+  }
+
+  function setHoverBackgroundPointerBlocked(blocked: boolean) {
+    if (hoverBackgroundPointerBlocked === blocked) return;
+    hoverBackgroundPointerBlocked = blocked;
+    syncBackgroundPointerBlocked();
+  }
+
+  function setAppBackgroundPointerBlocked(blocked: boolean) {
+    if (appBackgroundPointerBlocked === blocked) return;
+    appBackgroundPointerBlocked = blocked;
+    syncBackgroundPointerBlocked();
+  }
+
   const onPointerMove = (event: PointerEvent) => {
+    setHoverBackgroundPointerBlocked(false);
+    if (backgroundPointerBlocked) return;
     const point = eventPoint(event);
     updatePointer(point);
     const hit = hitTest(layout, point.x, point.y);
@@ -1222,12 +1274,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
 
   const onPointerLeave = () => {
+    setHoverBackgroundPointerBlocked(false);
     pointerActive = false;
     canvas.style.cursor = 'default';
     markRenderDirty();
   };
 
   const onClick = (event: MouseEvent) => {
+    setHoverBackgroundPointerBlocked(false);
     const point = eventPoint(event);
     updatePointer(point);
     requestGyroFromGestureOnce();
@@ -1243,10 +1297,31 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const onPopState = mobileNav.handlePopState;
 
   const onRootPointerMove = (event: PointerEvent) => {
+    const hoverBlocked = targetBlocksBackgroundPointer(event.target);
+    setHoverBackgroundPointerBlocked(hoverBlocked);
+    if (backgroundPointerBlocked) {
+      return;
+    }
     updatePointer(eventPoint(event));
   };
 
+  const onRootPointerOver = (event: PointerEvent) => {
+    setHoverBackgroundPointerBlocked(targetBlocksBackgroundPointer(event.target));
+  };
+
+  const onRootPointerOut = (event: PointerEvent) => {
+    if (!hoverBackgroundPointerBlocked) return;
+    if (targetBlocksBackgroundPointer(event.relatedTarget)) return;
+    setHoverBackgroundPointerBlocked(false);
+  };
+
+  const onBackgroundPointerBlock = (event: Event) => {
+    const detail = (event as CustomEvent<{ blocked?: boolean }>).detail;
+    setAppBackgroundPointerBlocked(Boolean(detail?.blocked));
+  };
+
   const onRootPointerLeave = () => {
+    setHoverBackgroundPointerBlocked(false);
     pointerActive = false;
     markRenderDirty();
   };
@@ -1279,6 +1354,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   root.addEventListener('pointermove', onRootPointerMove);
+  root.addEventListener('pointerover', onRootPointerOver);
+  root.addEventListener('pointerout', onRootPointerOut);
+  root.addEventListener(MAC_BACKGROUND_POINTER_BLOCK_EVENT, onBackgroundPointerBlock);
   root.addEventListener('pointerleave', onRootPointerLeave);
   root.addEventListener('pointerup', onRootPointerEnd);
   root.addEventListener('pointercancel', onRootPointerEnd);
@@ -1322,6 +1400,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
     stop();
     resizeObserver.disconnect();
     root.removeEventListener('pointermove', onRootPointerMove);
+    root.removeEventListener('pointerover', onRootPointerOver);
+    root.removeEventListener('pointerout', onRootPointerOut);
+    root.removeEventListener(MAC_BACKGROUND_POINTER_BLOCK_EVENT, onBackgroundPointerBlock);
     root.removeEventListener('pointerleave', onRootPointerLeave);
     root.removeEventListener('pointerup', onRootPointerEnd);
     root.removeEventListener('pointercancel', onRootPointerEnd);
