@@ -3,9 +3,9 @@ export const PHOTO3D_INV_Z_MIN = 0.1282;
 export const PHOTO3D_MAX_LAYERS = 4;
 
 export const PHOTO3D_DEFAULT_CONFIG = {
-  offsetX: 0.003,
-  offsetY: -0.01,
-  offsetZ: 0.176,
+  offsetX: 0,
+  offsetY: 0,
+  offsetZ: 0.064,
   focus: 0.51,
   highlight: false,
   crop: 0.97,
