@@ -30,9 +30,20 @@ type Photo3DOptions = {
   fit?: 'stretch' | 'contain' | 'cover';
 };
 
+export type Photo3DParams = {
+  offsetX: number;
+  offsetY: number;
+  offsetZ: number;
+  focus: number;
+  cameraZScale: number;
+};
+
 export type Photo3DController = {
   setActive: (active: boolean) => void;
   setMaxFps: (fps: number) => void;
+  setParams: (params: Partial<Photo3DParams>) => void;
+  getParams: () => Photo3DParams;
+  resetParams: () => void;
   resize: () => void;
   dispose: () => void;
   readonly active: boolean;
@@ -229,6 +240,79 @@ export function mountPhoto3D(
     Math.min(MAX_CAMERA_Z_SCALE, Math.max(MIN_CAMERA_Z_SCALE, value))
   );
 
+  const drawStillFrame = () => {
+    if (!atlasTexture || canvas.width <= 0 || canvas.height <= 0) return;
+    drawFrame(gl, uniforms, config, canvas, config.offsetX, config.offsetY, targetCameraZScale);
+    renderDirty = false;
+  };
+
+  const defaultParams: Photo3DParams = {
+    offsetX: config.offsetX,
+    offsetY: config.offsetY,
+    offsetZ: config.offsetZ,
+    focus: config.focus,
+    cameraZScale: 1,
+  };
+
+  const clampParam = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const getParams = (): Photo3DParams => ({
+    offsetX: config.offsetX,
+    offsetY: config.offsetY,
+    offsetZ: config.offsetZ,
+    focus: config.focus,
+    cameraZScale: targetCameraZScale,
+  });
+
+  const applyParams = (params: Partial<Photo3DParams>, immediate = false) => {
+    let changed = false;
+
+    if (typeof params.offsetX === 'number' && Number.isFinite(params.offsetX)) {
+      const next = clampParam(params.offsetX, -0.15, 0.15);
+      if (next !== config.offsetX) {
+        config.offsetX = next;
+        smoothX = next;
+        changed = true;
+      }
+    }
+    if (typeof params.offsetY === 'number' && Number.isFinite(params.offsetY)) {
+      const next = clampParam(params.offsetY, -0.15, 0.15);
+      if (next !== config.offsetY) {
+        config.offsetY = next;
+        smoothY = next;
+        changed = true;
+      }
+    }
+    if (typeof params.offsetZ === 'number' && Number.isFinite(params.offsetZ)) {
+      const next = clampParam(params.offsetZ, 0, 0.5);
+      if (next !== config.offsetZ) {
+        config.offsetZ = next;
+        changed = true;
+      }
+    }
+    if (typeof params.focus === 'number' && Number.isFinite(params.focus)) {
+      const next = clampParam(params.focus, 0, 1);
+      if (next !== config.focus) {
+        config.focus = next;
+        changed = true;
+      }
+    }
+    if (typeof params.cameraZScale === 'number' && Number.isFinite(params.cameraZScale)) {
+      const next = clampCameraZScale(params.cameraZScale);
+      if (next !== targetCameraZScale) {
+        targetCameraZScale = next;
+        if (immediate) cameraZScale = next;
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+    renderDirty = true;
+    updateStats();
+    if (renderActive) startLoop();
+    else drawStillFrame();
+  };
+
   const setTargetCameraZScale = (value: number) => {
     const next = clampCameraZScale(value);
     if (Math.abs(next - targetCameraZScale) < CAMERA_DOLLY_SETTLE_EPSILON) return;
@@ -362,6 +446,7 @@ export function mountPhoto3D(
     root.dataset.state = 'ready';
     hideStatus();
     updateStats();
+    drawStillFrame();
   };
 
   const syncStaticUniforms = () => {
@@ -548,6 +633,15 @@ export function mountPhoto3D(
       if (running) resetFrameTiming();
       renderDirty = true;
       startLoop();
+    },
+    setParams(params) {
+      applyParams(params);
+    },
+    getParams() {
+      return getParams();
+    },
+    resetParams() {
+      applyParams(defaultParams, true);
     },
     resize() {
       resizeAndRender();

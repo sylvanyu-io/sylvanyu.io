@@ -160,7 +160,6 @@
     <div class="hud" id="hud" aria-live="polite">
       <span class="pill" id="splats">-- splats</span>
       <span class="pill" id="fov">-- deg</span>
-      <span class="pill" id="camera">cam --</span>
       <span class="pill" id="fps">-- fps</span>
     </div>
 
@@ -174,7 +173,7 @@
       const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
       const maxRenderFps = 60;
       const minFrameMs = 1000 / maxRenderFps;
-      const fixedCameraZoom = 1.16;
+      const defaultCameraZoom = 1.16;
       const maxCameraXY = 0.1;
       const minCameraZ = 0;
       const maxCameraZ = 0.16;
@@ -185,11 +184,11 @@
       const pointerSettleEpsilon = 0.001;
       const pointerSettleEpsilonSq = pointerSettleEpsilon * pointerSettleEpsilon;
       const cameraZSettleEpsilon = 0.0001;
+      const assetWarmupFrames = 48;
       const loaderEl = document.querySelector("#loader");
       const loaderTextEl = document.querySelector("#loader-text");
       const splatsEl = document.querySelector("#splats");
       const fovEl = document.querySelector("#fov");
-      const cameraEl = document.querySelector("#camera");
       const fpsEl = document.querySelector("#fps");
 
       const setLoader = (text, state = "loading") => {
@@ -215,13 +214,18 @@
       });
 
       splatsEl.textContent = `${metadata.gaussianCount.toLocaleString()} splats`;
-      fovEl.textContent = `${metadata.intrinsics.verticalFovDeg.toFixed(1)} deg vfov`;
+
+      let cameraFovDeg = clamp(Number(params.get("fov") || metadata.intrinsics.verticalFovDeg), 35, 85);
+      let cameraZoom = clamp(Number(params.get("zoom") || defaultCameraZoom), 0.7, 5);
+      let focusDepth = clamp(Number(params.get("focusDepth") || metadata.depth.focusDepthM), 1, 20);
+      let manualCameraX = clamp(Number(params.get("camX") || 0), -maxCameraXY, maxCameraXY);
+      let manualCameraY = clamp(Number(params.get("camY") || 0), -maxCameraXY, maxCameraXY);
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x080b0c);
 
       const camera = new THREE.PerspectiveCamera(
-        metadata.intrinsics.verticalFovDeg,
+        cameraFovDeg,
         window.innerWidth / window.innerHeight,
         0.01,
         1000,
@@ -244,6 +248,7 @@
       let viewerActive = true;
       let running = false;
       let renderDirty = true;
+      let warmupFrames = 0;
       let frameCount = 0;
       let lastFpsTime = performance.now();
       let lastRenderTime = 0;
@@ -255,18 +260,36 @@
       let cameraZTarget = clamp(Number(params.get("camZ") || 0), minCameraZ, maxCameraZ);
       let cameraZCurrent = cameraZTarget;
 
-      const focusDepth = metadata.depth.focusDepthM;
       const lookAt = new THREE.Vector3(0, 0, -focusDepth);
 
+      const currentParams = () => ({
+        fov: cameraFovDeg,
+        zoom: cameraZoom,
+        focusDepth,
+        camX: manualCameraX,
+        camY: manualCameraY,
+        camZ: cameraZTarget,
+      });
+
+      const notifyParams = () => {
+        window.parent?.postMessage({
+          type: "sharp-viewer-params",
+          params: currentParams(),
+        }, window.location.origin);
+      };
+
       const setCamera = () => {
-        const dx = pointerCurrent.x * maxCameraXY;
-        const dy = pointerCurrent.y * maxCameraXY;
+        const dx = manualCameraX + pointerCurrent.x * maxCameraXY;
+        const dy = manualCameraY + pointerCurrent.y * maxCameraXY;
         const dz = cameraZCurrent;
         camera.position.set(dx, dy, dz);
+        lookAt.set(0, 0, -focusDepth);
         camera.lookAt(lookAt);
-        camera.zoom = fixedCameraZoom;
+        camera.fov = cameraFovDeg;
+        camera.zoom = cameraZoom;
         camera.updateProjectionMatrix();
-        cameraEl.textContent = `cam ${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)} / z ${fixedCameraZoom.toFixed(2)}`;
+        fovEl.textContent = `${cameraFovDeg.toFixed(1)} deg vfov`;
+        notifyParams();
       };
 
       const getPointerDistance = () => {
@@ -290,6 +313,29 @@
         pointerTarget.set(0, 0);
         activePointers.clear();
         requestRender();
+      };
+
+      const applySceneParams = (nextParams = {}) => {
+        if (typeof nextParams.fov === "number") {
+          cameraFovDeg = clamp(nextParams.fov, 35, 85);
+        }
+        if (typeof nextParams.zoom === "number") {
+          cameraZoom = clamp(nextParams.zoom, 0.7, 5);
+        }
+        if (typeof nextParams.focusDepth === "number") {
+          focusDepth = clamp(nextParams.focusDepth, 1, 20);
+        }
+        if (typeof nextParams.camX === "number") {
+          manualCameraX = clamp(nextParams.camX, -maxCameraXY, maxCameraXY);
+        }
+        if (typeof nextParams.camY === "number") {
+          manualCameraY = clamp(nextParams.camY, -maxCameraXY, maxCameraXY);
+        }
+        if (typeof nextParams.camZ === "number") {
+          cameraZTarget = clamp(nextParams.camZ, minCameraZ, maxCameraZ);
+        }
+        requestRender();
+        notifyParams();
       };
 
       const beginPinch = () => {
@@ -353,10 +399,12 @@
         }
         const pointerMoving = pointerCurrent.distanceToSquared(pointerTarget) > pointerSettleEpsilonSq;
         const cameraZMoving = Math.abs(cameraZTarget - cameraZCurrent) > cameraZSettleEpsilon;
+        const warmingUp = warmupFrames > 0;
+        if (warmupFrames > 0) warmupFrames -= 1;
         setCamera();
         renderer.render(scene, camera);
         renderDirty = false;
-        if (!pointerMoving && !cameraZMoving) stopLoop();
+        if (!pointerMoving && !cameraZMoving && !warmingUp) stopLoop();
       };
 
       const setViewerActive = (active) => {
@@ -381,8 +429,9 @@
           scene.add(splatMesh);
           window.__SHARP_VIEWER__ = { camera, metadata, renderer, scene, splatMesh };
           setLoader("", "ready");
+          warmupFrames = assetWarmupFrames;
           requestRender();
-          window.parent?.postMessage({ type: "sharp-viewer-ready" }, window.location.origin);
+          window.parent?.postMessage({ type: "sharp-viewer-ready", params: currentParams() }, window.location.origin);
         })
         .catch((error) => {
           console.error(error);
@@ -452,6 +501,7 @@
         if (event.origin !== window.location.origin) return;
         if (event.data?.type === "spatial-scene-active") setViewerActive(Boolean(event.data.active));
         if (event.data?.type === "spatial-scene-reset-pointer") resetPointerXY();
+        if (event.data?.type === "spatial-scene-params") applySceneParams(event.data.params);
       });
 
       requestRender();
