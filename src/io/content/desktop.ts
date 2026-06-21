@@ -41,9 +41,9 @@ export const desktopCopy: Record<Lang, {
       'I turn motion-heavy product ideas into production renderers, editors, and runtime infrastructure. Currently building Predy at RedNote across Web, RN, iOS, and Android; previously on the open-source Galacean engine inside Alipay.',
     chips: ['REAL-TIME RENDERING', 'PRODUCT ENGINEERING', 'EDITOR TOOLING & AI INFRA'],
     photoNote:
-      'Same source photo, product path: offline depth / mask / inpainted RGBD layers are packed into a lossless WebP atlas and rendered by a lightweight LDI shader. This is the fast cross-platform route to compare against the SHARP Gaussian baseline.',
+      'Same source photo. Photo3D keeps the asset much smaller and runs through a lightweight LDI shader across Web / RN / Metal. The tradeoff is weaker occlusion and less view-dependent detail than SHARP.',
     spatialNote:
-      'Same source photo, frontier path: Apple SHARP-style single-image Gaussian scene as a high-quality baseline. Useful for judging detail, occlusion, runtime cost, and product-fit tradeoffs against the lightweight Photo3D LDI path.',
+      'Same source photo. SHARP shows stronger occlusion, detail, and view-dependent structure. The tradeoff is a much heavier Gaussian scene and a less direct mobile route.',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconSpatial: 'SpatialScene.app',
@@ -70,9 +70,9 @@ export const desktopCopy: Record<Lang, {
       '我把重动效产品需求做成能上线的渲染器、编辑器和运行时基建。现在在小红书做 Predy，覆盖 Web / RN / iOS / Android；此前在支付宝的开源 Galacean 引擎团队。',
     chips: ['实时渲染', '产品工程', '编辑器工具链 & AI 基建'],
     photoNote:
-      '同一张原图，产品化路径：离线生成深度 / 分割 / 修补后的 RGBD 分层资产，打进无损 WebP atlas，再用轻量 LDI shader 实时渲染；这是和 SHARP Gaussian baseline 对照的快路径。',
+      '同一张原图。Photo3D 资产小很多，用轻量 LDI shader 就能接 Web / RN / Metal。代价是遮挡关系和视角相关细节不如 SHARP。',
     spatialNote:
-      '同一张原图，前沿路径：Apple SHARP 风格的单图 Gaussian scene 高质量 baseline；用来观察细节、遮挡、运行时成本和产品化取舍，对照的是 Photo3D 的轻量 LDI 路线。',
+      '同一张原图。SHARP 的遮挡、细节和视角相关结构更强。代价是 Gaussian scene 更重，移动端落地没那么直接。',
     iconReadme: 'README.md',
     iconPhoto: 'Photo3D.app',
     iconSpatial: '空间场景.app',

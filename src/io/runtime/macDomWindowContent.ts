@@ -60,6 +60,9 @@ export type MacDomWindowActionEventDetail =
   | {
       type: 'focus-window';
       id: WindowId;
+    }
+  | {
+      type: 'compare-photo-sharp';
     };
 
 const VIDEO_SKIP_BACK_SVG = '<svg viewBox="0 0 47 45" fill="none" focusable="false"><path d="M17.7049 17.1654L13.5649 20.2254V18.1454L17.8649 14.9454H19.5449V29.0454H17.7049V17.1654ZM27.2205 29.3454C26.1805 29.3454 25.2939 29.1454 24.5605 28.7454C23.8405 28.3321 23.2939 27.7854 22.9205 27.1054C22.5472 26.4254 22.3605 25.6721 22.3605 24.8454H24.2405C24.2672 25.4321 24.4072 25.9454 24.6605 26.3854C24.9139 26.8121 25.2605 27.1454 25.7005 27.3854C26.1405 27.6121 26.6339 27.7254 27.1805 27.7254C27.8339 27.7254 28.3939 27.5921 28.8605 27.3254C29.3405 27.0587 29.7072 26.6854 29.9605 26.2054C30.2139 25.7121 30.3405 25.1387 30.3405 24.4854C30.3405 23.8587 30.2072 23.3121 29.9405 22.8454C29.6739 22.3787 29.3005 22.0187 28.8205 21.7654C28.3539 21.4987 27.8272 21.3654 27.2405 21.3654C26.6139 21.3654 26.0539 21.5187 25.5605 21.8254C25.0672 22.1187 24.7139 22.5254 24.5005 23.0454H22.5005L23.2605 14.9454H31.7405V16.6054H24.8605L24.4405 21.0654C24.7339 20.6921 25.1339 20.3854 25.6405 20.1454C26.1605 19.8921 26.7939 19.7654 27.5405 19.7654C28.3805 19.7654 29.1605 19.9587 29.8805 20.3454C30.6005 20.7321 31.1805 21.2854 31.6205 22.0054C32.0605 22.7121 32.2805 23.5387 32.2805 24.4854C32.2805 25.4587 32.0605 26.3187 31.6205 27.0654C31.1805 27.7987 30.5739 28.3654 29.8005 28.7654C29.0405 29.1521 28.1805 29.3454 27.2205 29.3454Z" fill="currentColor"></path><path d="M5.63397 24.5454C6.01888 25.2121 6.98113 25.2121 7.36603 24.5454L11.2631 17.7954C11.648 17.1287 11.1669 16.2954 10.3971 16.2954L2.60288 16.2954C1.83308 16.2954 1.35196 17.1287 1.73686 17.7954L5.63397 24.5454Z" fill="currentColor"></path><path d="M6.61285 17.3867C7.53426 13.9479 9.45469 10.8596 12.1313 8.51231C14.8079 6.165 18.1204 4.6641 21.65 4.19942C25.1796 3.73474 28.7678 4.32714 31.9607 5.90172C35.1536 7.47629 37.8079 9.96232 39.588 13.0454C41.368 16.1285 42.1938 19.6702 41.961 23.2227C41.7281 26.7751 40.4471 30.1787 38.2799 33.0031C36.1126 35.8275 33.1566 37.9458 29.7854 39.0902C26.4143 40.2345 22.7795 40.3535 19.3408 39.4321" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
@@ -128,21 +131,27 @@ type ComparePanelContent = {
   sourceMeta: string;
   sourceAlt: string;
   note: string;
-  metrics: [string, string][];
+  actionLabel?: string;
+  metrics: Array<{
+    value: string;
+    label: string;
+    tone: 'benefit' | 'cost' | 'neutral';
+  }>;
 };
 
 function photoCompareContent(lang: Lang): ComparePanelContent {
   const copy = desktopCopy[lang];
   return {
     kind: 'photo',
-    sourceTitle: lang === 'zh' ? 'Photo3D 原图' : 'Photo3D source',
-    sourceMeta: '1124x2436 JPG',
+    sourceTitle: 'Photo3D / LDI',
+    sourceMeta: lang === 'zh' ? '同源 JPG · 端侧实时' : 'same-source JPG · realtime app path',
     sourceAlt: lang === 'zh' ? 'Photo3D 当前原图输入' : 'Current Photo3D source input',
     note: copy.photoNote,
+    actionLabel: lang === 'zh' ? '对照 SHARP' : 'Compare SHARP',
     metrics: [
-      ['2L', lang === 'zh' ? 'LDI 分层' : 'LDI layers'],
-      ['1.8 MB', lang === 'zh' ? 'atlas 大小' : 'atlas size'],
-      ['WebP', lang === 'zh' ? '无损 atlas' : 'lossless atlas'],
+      { value: '1.8 MB', label: lang === 'zh' ? '无损 atlas' : 'lossless atlas', tone: 'benefit' },
+      { value: '2L', label: lang === 'zh' ? 'LDI 分层' : 'LDI layers', tone: 'neutral' },
+      { value: 'Web/RN', label: lang === 'zh' ? '可产品化' : 'mobile-ready', tone: 'benefit' },
     ],
   };
 }
@@ -151,14 +160,14 @@ function spatialCompareContent(lang: Lang): ComparePanelContent {
   const copy = desktopCopy[lang];
   return {
     kind: 'spatial',
-    sourceTitle: lang === 'zh' ? 'Photo3D 原图' : 'Photo3D source',
-    sourceMeta: '1124x2436 JPG',
+    sourceTitle: 'SHARP / Gaussian',
+    sourceMeta: lang === 'zh' ? '同源 JPG · 质量上限' : 'same-source JPG · quality ceiling',
     sourceAlt: lang === 'zh' ? 'Photo3D 当前原图输入' : 'Current Photo3D source input',
     note: copy.spatialNote,
     metrics: [
-      ['590K', lang === 'zh' ? 'splats' : 'splats'],
-      ['9.2 MB', lang === 'zh' ? '压缩 PLY' : 'compressed PLY'],
-      ['D50', lang === 'zh' ? '质量档位' : 'quality ladder'],
+      { value: '590K', label: lang === 'zh' ? 'Gaussian splats' : 'Gaussian splats', tone: 'cost' },
+      { value: '9.2 MB', label: lang === 'zh' ? '压缩 PLY' : 'compressed PLY', tone: 'cost' },
+      { value: 'D50', label: lang === 'zh' ? '质量档位' : 'quality ladder', tone: 'benefit' },
     ],
   };
 }
@@ -167,6 +176,7 @@ function syncComparePanel(details: HTMLElement, content: ComparePanelContent) {
   setText(details.querySelector('[data-compare-source-title]'), content.sourceTitle);
   setText(details.querySelector('[data-compare-source-meta]'), content.sourceMeta);
   setText(details.querySelector('[data-compare-note]'), content.note);
+  setText(details.querySelector('[data-compare-action]'), content.actionLabel ?? '');
   const image = details.querySelector('[data-compare-source-image]');
   if (image instanceof HTMLImageElement) {
     image.src = SPATIAL_SCENE_SOURCE_URL;
@@ -175,8 +185,9 @@ function syncComparePanel(details: HTMLElement, content: ComparePanelContent) {
   details.querySelectorAll('[data-compare-metric]').forEach((element, index) => {
     const metric = content.metrics[index];
     if (!metric) return;
-    setText(element.querySelector('[data-compare-metric-value]'), metric[0]);
-    setText(element.querySelector('[data-compare-metric-label]'), metric[1]);
+    (element as HTMLElement).dataset.tone = metric.tone;
+    setText(element.querySelector('[data-compare-metric-value]'), metric.value);
+    setText(element.querySelector('[data-compare-metric-label]'), metric.label);
   });
 }
 
@@ -188,16 +199,36 @@ function createComparePanel(content: ComparePanelContent) {
   const sourceImage = document.createElement('img');
   sourceImage.dataset.compareSourceImage = '';
   const sourceCopy = div('mac-compare__source-copy');
+  const sourceHeader = div('mac-compare__source-header');
   const sourceTitle = document.createElement('strong');
   sourceTitle.dataset.compareSourceTitle = '';
   const sourceMeta = document.createElement('span');
   sourceMeta.dataset.compareSourceMeta = '';
-  sourceCopy.append(sourceTitle, sourceMeta);
+  sourceHeader.append(sourceTitle);
+  if (content.actionLabel) {
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'mac-compare__action';
+    action.dataset.compareAction = '';
+    action.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const record = details.closest('.mac-dom-window');
+      record?.dispatchEvent(new CustomEvent(MAC_DOM_WINDOW_ACTION_EVENT, {
+        bubbles: true,
+        detail: { type: 'compare-photo-sharp' } satisfies MacDomWindowActionEventDetail,
+      }));
+    });
+    sourceHeader.append(action);
+  }
+  sourceCopy.append(sourceHeader, sourceMeta);
   source.append(sourceImage, sourceCopy);
 
+  const copy = div('mac-compare__copy');
   const note = document.createElement('p');
   note.className = 'mac-compare__note';
   note.dataset.compareNote = '';
+  copy.append(note);
 
   const metrics = div('mac-compare__metrics');
   content.metrics.forEach(() => {
@@ -211,7 +242,7 @@ function createComparePanel(content: ComparePanelContent) {
     metrics.append(item);
   });
 
-  details.append(source, note, metrics);
+  details.append(source, copy, metrics);
   syncComparePanel(details, content);
   return { details, note };
 }
@@ -963,11 +994,20 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'photo') {
     const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
+    const comparingSharp = state.windows.spatial.open;
+    record.element.dataset.compareOpen = comparingSharp ? 'true' : 'false';
     setCanvasRendering(record, photoActive && Boolean(record.photo3dController?.rendering));
     const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
     const fpsText = Math.round(photoFps).toString().padStart(3, ' ');
     setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
     setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
+    const compareAction = record.body.querySelector('[data-compare-action]');
+    setText(compareAction, comparingSharp
+      ? state.lang === 'zh' ? '正在对照 SHARP' : 'Comparing SHARP'
+      : state.lang === 'zh' ? '对照 SHARP' : 'Compare SHARP');
+    if (compareAction instanceof HTMLElement) {
+      compareAction.dataset.active = comparingSharp ? 'true' : 'false';
+    }
     return;
   }
 
@@ -987,6 +1027,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'spatial') {
     const active = record.element.dataset.active === 'true';
+    record.element.dataset.compareOpen = state.windows.photo.open ? 'true' : 'false';
     setText(record.accessory, active ? 'SHARP D50' : 'IDLE');
     setCanvasRendering(record, false);
     return;

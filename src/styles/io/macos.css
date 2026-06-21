@@ -841,8 +841,9 @@
   }
 
   .mac-compare__details {
+    position: relative;
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr) auto;
+    grid-template-columns: 174px minmax(0, 1fr) auto;
     gap: 14px;
     align-items: center;
     padding: 14px 16px 16px;
@@ -863,7 +864,7 @@
     display: grid;
     grid-template-columns: 50px minmax(0, 1fr);
     gap: 10px;
-    align-items: center;
+    align-items: start;
     min-width: 0;
   }
 
@@ -880,8 +881,16 @@
 
   .mac-compare__source-copy {
     display: grid;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
+    padding-top: 1px;
+  }
+
+  .mac-compare__source-header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
   }
 
   .mac-compare__source-copy strong,
@@ -892,6 +901,7 @@
   }
 
   .mac-compare__source-copy strong {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -915,6 +925,91 @@
     line-height: 1.55;
   }
 
+  .mac-compare__copy {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .mac-compare__action {
+    flex: 0 0 auto;
+    display: inline-flex;
+    min-height: 28px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid rgba(157, 239, 225, .5);
+    border-radius: 999px;
+    color: rgba(225, 255, 250, .98);
+    background:
+      linear-gradient(180deg, rgba(157, 239, 225, .22), rgba(93, 209, 198, .1)),
+      rgba(10, 18, 18, .78);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, .2),
+      0 0 0 1px rgba(0, 0, 0, .16),
+      inset 0 1px 0 rgba(255, 255, 255, .16);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      border-color .16s ease,
+      background-color .16s ease,
+      box-shadow .16s ease,
+      color .16s ease,
+      transform .16s ease;
+  }
+
+  .mac-compare__action::after {
+    content: "";
+    display: block;
+    width: 5px;
+    height: 5px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    opacity: .76;
+    transform: rotate(45deg);
+  }
+
+  .mac-compare__action:hover {
+    border-color: rgba(157, 239, 225, .72);
+    color: rgba(237, 255, 252, 1);
+    background:
+      linear-gradient(180deg, rgba(157, 239, 225, .3), rgba(93, 209, 198, .16)),
+      rgba(10, 22, 22, .88);
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, .25),
+      0 0 0 1px rgba(157, 239, 225, .12),
+      inset 0 1px 0 rgba(255, 255, 255, .2);
+    transform: translateY(-1px);
+  }
+
+  .mac-compare__action:active {
+    transform: translateY(0);
+    box-shadow:
+      0 3px 8px rgba(0, 0, 0, .22),
+      inset 0 1px 4px rgba(0, 0, 0, .28);
+  }
+
+  .mac-compare__action:focus,
+  .mac-compare__action:focus-visible {
+    outline: 1px solid rgba(157, 239, 225, .52);
+    outline-offset: 2px;
+  }
+
+  .mac-compare__action[data-active="true"] {
+    color: rgba(244, 241, 232, .86);
+    border-color: rgba(244, 241, 232, .26);
+    background:
+      linear-gradient(180deg, rgba(244, 241, 232, .16), rgba(244, 241, 232, .07)),
+      rgba(18, 18, 16, .82);
+  }
+
+  .mac-compare__action[data-active="true"]::after {
+    opacity: .46;
+  }
+
   .mac-compare__metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(72px, 1fr));
@@ -929,6 +1024,30 @@
     border: 1px solid rgba(244, 241, 232, .12);
     border-radius: 10px;
     background: rgba(255, 255, 255, .045);
+  }
+
+  .mac-compare__metric[data-tone="benefit"] {
+    border-color: rgba(93, 209, 198, .24);
+    background: rgba(93, 209, 198, .08);
+  }
+
+  .mac-compare__metric[data-tone="cost"] {
+    border-color: rgba(215, 178, 90, .24);
+    background: rgba(215, 178, 90, .08);
+  }
+
+  .mac-dom-window[data-compare-open="true"] .mac-dom-window__title::after {
+    content: "COMPARE";
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 5px;
+    border: 1px solid rgba(244, 241, 232, .16);
+    border-radius: 999px;
+    color: rgba(244, 241, 232, .58);
+    font-size: 8px;
+    line-height: 1;
+    vertical-align: middle;
   }
 
   .mac-compare__metric strong {

@@ -503,6 +503,42 @@ export function mountMacSingleCanvas(rootInput: Element) {
     };
   }
 
+  function setSavedWindowRect(id: WindowId, rect: Rect) {
+    state.windows[id].x = rect.x;
+    state.windows[id].y = rect.y;
+    state.windows[id].w = rect.w;
+    state.windows[id].h = rect.h;
+  }
+
+  function comparePhotoSharp() {
+    if (layout.mobile) {
+      openWindow('spatial');
+      return;
+    }
+
+    const currentPhoto = layout.windows.find((windowLayout) => windowLayout.id === 'photo');
+    const marginX = Math.max(24, Math.min(56, Math.round(cssWidth * 0.04)));
+    const gap = Math.max(18, Math.min(30, Math.round(cssWidth * 0.018)));
+    const maxPairWindowW = Math.floor((cssWidth - marginX * 2 - gap) / 2);
+    const windowW = Math.max(420, Math.min(currentPhoto?.w ?? 560, maxPairWindowW));
+    const top = Math.max(MAC_MENUBAR_HEIGHT + 18, Math.min(currentPhoto?.y ?? 58, 88));
+    const maxWindowH = Math.max(420, cssHeight - top - 18);
+    const windowH = Math.max(420, Math.min(currentPhoto?.h ?? 760, maxWindowH));
+    const pairW = windowW * 2 + gap;
+    const left = Math.max(12, Math.round((cssWidth - pairW) * 0.5));
+
+    state.folder = null;
+    folderAnimation = null;
+    state.folderProgress = 0;
+    state.windows.photo.open = true;
+    state.windows.spatial.open = true;
+    setSavedWindowRect('photo', { x: left, y: top, w: windowW, h: windowH });
+    setSavedWindowRect('spatial', { x: left + windowW + gap, y: top, w: windowW, h: windowH });
+    bringWindowFront(state, 'photo');
+    bringWindowFront(state, 'spatial');
+    markLayoutDirty();
+  }
+
   const domWindows = createMacDomWindows(root, {
     bringFront(id) {
       bringWindowFront(state, id);
@@ -516,6 +552,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       state.windows[id].open = false;
       markLayoutDirty();
     },
+    comparePhotoSharp,
     moveWindow(id, x, y) {
       const next = clampWindowPosition(id, x, y);
       state.windows[id].x = next.x;

@@ -16,6 +16,7 @@ import {
 type MacDomWindowActions = {
   bringFront: (id: WindowId) => void;
   setOpen: (id: WindowId, open: boolean) => void;
+  comparePhotoSharp: () => void;
   moveWindow: (id: WindowId, x: number, y: number) => void;
   resizeWindow: (
     id: WindowId,
@@ -393,6 +394,10 @@ export function createMacDomWindows(
       actions.bringFront(detail.id);
       return;
     }
+    if (detail.type === 'compare-photo-sharp') {
+      actions.comparePhotoSharp();
+      return;
+    }
     if (detail.type !== 'open-window') return;
     if (detail.id === 'video' && detail.clipIndex !== undefined) {
       const videoRecord = records.get('video');
@@ -533,10 +538,10 @@ export function createMacDomWindows(
       updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);
       // Canvas apps are expensive to download and initialize. Keep inactive
-      // windows as DOM shells, and mount their live canvas only when they own
-      // focus; Photo3D additionally waits until the wallpaper pass is ready so
-      // the auto-open desktop window does not compete with first background load.
-      if (isActive && (id !== 'photo' || options.allowPhotoMount !== false)) {
+      // windows as DOM shells, except the Photo3D / SHARP comparison where both
+      // sides need a ready still frame even if only one window owns focus.
+      const shouldMountForCompare = id === 'photo' && state.windows.spatial.open;
+      if ((isActive || shouldMountForCompare) && (id !== 'photo' || options.allowPhotoMount !== false)) {
         ensureWindowContentMounted(record);
       }
 
