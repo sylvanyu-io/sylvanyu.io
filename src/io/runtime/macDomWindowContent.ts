@@ -1078,7 +1078,7 @@ function renderSpatial(record: MacDomWindowRecord, lang: Lang) {
   const sharpParamDefaults = {
     fov: 66.4,
     zoom: 1.16,
-    focusDepth: 10.688,
+    focusDepth: 2.17,
     camZ: 0,
     camX: 0,
     camY: 0,

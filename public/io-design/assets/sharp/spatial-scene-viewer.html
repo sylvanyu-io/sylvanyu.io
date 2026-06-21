@@ -45,22 +45,12 @@
         z-index: 3;
         min-height: 25px;
         padding: 7px 12px 6px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 11px;
-        align-items: center;
         overflow: hidden;
         color: rgb(244 241 232 / 72%);
         background: rgb(10 12 13 / 88%);
         font: 500 10px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
         pointer-events: none;
         white-space: normal;
-      }
-
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        min-height: 1em;
       }
 
       .loader {
@@ -157,11 +147,7 @@
       <span class="loader__ring" aria-hidden="true"></span>
       <span class="loader__text" id="loader-text">Loading app</span>
     </div>
-    <div class="hud" id="hud" aria-live="polite">
-      <span class="pill" id="splats">-- splats</span>
-      <span class="pill" id="fov">-- deg</span>
-      <span class="pill" id="fps">-- fps</span>
-    </div>
+    <div class="hud" id="hud" aria-live="polite">FPS   0    SPLATS --    SHARP D50</div>
 
     <script type="module">
       import * as THREE from "three";
@@ -173,8 +159,11 @@
       const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
       const maxRenderFps = 60;
       const minFrameMs = 1000 / maxRenderFps;
-      const defaultCameraZoom = 1.16;
-      const maxCameraXY = 0.1;
+      const defaultCameraZoom = 1.235;
+      const defaultFocusDepth = 2.17;
+      const defaultCameraY = 0;
+      const compositionOffsetY = -0.12;
+      const maxCameraXY = 0.09;
       const minCameraZ = 0;
       const maxCameraZ = 0.16;
       const cameraZWheelScale = 0.00012;
@@ -187,9 +176,7 @@
       const assetWarmupFrames = 48;
       const loaderEl = document.querySelector("#loader");
       const loaderTextEl = document.querySelector("#loader-text");
-      const splatsEl = document.querySelector("#splats");
-      const fovEl = document.querySelector("#fov");
-      const fpsEl = document.querySelector("#fps");
+      const hudEl = document.querySelector("#hud");
 
       const setLoader = (text, state = "loading") => {
         loaderEl.hidden = state === "ready";
@@ -213,13 +200,17 @@
         return response.json();
       });
 
-      splatsEl.textContent = `${metadata.gaussianCount.toLocaleString()} splats`;
+      const splatsLabel = metadata.gaussianCount.toLocaleString();
+      const updateHud = (fps = 0) => {
+        hudEl.textContent = `FPS ${String(Math.round(fps)).padStart(3, " ")}    SPLATS ${splatsLabel}    SHARP D50`;
+      };
+      updateHud();
 
       let cameraFovDeg = clamp(Number(params.get("fov") || metadata.intrinsics.verticalFovDeg), 35, 85);
       let cameraZoom = clamp(Number(params.get("zoom") || defaultCameraZoom), 0.7, 5);
-      let focusDepth = clamp(Number(params.get("focusDepth") || metadata.depth.focusDepthM), 1, 20);
+      let focusDepth = clamp(Number(params.get("focusDepth") || defaultFocusDepth), 1, 20);
       let manualCameraX = clamp(Number(params.get("camX") || 0), -maxCameraXY, maxCameraXY);
-      let manualCameraY = clamp(Number(params.get("camY") || 0), -maxCameraXY, maxCameraXY);
+      let manualCameraY = clamp(params.has("camY") ? Number(params.get("camY")) : defaultCameraY, -maxCameraXY, maxCameraXY);
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x080b0c);
@@ -278,6 +269,16 @@
         }, window.location.origin);
       };
 
+      const applyProjection = () => {
+        const width = Math.max(1, window.innerWidth);
+        const height = Math.max(1, window.innerHeight);
+        camera.aspect = width / height;
+        camera.fov = cameraFovDeg;
+        camera.zoom = cameraZoom;
+        camera.setViewOffset(width, height, 0, compositionOffsetY * height, width, height);
+        camera.updateProjectionMatrix();
+      };
+
       const setCamera = () => {
         const dx = manualCameraX + pointerCurrent.x * maxCameraXY;
         const dy = manualCameraY + pointerCurrent.y * maxCameraXY;
@@ -285,10 +286,7 @@
         camera.position.set(dx, dy, dz);
         lookAt.set(0, 0, -focusDepth);
         camera.lookAt(lookAt);
-        camera.fov = cameraFovDeg;
-        camera.zoom = cameraZoom;
-        camera.updateProjectionMatrix();
-        fovEl.textContent = `${cameraFovDeg.toFixed(1)} deg vfov`;
+        applyProjection();
         notifyParams();
       };
 
@@ -360,7 +358,7 @@
         frameCount = 0;
         lastFpsTime = performance.now();
         lastRenderTime = 0;
-        fpsEl.textContent = "0 fps";
+        updateHud(0);
       };
 
       const startLoop = () => {
@@ -385,7 +383,7 @@
         const now = time;
         const elapsed = now - lastFpsTime;
         if (elapsed >= 500) {
-          fpsEl.textContent = `${Math.round((frameCount * 1000) / elapsed)} fps`;
+          updateHud((frameCount * 1000) / elapsed);
           frameCount = 0;
           lastFpsTime = now;
         }
@@ -491,8 +489,6 @@
       window.addEventListener("pointercancel", endPointer);
 
       window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         requestRender();
       });
