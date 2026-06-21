@@ -9,11 +9,11 @@ import {
   videoClips,
 } from '../data';
 import type { Lang } from '../content/common';
-import type { Photo3DController } from './photo3d/rawWebgl';
+import type { Photo3DController, Photo3DParams } from './photo3d/rawWebgl';
 import { loadCanvasDemo, macCanvasDemos } from './canvasDemoRegistry';
 import type { CanvasDemoHandle } from './canvasDemoTypes';
 import { mountMacVideoGlass, type MacVideoGlassController } from './macVideoGlass';
-import { PHOTO3D_APP_ATLAS_META, loadPhoto3DShader } from './photo3d/core';
+import { PHOTO3D_APP_ATLAS_META, PHOTO3D_DEFAULT_CONFIG, loadPhoto3DShader } from './photo3d/core';
 import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 import {
@@ -37,12 +37,16 @@ export type MacDomWindowRecord = {
   appliedSig?: string;
   photoHud?: HTMLElement;
   photoNote?: HTMLElement;
+  photoParamPanel?: HTMLElement;
+  photo3dPendingParams?: Partial<Photo3DParams>;
   photo3dController?: Photo3DController | null;
   canvasDemoHandle?: CanvasDemoHandle | null;
   canvasDemoHud?: HTMLElement;
   canvasDemoMountToken?: number;
   canvasDemoCleanup?: () => void;
   spatialFrame?: HTMLIFrameElement | null;
+  spatialParamPanel?: HTMLElement;
+  spatialPendingParams?: Record<string, number>;
   videoGlassController?: MacVideoGlassController | null;
   contentLang?: Lang;
   internalBack?: () => boolean;
@@ -245,6 +249,131 @@ function createComparePanel(content: ComparePanelContent) {
   details.append(source, copy, metrics);
   syncComparePanel(details, content);
   return { details, note };
+}
+
+type CalibrationParamSpec = {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  precision: number;
+};
+
+function formatCalibrationValue(value: number, precision: number) {
+  return value.toFixed(precision).replace(/\.?0+$/, '');
+}
+
+function clampCalibrationValue(value: number, spec: CalibrationParamSpec) {
+  if (!Number.isFinite(value)) return spec.value;
+  return Math.min(spec.max, Math.max(spec.min, value));
+}
+
+function setCalibrationPanelValue(panel: HTMLElement | null | undefined, key: string, value: number) {
+  if (!panel || !Number.isFinite(value)) return;
+  const row = [...panel.querySelectorAll<HTMLElement>('[data-param-row]')]
+    .find((element) => element.dataset.paramRow === key);
+  if (!row) return;
+  const precision = Number(row.dataset.paramPrecision ?? 3);
+  const formatted = formatCalibrationValue(value, precision);
+  row.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+    if (document.activeElement === input) return;
+    input.value = formatted;
+  });
+}
+
+function syncCalibrationPanel(panel: HTMLElement | null | undefined, values: Record<string, number>) {
+  if (!panel) return;
+  Object.entries(values).forEach(([key, value]) => setCalibrationPanelValue(panel, key, value));
+}
+
+function stopCalibrationGesture(event: Event) {
+  event.stopPropagation();
+}
+
+function createCalibrationPanel(
+  title: string,
+  specs: CalibrationParamSpec[],
+  onChange: (key: string, value: number) => void,
+  onReset: () => void,
+) {
+  const panel = div('mac-calibration-panel');
+  panel.dataset.calibrationPanel = title;
+
+  const header = div('mac-calibration-panel__header');
+  const titleEl = document.createElement('strong');
+  titleEl.textContent = title;
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.textContent = 'Reset';
+  reset.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onReset();
+  });
+  header.append(titleEl, reset);
+
+  const list = div('mac-calibration-panel__list');
+  specs.forEach((spec) => {
+    const row = div('mac-calibration-panel__row');
+    row.dataset.paramRow = spec.key;
+    row.dataset.paramPrecision = String(spec.precision);
+
+    const label = document.createElement('label');
+    label.textContent = spec.label;
+
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = String(spec.min);
+    range.max = String(spec.max);
+    range.step = String(spec.step);
+    range.value = formatCalibrationValue(spec.value, spec.precision);
+    range.setAttribute('aria-label', `${title} ${spec.label}`);
+
+    const number = document.createElement('input');
+    number.type = 'number';
+    number.min = String(spec.min);
+    number.max = String(spec.max);
+    number.step = String(spec.step);
+    number.value = range.value;
+    number.setAttribute('aria-label', `${title} ${spec.label} value`);
+
+    const syncValue = (rawValue: number) => {
+      if (!Number.isFinite(rawValue)) return;
+      const next = clampCalibrationValue(rawValue, spec);
+      const formatted = formatCalibrationValue(next, spec.precision);
+      range.value = formatted;
+      number.value = formatted;
+      onChange(spec.key, next);
+    };
+
+    range.addEventListener('input', () => syncValue(Number(range.value)));
+    number.addEventListener('input', () => syncValue(Number(number.value)));
+
+    row.append(label, range, number);
+    list.append(row);
+  });
+
+  panel.addEventListener('pointerdown', stopCalibrationGesture);
+  panel.addEventListener('pointermove', stopCalibrationGesture);
+  panel.addEventListener('pointerup', stopCalibrationGesture);
+  panel.addEventListener('wheel', stopCalibrationGesture, { passive: true });
+  panel.append(header, list);
+  return panel;
+}
+
+function syncPhotoParamPanel(record: MacDomWindowRecord) {
+  const params = record.photo3dController?.getParams() ?? record.photo3dPendingParams;
+  if (!params) return;
+  syncCalibrationPanel(record.photoParamPanel, params as Record<string, number>);
+}
+
+function postSpatialParams(record: MacDomWindowRecord, params: Record<string, number>) {
+  record.spatialFrame?.contentWindow?.postMessage({
+    type: 'spatial-scene-params',
+    params,
+  }, window.location.origin);
 }
 
 function socialIcon(key: string) {
@@ -829,6 +958,8 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
     });
     if (controller) {
       record.photo3dController = controller;
+      if (record.photo3dPendingParams) controller.setParams(record.photo3dPendingParams);
+      syncPhotoParamPanel(record);
       controller.setMaxFps(MAC_FPS_TUNING.maxCanvasFps);
       controller.setActive(record.element.dataset.active === 'true');
       record.cleanup.push(() => controller.dispose());
@@ -872,9 +1003,24 @@ function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   const hud = div('mac-photo__hud');
   record.photoHud = hud;
 
+  const photoParamPanel = createCalibrationPanel('Photo3D params', [
+    { key: 'focus', label: 'focus', min: 0, max: 1, step: 0.001, value: PHOTO3D_DEFAULT_CONFIG.focus, precision: 3 },
+    { key: 'offsetZ', label: 'depth', min: 0, max: 0.5, step: 0.001, value: PHOTO3D_DEFAULT_CONFIG.offsetZ, precision: 3 },
+  ], (key, value) => {
+    const next = { [key]: value } as Partial<Photo3DParams>;
+    record.photo3dPendingParams = { ...record.photo3dPendingParams, ...next };
+    record.photo3dController?.setParams(next);
+  }, () => {
+    record.photo3dPendingParams = undefined;
+    record.photo3dController?.resetParams();
+    syncPhotoParamPanel(record);
+  });
+  photoParamPanel.classList.add('mac-calibration-panel--photo');
+  record.photoParamPanel = photoParamPanel;
+
   wrap.append(photoStage);
   photoRoot.append(wrap, status);
-  stage.append(photoRoot, viewerLabel, hud);
+  stage.append(photoRoot, viewerLabel, photoParamPanel, hud);
 
   const { details, note } = createComparePanel(photoCompareContent(lang));
   record.photoNote = note;
@@ -927,7 +1073,30 @@ function renderSpatial(record: MacDomWindowRecord, lang: Lang) {
   viewerLabel.append(viewerTitle, viewerMeta);
   const loader = createAppLoader(MAC_LOADING_COPY.app);
   loader.classList.add('mac-spatial__status');
-  viewer.append(frame, viewerLabel, loader);
+
+  const sharpParamDefaults = {
+    fov: 66.4,
+    zoom: 1.16,
+    focusDepth: 10.688,
+    camZ: 0,
+    camX: 0,
+    camY: 0,
+  };
+  const spatialParamPanel = createCalibrationPanel('SHARP params', [
+    { key: 'fov', label: 'fov', min: 35, max: 85, step: 0.1, value: sharpParamDefaults.fov, precision: 1 },
+    { key: 'zoom', label: 'zoom', min: 0.7, max: 5, step: 0.001, value: sharpParamDefaults.zoom, precision: 3 },
+    { key: 'focusDepth', label: 'focus', min: 1, max: 20, step: 0.01, value: sharpParamDefaults.focusDepth, precision: 2 },
+  ], (key, value) => {
+    record.spatialPendingParams = { ...record.spatialPendingParams, [key]: value };
+    postSpatialParams(record, { [key]: value });
+  }, () => {
+    record.spatialPendingParams = { ...sharpParamDefaults };
+    syncCalibrationPanel(record.spatialParamPanel, sharpParamDefaults);
+    postSpatialParams(record, sharpParamDefaults);
+  });
+  spatialParamPanel.classList.add('mac-calibration-panel--spatial');
+  record.spatialParamPanel = spatialParamPanel;
+  viewer.append(frame, viewerLabel, spatialParamPanel, loader);
 
   const { details } = createComparePanel(spatialCompareContent(lang));
   shell.append(viewer, details);
@@ -938,6 +1107,7 @@ function renderSpatial(record: MacDomWindowRecord, lang: Lang) {
       type: 'spatial-scene-active',
       active: record.element.dataset.active === 'true',
     }, window.location.origin);
+    if (record.spatialPendingParams) postSpatialParams(record, record.spatialPendingParams);
   }, { once: true });
 
   const resetSpatialPointer = () => {
@@ -968,6 +1138,11 @@ function renderSpatial(record: MacDomWindowRecord, lang: Lang) {
     }
     if (event.data?.type === 'sharp-viewer-ready') {
       setAppLoaderState(loader, 'ready', '');
+      if (event.data.params) syncCalibrationPanel(record.spatialParamPanel, event.data.params);
+      return;
+    }
+    if (event.data?.type === 'sharp-viewer-params') {
+      if (event.data.params) syncCalibrationPanel(record.spatialParamPanel, event.data.params);
     }
   };
   window.addEventListener('message', handleFrameMessage);
@@ -1008,6 +1183,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     if (compareAction instanceof HTMLElement) {
       compareAction.dataset.active = comparingSharp ? 'true' : 'false';
     }
+    syncPhotoParamPanel(record);
     return;
   }
 
