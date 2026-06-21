@@ -955,6 +955,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
       interaction: navigator.maxTouchPoints > 0 ? 'drag' : 'hover',
       idleDrift: false,
       fit: 'cover',
+      hoverBoundary: record.body.querySelector('.mac-photo__stage'),
     });
     if (controller) {
       record.photo3dController = controller;

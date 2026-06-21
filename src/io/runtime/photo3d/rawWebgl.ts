@@ -28,6 +28,7 @@ type Photo3DOptions = {
   interaction?: 'drag' | 'hover';
   idleDrift?: boolean;
   fit?: 'stretch' | 'contain' | 'cover';
+  hoverBoundary?: Element | null;
 };
 
 export type Photo3DParams = {
@@ -129,7 +130,14 @@ function createProgram(gl: WebGLRenderingContext, shaderBody: string) {
 
 export function mountPhoto3D(
   root: Element,
-  { shaderBody, atlasMeta, interaction = 'drag', idleDrift = false, fit = 'stretch' }: Photo3DOptions,
+  {
+    shaderBody,
+    atlasMeta,
+    interaction = 'drag',
+    idleDrift = false,
+    fit = 'stretch',
+    hoverBoundary: hoverBoundaryInput,
+  }: Photo3DOptions,
 ): Photo3DController | null {
   if (!(root instanceof HTMLElement)) return null;
   if (root.dataset.mounted === 'true') return root.__photo3dController ?? null;
@@ -188,6 +196,7 @@ export function mountPhoto3D(
 
   const canvas = document.createElement('canvas');
   stage.appendChild(canvas);
+  const hoverRegion = hoverBoundaryInput instanceof HTMLElement ? hoverBoundaryInput : canvas;
 
   const gl = canvas.getContext('webgl', {
     alpha: false,
@@ -523,11 +532,24 @@ export function mountPhoto3D(
       renderDirty = true;
       startLoop();
     });
-    listen(canvas, 'pointerleave', () => {
+    const isInsideHoverBoundary = (target: EventTarget | null) => (
+      target instanceof Node && hoverRegion.contains(target)
+    );
+    const resetHoverPointer = () => {
       pointerActive = false;
       renderDirty = true;
       startLoop();
+    };
+    listen(canvas, 'pointerleave', (event) => {
+      if (event instanceof PointerEvent && isInsideHoverBoundary(event.relatedTarget)) return;
+      resetHoverPointer();
     });
+    if (hoverRegion !== canvas) {
+      listen(hoverRegion, 'pointerleave', (event) => {
+        if (event instanceof PointerEvent && isInsideHoverBoundary(event.relatedTarget)) return;
+        resetHoverPointer();
+      });
+    }
     listen(canvas, 'wheel', handleWheelDolly, { passive: false });
   } else {
     canvas.style.touchAction = 'none';
