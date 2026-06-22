@@ -1,22 +1,16 @@
 import type { Lang } from './common';
 
 export const mediaWindowCopy: Record<Lang, {
-  albumTitle: string;
-  albumIntro: string;
   momentsTitle: string;
   momentsIntro: string;
   videoAccessory: string;
 }> = {
   en: {
-    albumTitle: 'Camera roll draft',
-    albumIntro: 'A lightweight place for hobby photos, travel scraps, and visual references.',
     momentsTitle: 'Visual notes',
     momentsIntro: 'A feed-style variant for hobby photos, travel notes, and everyday visual scraps.',
     videoAccessory: 'PLAYER',
   },
   zh: {
-    albumTitle: '相册草稿',
-    albumIntro: '一个放兴趣照片、旅行片段和视觉参考的轻量相册入口。',
     momentsTitle: '视觉碎片',
     momentsIntro: '朋友圈 / ins 风格的信息流版本，适合放兴趣照片、旅行和日常。',
     videoAccessory: '播放器',

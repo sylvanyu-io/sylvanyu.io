@@ -569,43 +569,6 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
   record.internalBack = closePreview;
 }
 
-function renderAlbum(record: MacDomWindowRecord, lang: Lang) {
-  const photos = mediaPhotos[lang];
-  const copy = mediaWindowCopy[lang];
-  record.body.replaceChildren();
-
-  const hero = div('mac-album__hero');
-  const heroImage = document.createElement('img');
-  heroImage.src = photos[0]?.src ?? '';
-  heroImage.alt = photos[0] ? imageAlt(photos[0].title, photos[0].caption) : '';
-  const heroCopy = div('mac-album__hero-copy');
-  const heroTitle = document.createElement('h2');
-  heroTitle.textContent = copy.albumTitle;
-  const heroMeta = document.createElement('p');
-  heroMeta.textContent = copy.albumIntro;
-  heroCopy.append(heroTitle, heroMeta);
-  hero.append(heroImage, heroCopy);
-
-  const grid = div('mac-album__grid');
-  photos.forEach((photo) => {
-    const card = document.createElement('figure');
-    card.className = 'mac-album__tile';
-    const image = document.createElement('img');
-    image.src = photo.src;
-    image.alt = imageAlt(photo.title, photo.caption);
-    const caption = document.createElement('figcaption');
-    const title = document.createElement('strong');
-    title.textContent = photo.title;
-    const date = document.createElement('span');
-    date.textContent = photo.date;
-    caption.append(title, date);
-    card.append(image, caption);
-    grid.append(card);
-  });
-
-  record.body.append(hero, grid);
-}
-
 function renderMoments(record: MacDomWindowRecord, lang: Lang) {
   const photos = mediaPhotos[lang];
   const copy = mediaWindowCopy[lang];
@@ -1160,7 +1123,6 @@ export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
   if (record.id === 'reflection') renderReflection(record);
   if (record.id === 'worklog') renderWorklog(record, lang);
   if (record.id === 'projects') renderProjects(record, lang);
-  if (record.id === 'album') renderAlbum(record, lang);
   if (record.id === 'moments') renderMoments(record, lang);
   if (record.id === 'video') renderVideo(record, lang);
 }
@@ -1212,11 +1174,6 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'projects') {
     setText(record.accessory, `${desktopProjects[state.lang].length} ITEMS`);
-    return;
-  }
-
-  if (win.id === 'album') {
-    setText(record.accessory, `${mediaPhotos[state.lang].length} PHOTOS`);
     return;
   }
 

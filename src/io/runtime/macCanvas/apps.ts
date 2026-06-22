@@ -8,7 +8,6 @@ export type IconLabelKey =
   | 'iconReflection'
   | 'iconLog'
   | 'iconProjects'
-  | 'iconAlbum'
   | 'iconMoments'
   | 'iconVideo'
   | 'iconLabs';
@@ -111,16 +110,6 @@ export const MAC_APPS: MacAppDefinition[] = [
     dock: true,
     initialOpen: false,
     initialZ: 13,
-  },
-  {
-    id: 'album',
-    title: 'Photos.app',
-    icon: 'icon-album.svg',
-    labelKey: 'iconAlbum',
-    home: true,
-    dock: false,
-    initialOpen: false,
-    initialZ: 10,
   },
   {
     id: 'moments',

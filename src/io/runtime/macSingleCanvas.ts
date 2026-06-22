@@ -88,7 +88,6 @@ const WINDOW_RESIZE_LIMITS = {
     reflection: { w: 360, h: 280 },
     worklog: { w: 420, h: 300 },
     projects: { w: 420, h: 380 },
-    album: { w: 380, h: 360 },
     moments: { w: 360, h: 420 },
     video: { w: 520, h: 360 },
   } satisfies Record<WindowId, { w: number; h: number }>,
