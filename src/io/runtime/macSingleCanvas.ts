@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createMacDomWindows } from './macDomWindows';
-import { MAC_BACKGROUND_POINTER_BLOCK_EVENT } from './macDomWindowContent';
+import { MAC_BACKGROUND_POINTER_BLOCK_EVENT } from './macDomWindowEvents';
 import { scheduleIdleImagePreload } from './assetPreload';
 import {
   createPhoto3DPass,
