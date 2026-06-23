@@ -1,17 +1,20 @@
 import type { Lang } from '../content/common';
 import type { MacCanvasLayout, MacCanvasState, Rect, WindowId, WindowLayout } from './macCanvas/ui';
-import { MAC_WINDOW_IDS } from './macCanvas/ui';
+import { MAC_WINDOW_IDS, PHOTO_APP_HUD_HEIGHT } from './macCanvas/ui';
 import {
-  ensureWindowContentMounted,
-  MAC_DOM_WINDOW_ACTION_EVENT,
-  PHOTO_APP_HUD_HEIGHT,
-  releaseWindowCanvasDemo,
-  type MacDomWindowActionEventDetail,
   type MacDomWindowRecord,
   renderWindowContent,
-  syncWindowCanvasActivity,
   updateWindowTexts,
 } from './macDomWindowContent';
+import {
+  ensureWindowContentMounted,
+  releaseWindowCanvasDemo,
+  syncWindowCanvasActivity,
+} from './macDomRenderWindows';
+import {
+  MAC_DOM_WINDOW_ACTION_EVENT,
+  type MacDomWindowActionEventDetail,
+} from './macDomWindowEvents';
 
 type MacDomWindowActions = {
   bringFront: (id: WindowId) => void;
