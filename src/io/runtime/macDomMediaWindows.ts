@@ -2,6 +2,7 @@ import {
   mediaMomentPosts,
   mediaPhotos,
   mediaWindowCopy,
+  momentsAvatar,
   videoClips,
 } from '../data';
 import type { Lang } from '../content/common';
@@ -23,11 +24,7 @@ function momentMediaLabel(lang: Lang, imageCount: number, hasVideo: boolean) {
   return lang === 'zh' ? '文字' : 'TEXT';
 }
 
-function momentKindLabel(lang: Lang) {
-  return lang === 'zh' ? '视觉笔记' : 'VISUAL NOTE';
-}
-
-function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof mediaPhotos)[Lang][number]) {
+function showMomentsImagePreview(record: MacDomWindowRecord, lang: Lang, photo: (typeof mediaPhotos)[Lang][number]) {
   record.element.querySelector('.mac-moments-preview')?.remove();
 
   const overlay = div('mac-moments-preview');
@@ -37,7 +34,7 @@ function showMomentsImagePreview(record: MacDomWindowRecord, photo: (typeof medi
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'mac-moments-preview__close';
-  closeButton.setAttribute('aria-label', 'Close image preview');
+  closeButton.setAttribute('aria-label', lang === 'zh' ? '关闭图片预览' : 'Close image preview');
   closeButton.textContent = '×';
 
   const imageWrap = div('mac-moments-preview__image-wrap');
@@ -89,6 +86,7 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
   const coverImage = document.createElement('img');
   coverImage.src = photos[0]?.src ?? '';
   coverImage.alt = copy.momentsTitle;
+  coverImage.decoding = 'async';
   const profileRow = div('mac-moments__profile');
   const profileCopy = div('mac-moments__profile-copy');
   const title = document.createElement('strong');
@@ -96,7 +94,11 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
   const intro = document.createElement('span');
   intro.textContent = copy.momentsIntro;
   const avatar = div('mac-moments__profile-avatar');
-  avatar.textContent = 'S';
+  const profileAvatar = document.createElement('img');
+  profileAvatar.src = momentsAvatar;
+  profileAvatar.alt = '';
+  profileAvatar.decoding = 'async';
+  avatar.append(profileAvatar);
   profileCopy.append(title, intro);
   profileRow.append(profileCopy, avatar);
   cover.append(coverImage, profileRow);
@@ -107,7 +109,16 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
     const article = document.createElement('article');
     article.className = 'mac-moment';
     const avatar = div('mac-moment__avatar');
-    avatar.textContent = entry.avatar;
+    if (entry.avatarSrc) {
+      const avatarImage = document.createElement('img');
+      avatarImage.src = entry.avatarSrc;
+      avatarImage.alt = '';
+      avatarImage.loading = 'lazy';
+      avatarImage.decoding = 'async';
+      avatar.append(avatarImage);
+    } else {
+      avatar.textContent = entry.avatar;
+    }
 
     const content = div('mac-moment__content');
     const author = document.createElement('strong');
@@ -131,8 +142,10 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
       const image = document.createElement('img');
       image.src = photo.src;
       image.alt = imageAlt(photo.title, photo.caption);
+      image.loading = 'lazy';
+      image.decoding = 'async';
       imageButton.append(image);
-      imageButton.addEventListener('click', () => showMomentsImagePreview(record, photo));
+      imageButton.addEventListener('click', () => showMomentsImagePreview(record, lang, photo));
       grid.append(imageButton);
     });
 
@@ -160,11 +173,9 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
     const metaBar = div('mac-moment__meta');
     const time = document.createElement('time');
     time.textContent = entry.time;
-    const kind = document.createElement('span');
-    kind.textContent = momentKindLabel(lang);
     const media = document.createElement('span');
     media.textContent = momentMediaLabel(lang, images.length, Boolean(clip));
-    metaBar.append(time, kind, media);
+    metaBar.append(time, media);
 
     content.append(author, body);
     if (images.length) content.append(grid);
@@ -192,7 +203,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'mac-video__close';
-  close.setAttribute('aria-label', 'Close video player');
+  close.setAttribute('aria-label', lang === 'zh' ? '关闭播放器' : 'Close video player');
   close.textContent = '×';
   close.addEventListener('click', () => record.close.click());
 
@@ -213,17 +224,17 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   skipBack.type = 'button';
   skipBack.className = 'mac-video__button mac-video__button--small';
   skipBack.innerHTML = `<span class="mac-video__skip-icon mac-video__skip-icon--back" aria-hidden="true">${VIDEO_SKIP_BACK_SVG}</span>`;
-  skipBack.setAttribute('aria-label', 'Back 15 seconds');
+  skipBack.setAttribute('aria-label', lang === 'zh' ? '后退 15 秒' : 'Back 15 seconds');
   const play = document.createElement('button');
   play.type = 'button';
   play.className = 'mac-video__button mac-video__button--play';
-  play.setAttribute('aria-label', 'Play video');
+  play.setAttribute('aria-label', lang === 'zh' ? '播放' : 'Play video');
   play.innerHTML = '<span class="mac-video__play-icon" aria-hidden="true"></span><span class="mac-video__pause-icon" aria-hidden="true"></span>';
   const skipForward = document.createElement('button');
   skipForward.type = 'button';
   skipForward.className = 'mac-video__button mac-video__button--small';
   skipForward.innerHTML = `<span class="mac-video__skip-icon mac-video__skip-icon--forward" aria-hidden="true">${VIDEO_SKIP_FORWARD_SVG}</span>`;
-  skipForward.setAttribute('aria-label', 'Forward 15 seconds');
+  skipForward.setAttribute('aria-label', lang === 'zh' ? '前进 15 秒' : 'Forward 15 seconds');
 
   const progress = document.createElement('input');
   progress.className = 'mac-video__scrub';
@@ -231,7 +242,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   progress.min = '0';
   progress.max = '1000';
   progress.value = '0';
-  progress.setAttribute('aria-label', 'Video progress');
+  progress.setAttribute('aria-label', lang === 'zh' ? '播放进度' : 'Video progress');
   controls.append(skipBack, play, skipForward, progress);
   stage.append(video, glassCanvas, controls);
 
