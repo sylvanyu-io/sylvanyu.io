@@ -1,18 +1,20 @@
 import type { Lang } from './common';
 
+export const momentsAvatar = '/io-design/assets/moments/avatar.jpg';
+
 export const mediaWindowCopy: Record<Lang, {
   momentsTitle: string;
   momentsIntro: string;
   videoAccessory: string;
 }> = {
   en: {
-    momentsTitle: 'Visual notes',
-    momentsIntro: 'A feed-style variant for hobby photos, travel notes, and everyday visual scraps.',
+    momentsTitle: 'Camera roll',
+    momentsIntro: 'Cats, night roads, blue water, snow light.',
     videoAccessory: 'PLAYER',
   },
   zh: {
-    momentsTitle: '视觉碎片',
-    momentsIntro: '朋友圈 / ins 风格的信息流版本，适合放兴趣照片、旅行和日常。',
+    momentsTitle: '近况相册',
+    momentsIntro: '猫、夜路、蓝色海水和雪地光线。',
     videoAccessory: '播放器',
   },
 };
@@ -25,78 +27,162 @@ export const mediaPhotos: Record<Lang, Array<{
 }>> = {
   en: [
     {
-      src: '/io-design/assets/demo-background.jpg',
-      title: 'Grass / dog / depth reference',
+      src: '/io-design/assets/moments/night-road.jpg',
+      title: 'Night road',
       date: '2026.06',
-      caption: 'A soft visual-reference shot used across the desktop background and media demos.',
+      caption: 'A warm streetlight curve through dense roadside green.',
     },
     {
-      src: '/lab-covers/photo3d.jpg',
-      title: 'Photo3D portrait study',
+      src: '/io-design/assets/moments/cat-close.jpg',
+      title: 'Round eyes',
       date: '2026.06',
-      caption: 'Portrait-as-rendering-material: useful for testing depth, masks, and parallax artifacts.',
+      caption: 'Full-frame stare, very little patience for the camera.',
     },
     {
-      src: '/lab-covers/galacean-water.jpg',
-      title: 'Water shader notebook',
-      date: '2025.11',
-      caption: 'A rendered study kept as a camera-roll style visual note.',
-    },
-    {
-      src: '/lab-covers/galacean-gem.jpg',
-      title: 'Gem / refraction study',
-      date: '2025.10',
-      caption: 'Color, highlights, and glassy edges; the kind of reference that feeds rendering taste.',
-    },
-    {
-      src: '/lab-covers/liquid-canvas.jpg',
-      title: 'Liquid glass sketch',
+      src: '/io-design/assets/moments/cat-roll.jpg',
+      title: 'Upside-down cat',
       date: '2026.06',
-      caption: 'A small glass experiment that later influenced the desktop folder and dock treatments.',
+      caption: 'Soft indoor light, lazy posture, accidental composition.',
     },
     {
-      src: '/lab-covers/galacean09-styled-water.jpg',
-      title: 'Older water capture',
-      date: '2024.12',
-      caption: 'Archived Galacean 0.9-era material testing.',
+      src: '/io-design/assets/moments/cats-room.jpg',
+      title: 'Room politics',
+      date: '2026.06',
+      caption: 'Two cats, one floor, very different opinions.',
+    },
+    {
+      src: '/io-design/assets/moments/dive-boat.jpg',
+      title: 'Dive boat',
+      date: '2026.06',
+      caption: 'Muted sky, open water, and a quiet boat deck.',
+    },
+    {
+      src: '/io-design/assets/moments/puffer.jpg',
+      title: 'Blue puffer',
+      date: '2026.06',
+      caption: 'A very small fish with a lot of presence.',
+    },
+    {
+      src: '/io-design/assets/moments/manta-text.jpg',
+      title: 'Manta blue',
+      date: '2026.06',
+      caption: 'One manta, mid-glide, blue all the way down.',
+    },
+    {
+      src: '/io-design/assets/moments/diver.jpg',
+      title: 'Diver drift',
+      date: '2026.06',
+      caption: 'Blue water, bubbles, and a slow suspended composition.',
+    },
+    {
+      src: '/io-design/assets/moments/vet-cat.jpg',
+      title: 'Clinic cat',
+      date: '2026.06',
+      caption: 'Not thrilled about the clinic.',
+    },
+    {
+      src: '/io-design/assets/moments/snow-portrait.jpg',
+      title: 'Snow balcony',
+      date: '2026.06',
+      caption: 'Cold backlight and two silhouettes above the valley.',
+    },
+    {
+      src: '/io-design/assets/moments/ski-ridge.jpg',
+      title: 'Ridge light',
+      date: '2026.06',
+      caption: 'A still ski frame with strong sun and a long shadow.',
+    },
+    {
+      src: '/io-design/assets/moments/skydiving.jpg',
+      title: 'Cloud jump',
+      date: '2026.06',
+      caption: 'Bright air, clouds, and one very close hand gesture.',
+    },
+    {
+      src: '/io-design/assets/moments/ski-trail.jpg',
+      title: 'Forest trail',
+      date: '2026.06',
+      caption: 'Fast snow, clean blue sky, and a helmet cam perspective.',
     },
   ],
   zh: [
     {
-      src: '/io-design/assets/demo-background.jpg',
-      title: '草地、狗和深度参考',
+      src: '/io-design/assets/moments/night-road.jpg',
+      title: '夜路',
       date: '2026.06',
-      caption: '一张柔和的视觉参考图，也被用在桌面背景和媒体 demo 里。',
+      caption: '路灯照着山路转弯，绿色被压进夜色里。',
     },
     {
-      src: '/lab-covers/photo3d.jpg',
-      title: 'Photo3D 人像测试',
+      src: '/io-design/assets/moments/cat-close.jpg',
+      title: '圆眼睛',
       date: '2026.06',
-      caption: '把人像当作渲染素材，用来观察深度、分割和视差瑕疵。',
+      caption: '贴得很近的一张猫脸，眼神已经不耐烦了。',
     },
     {
-      src: '/lab-covers/galacean-water.jpg',
-      title: '水体 shader 笔记',
-      date: '2025.11',
-      caption: '以相册方式保存的一张渲染视觉笔记。',
-    },
-    {
-      src: '/lab-covers/galacean-gem.jpg',
-      title: '宝石 / 折射测试',
-      date: '2025.10',
-      caption: '颜色、高光和玻璃边缘，这类参考会反过来影响渲染审美。',
-    },
-    {
-      src: '/lab-covers/liquid-canvas.jpg',
-      title: '液态玻璃草稿',
+      src: '/io-design/assets/moments/cat-roll.jpg',
+      title: '倒着躺',
       date: '2026.06',
-      caption: '一个小玻璃实验，后面影响了桌面文件夹和 dock 的处理。',
+      caption: '室内暖光、躺平姿势和一点偶然构图。',
     },
     {
-      src: '/lab-covers/galacean09-styled-water.jpg',
-      title: '早期水体截图',
-      date: '2024.12',
-      caption: 'Galacean 0.9 阶段留下来的材质测试归档。',
+      src: '/io-design/assets/moments/cats-room.jpg',
+      title: '房间政治',
+      date: '2026.06',
+      caption: '两只猫，一块地板，完全不同的态度。',
+    },
+    {
+      src: '/io-design/assets/moments/dive-boat.jpg',
+      title: '潜水船',
+      date: '2026.06',
+      caption: '灰蓝天空、开阔海面和安静的船头。',
+    },
+    {
+      src: '/io-design/assets/moments/puffer.jpg',
+      title: '蓝色河豚',
+      date: '2026.06',
+      caption: '个子很小，存在感很强。',
+    },
+    {
+      src: '/io-design/assets/moments/manta-text.jpg',
+      title: '马代蓝',
+      date: '2026.06',
+      caption: '深蓝里慢慢滑过去的一只蝠鲼。',
+    },
+    {
+      src: '/io-design/assets/moments/diver.jpg',
+      title: '水下漂移',
+      date: '2026.06',
+      caption: '蓝色水体、气泡和缓慢悬停的构图。',
+    },
+    {
+      src: '/io-design/assets/moments/vet-cat.jpg',
+      title: '看诊猫',
+      date: '2026.06',
+      caption: '不太情愿的一次出门。',
+    },
+    {
+      src: '/io-design/assets/moments/snow-portrait.jpg',
+      title: '雪场露台',
+      date: '2026.06',
+      caption: '山谷上方的冷色逆光和两个剪影。',
+    },
+    {
+      src: '/io-design/assets/moments/ski-ridge.jpg',
+      title: '雪脊光线',
+      date: '2026.06',
+      caption: '太阳很强、影子很长的一张滑雪静帧。',
+    },
+    {
+      src: '/io-design/assets/moments/skydiving.jpg',
+      title: '云上跳伞',
+      date: '2026.06',
+      caption: '亮空气、云和一个贴得很近的手势。',
+    },
+    {
+      src: '/io-design/assets/moments/ski-trail.jpg',
+      title: '林间雪道',
+      date: '2026.06',
+      caption: '速度、蓝天和一点头盔视角。',
     },
   ],
 };
@@ -104,6 +190,7 @@ export const mediaPhotos: Record<Lang, Array<{
 export const mediaMomentPosts: Record<Lang, Array<{
   author: string;
   avatar: string;
+  avatarSrc?: string;
   time: string;
   body: string;
   photoIndexes: number[];
@@ -113,48 +200,54 @@ export const mediaMomentPosts: Record<Lang, Array<{
     {
       author: 'Sylvan Yu',
       avatar: 'S',
-      time: 'today 22:18',
-      body: 'Keeping a small visual notebook for rendering taste: soft depth, glass edges, water, and a few things that should eventually become proper photos.',
-      photoIndexes: [0, 1, 2, 3, 4, 5],
+      avatarSrc: momentsAvatar,
+      time: '2026.06.24 22:18',
+      body: 'June so far: night drives, two cats, one reluctant clinic run.',
+      photoIndexes: [0, 1, 2, 3, 8],
     },
     {
-      author: 'Camera memo',
-      avatar: 'M',
-      time: 'yesterday 18:42',
-      body: 'The useful part of a personal site is not only the copy. It is also a place to keep tiny interface experiments alive.',
-      photoIndexes: [],
+      author: 'Sylvan Yu',
+      avatar: 'S',
+      avatarSrc: momentsAvatar,
+      time: '2026.06.23 18:42',
+      body: 'A blue week. Slow water, small fish, one manta.',
+      photoIndexes: [4, 5, 6, 7],
       videoClipIndex: 0,
     },
     {
-      author: 'Travel draft',
-      avatar: 'T',
+      author: 'Sylvan Yu',
+      avatar: 'S',
+      avatarSrc: momentsAvatar,
       time: '2026.06.08',
-      body: 'Placeholder slots for travel, food, museums, plants, and other non-work things. The shell is ready; real photos can replace these assets later.',
-      photoIndexes: [2, 3, 5],
+      body: 'Cold air: one ridge, one jump, one fast trail.',
+      photoIndexes: [9, 10, 11, 12],
     },
   ],
   zh: [
     {
       author: 'Sylvan Yu',
       avatar: 'S',
-      time: '今天 22:18',
-      body: '给渲染审美留一个小视觉笔记：柔和深度、玻璃边缘、水体，还有一些以后应该换成真实照片的东西。',
-      photoIndexes: [0, 1, 2, 3, 4, 5],
+      avatarSrc: momentsAvatar,
+      time: '2026.06.24 22:18',
+      body: '六月：夜路、两只猫，和一次不太情愿的看诊。',
+      photoIndexes: [0, 1, 2, 3, 8],
     },
     {
-      author: '相册备忘',
-      avatar: 'M',
-      time: '昨天 18:42',
-      body: '个人网站有用的地方不只在文案，也在于能把一些小界面实验长期留在现场。',
-      photoIndexes: [],
+      author: 'Sylvan Yu',
+      avatar: 'S',
+      avatarSrc: momentsAvatar,
+      time: '2026.06.23 18:42',
+      body: '蓝色的一周。水很慢，鱼很小，还路过一只蝠鲼。',
+      photoIndexes: [4, 5, 6, 7],
       videoClipIndex: 0,
     },
     {
-      author: '旅行草稿',
-      avatar: 'T',
+      author: 'Sylvan Yu',
+      avatar: 'S',
+      avatarSrc: momentsAvatar,
       time: '2026.06.08',
-      body: '这里先放旅行、食物、展览、植物和其他非工作内容的入口。壳子先准备好，真实照片后面再替换。',
-      photoIndexes: [2, 3, 5],
+      body: '冷空气：一道雪脊、一次跳伞、一条快雪道。',
+      photoIndexes: [9, 10, 11, 12],
     },
   ],
 };
@@ -169,29 +262,27 @@ export const videoClips: Record<Lang, Array<{
   en: [
     {
       src: '/io-design/assets/media-demo.mp4',
-      poster: '/io-design/assets/demo-background.jpg',
-      title: 'Player prototype',
+      poster: '/io-design/assets/moments/manta-text.jpg',
+      title: 'Clip · 01',
       date: '2026.06',
-      caption: 'A lightweight local clip for testing player controls, scrubber layout, and optional metadata below the player.',
     },
     {
       src: '/io-design/assets/media-demo.mp4',
-      poster: '/lab-covers/liquid-canvas.jpg',
-      title: 'Clean-player mode',
+      poster: '/io-design/assets/moments/diver.jpg',
+      title: 'Clip · 02',
     },
   ],
   zh: [
     {
       src: '/io-design/assets/media-demo.mp4',
-      poster: '/io-design/assets/demo-background.jpg',
-      title: '播放器原型',
+      poster: '/io-design/assets/moments/manta-text.jpg',
+      title: '片段 · 01',
       date: '2026.06',
-      caption: '用于测试播放器控件、进度条布局，以及播放器下方可选文字 / 日期信息的本地轻量视频。',
     },
     {
       src: '/io-design/assets/media-demo.mp4',
-      poster: '/lab-covers/liquid-canvas.jpg',
-      title: '无说明模式',
+      poster: '/io-design/assets/moments/diver.jpg',
+      title: '片段 · 02',
     },
   ],
 };
