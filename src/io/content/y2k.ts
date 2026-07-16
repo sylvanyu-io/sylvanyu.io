@@ -156,7 +156,7 @@ export const y2kLogLines: Record<Lang, Array<{ text: string; y2kColor: string }>
     { y2kColor: '#7cff6b', text: '  * UNITY EXPORTER * XR PROTOTYPES * NEWCOMER AWARDS x2' },
     { y2kColor: '#ffe95c', text: '[2020 - 2022]   INTERNSHIPS: ALIPAY / BYTEDANCE / HIKVISION' },
     { y2kColor: '#ffe95c', text: '[2018 - 2022]   ZHEJIANG GONGSHANG UNIV -- B.ENG. EIE' },
-    { y2kColor: '#aba5e2', text: '1 FILE(S) LISTED. PRESS ANY KEY TO HIRE.' },
+    { y2kColor: '#aba5e2', text: '1 FILE(S) LISTED. END OF LOG.' },
   ],
   zh: [
     { y2kColor: '#7cff6b', text: 'C:\\> TYPE WORK.LOG' },
@@ -168,6 +168,6 @@ export const y2kLogLines: Record<Lang, Array<{ text: string; y2kColor: string }>
     { y2kColor: '#7cff6b', text: '  * UNITY 导出工具链 * XR 原型 * 优秀新人 x2' },
     { y2kColor: '#ffe95c', text: '[2020 - 2022]   实习：支付宝 / 字节跳动 / 海康威视' },
     { y2kColor: '#ffe95c', text: '[2018 - 2022]   浙江工商大学 -- 电子信息工程' },
-    { y2kColor: '#aba5e2', text: '共 1 个文件。按任意键发 OFFER。' },
+    { y2kColor: '#aba5e2', text: '共 1 个文件。日志结束。' },
   ],
 };

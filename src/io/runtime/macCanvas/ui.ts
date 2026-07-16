@@ -1332,21 +1332,21 @@ function clampValue(value: number, min: number, max: number) {
 }
 
 function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines = 3) {
-  const words = text.split(/\s+/);
   const lines: string[] = [];
-  let line = '';
-
-  words.forEach((word) => {
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > maxWidth) {
-      if (lines.length < maxLines) lines.push(line);
-      line = word;
-      return;
+  for (const paragraph of text.split('\n')) {
+    let line = '';
+    for (const word of paragraph.trim().split(/\s+/)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > maxWidth) {
+        if (lines.length < maxLines) lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
     }
-    line = next;
-  });
-
-  if (line && lines.length < maxLines) lines.push(line);
+    if (line && lines.length < maxLines) lines.push(line);
+    if (lines.length >= maxLines) break;
+  }
   return lines;
 }
 
@@ -1431,9 +1431,9 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   const wallpaperFps = Math.round(state.fps).toString();
   const stats = [
     [wallpaperFps, copy.wFps],
-    ['Web/RN', copy.wRenderer],
-    ['Predy', copy.wWallpaper],
-    ['MCP', copy.wUptime],
+    ['4+', copy.wRenderer],
+    ['RedNote', copy.wWallpaper],
+    ['Shanghai', copy.wUptime],
   ];
   const statColGap = Math.round(statusW * 0.54);
   stats.forEach((item, index) => {

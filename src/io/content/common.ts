@@ -13,8 +13,8 @@ export const profile = {
     { key: 'instagram', label: 'Instagram', href: '#', icon: 'instagram' },
   ],
   location: {
-    en: 'Shanghai · open to remote / overseas',
-    zh: '上海 · 可异地 / 海外机会',
+    en: 'Shanghai, China · always happy to connect',
+    zh: '中国 · 上海 · 欢迎交流',
   },
 };
 
