@@ -1232,6 +1232,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
       state.folderProgress = 1;
       folderAnimation = null;
     }
+    if (action.id === 'video' && action.clipIndex !== undefined) {
+      domWindows.setVideoClip(action.clipIndex);
+    }
     domWindows.setRestoreOrigin(action.id, action.origin);
     openWindow(action.id);
     if (action.origin === 'folder' && !layout.mobile) setOpenFolder(null);

@@ -34,6 +34,7 @@ type MacDomWindowActions = {
 type MacDomWindowController = {
   minimize: (id: WindowId) => boolean;
   setRestoreOrigin: (id: WindowId, origin: RestoreOrigin) => void;
+  setVideoClip: (clipIndex: number) => void;
   sync: (layout: MacCanvasLayout, state: MacCanvasState, options?: MacDomWindowSyncOptions) => void;
   destroy: () => void;
 };
@@ -377,6 +378,13 @@ export function createMacDomWindows(
   let latestLayout: MacCanvasLayout | null = null;
   let latestState: MacCanvasState | null = null;
 
+  function setVideoClip(clipIndex: number) {
+    const videoRecord = records.get('video');
+    if (!videoRecord) return;
+    videoRecord.element.dataset.videoClipIndex = String(clipIndex);
+    videoRecord.contentLang = undefined;
+  }
+
   MAC_WINDOW_IDS.forEach((id) => {
     const record = createWindowElement(id, root, actions);
     records.set(id, record);
@@ -404,11 +412,7 @@ export function createMacDomWindows(
     }
     if (detail.type !== 'open-window') return;
     if (detail.id === 'video' && detail.clipIndex !== undefined) {
-      const videoRecord = records.get('video');
-      if (videoRecord) {
-        videoRecord.element.dataset.videoClipIndex = String(detail.clipIndex);
-        videoRecord.contentLang = undefined;
-      }
+      setVideoClip(detail.clipIndex);
     }
     actions.setOpen(detail.id, true);
   });
@@ -562,6 +566,7 @@ export function createMacDomWindows(
     setRestoreOrigin(id, origin) {
       restoreOrigins.set(id, origin);
     },
+    setVideoClip,
     sync,
     destroy() {
       window.clearInterval(textTimer);

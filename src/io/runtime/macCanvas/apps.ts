@@ -13,6 +13,17 @@ export type IconLabelKey =
   | 'iconLabs';
 export type FolderId = 'labs';
 
+export const VIDEO_LAB_APP_IDS = [
+  'video-spatial-photo',
+  'video-blender-motion',
+  'video-xiaobao-world',
+  'video-vision-pro',
+  'video-galacean-render',
+] as const;
+
+export type VideoLabAppId = (typeof VIDEO_LAB_APP_IDS)[number];
+export type MacLabAppId = WindowId | VideoLabAppId;
+
 export type MacAppDefinition = {
   id: WindowId;
   title: string;
@@ -28,7 +39,14 @@ export type MacFolderDefinition = {
   id: FolderId;
   title: string;
   labelKey: IconLabelKey;
-  items: WindowId[];
+  items: MacLabAppId[];
+};
+
+export type MacVideoLabAppDefinition = {
+  id: VideoLabAppId;
+  icon: string;
+  labels: { en: string; zh: string };
+  clipIndex: number;
 };
 
 export const MAC_ASSET_BASE = '/io-design/assets/';
@@ -133,6 +151,41 @@ export const MAC_APPS: MacAppDefinition[] = [
   },
 ];
 
+export const MAC_VIDEO_LAB_APPS: MacVideoLabAppDefinition[] = [
+  {
+    id: 'video-spatial-photo',
+    icon: 'videos/xhs-android-spatial-photo-demo.jpg',
+    labels: { en: 'Spatial Photo', zh: '空间照片' },
+    clipIndex: 0,
+  },
+  {
+    id: 'video-blender-motion',
+    icon: 'videos/blender-personal-inertial-motion-test.jpg',
+    labels: { en: 'Blender Motion', zh: '惯性动补' },
+    clipIndex: 1,
+  },
+  {
+    id: 'video-xiaobao-world',
+    icon: 'videos/xiaobao-world-mobile-runtime-demo.jpg',
+    labels: { en: 'Xiaobao World', zh: '小宝大世界' },
+    clipIndex: 2,
+  },
+  {
+    id: 'video-vision-pro',
+    icon: 'videos/vision-pro-mr-water-gun-demo.jpg',
+    labels: { en: 'Vision Pro MR', zh: 'Vision Pro MR' },
+    clipIndex: 3,
+  },
+  {
+    id: 'video-galacean-render',
+    icon: 'videos/galacean-high-fidelity-rendering-demo.jpg',
+    labels: { en: 'Galacean Render', zh: '极致渲染' },
+    clipIndex: 4,
+  },
+];
+
+export const MAC_ICON_APPS = [...MAC_APPS, ...MAC_VIDEO_LAB_APPS];
+
 export const LABS_FOLDER_ID: FolderId = 'labs';
 
 export const MAC_FOLDERS: MacFolderDefinition[] = [
@@ -140,7 +193,16 @@ export const MAC_FOLDERS: MacFolderDefinition[] = [
     id: LABS_FOLDER_ID,
     title: 'Labs',
     labelKey: 'iconLabs',
-    items: ['photo', 'spatial', 'reflection'],
+    items: [
+      'photo',
+      'spatial',
+      'reflection',
+      'video-spatial-photo',
+      'video-blender-motion',
+      'video-xiaobao-world',
+      'video-vision-pro',
+      'video-galacean-render',
+    ],
   },
 ];
 
@@ -153,6 +215,10 @@ export function appDefinition(id: WindowId) {
 
 export function appTitle(id: WindowId) {
   return appDefinition(id)?.title ?? id;
+}
+
+export function videoLabAppDefinition(id: MacLabAppId) {
+  return MAC_VIDEO_LAB_APPS.find((app) => app.id === id) ?? null;
 }
 
 export function folderDefinition(id: FolderId) {

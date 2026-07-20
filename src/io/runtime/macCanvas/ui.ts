@@ -6,15 +6,17 @@ import {
   DOCK_APPS,
   HOME_APPS,
   LABS_FOLDER_ID,
-  MAC_APPS,
+  MAC_ICON_APPS,
   MAC_ASSET_BASE,
   MAC_FOLDERS,
   appDefinition,
   appTitle,
   createInitialWindowState,
   folderDefinition,
+  videoLabAppDefinition,
   type FolderId,
   type IconLabelKey,
+  type MacLabAppId,
 } from './apps';
 import {
   MAC_WINDOW_IDS,
@@ -33,7 +35,7 @@ export type HitTarget = Rect & {
   cursor: 'default' | 'pointer';
   action?:
     | { type: 'lang'; lang: Lang }
-    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' | 'folder' }
+    | { type: 'open'; id: WindowId; origin: 'desktop' | 'dock' | 'folder'; clipIndex?: number }
     | { type: 'folder'; id: FolderId }
     | { type: 'folder-close' };
 };
@@ -74,7 +76,7 @@ export type FolderOverlayLayout = {
   finalPanel: GlassPanel;
   titleRect: Rect;
   progress: number;
-  items: { id: WindowId; icon: Rect; label: Rect; finalIcon: Rect; finalLabel: Rect; hit: Rect }[];
+  items: { id: MacLabAppId; icon: Rect; label: Rect; finalIcon: Rect; finalLabel: Rect; hit: Rect }[];
 };
 
 export type LangSwitchLayout = Rect & {
@@ -118,7 +120,7 @@ export type MacCanvasLayoutOptions = {
 };
 
 export type MacUiAssets = {
-  icons: Record<WindowId, HTMLImageElement>;
+  icons: Record<MacLabAppId, HTMLImageElement>;
 };
 
 export const MAC_MENUBAR_HEIGHT = 34;
@@ -405,11 +407,11 @@ function loadImage(src: string) {
 
 export async function loadMacUiAssets(): Promise<MacUiAssets> {
   const entries = await Promise.all(
-    MAC_APPS.map(async (app) => [app.id, await loadImage(`${MAC_ASSET_BASE}${app.icon}`)] as const),
+    MAC_ICON_APPS.map(async (app) => [app.id, await loadImage(`${MAC_ASSET_BASE}${app.icon}`)] as const),
   );
 
   return {
-    icons: Object.fromEntries(entries) as Record<WindowId, HTMLImageElement>,
+    icons: Object.fromEntries(entries) as Record<MacLabAppId, HTMLImageElement>,
   };
 }
 
@@ -511,7 +513,7 @@ function mixRect(from: Rect, to: Rect, t: number): Rect {
   };
 }
 
-function buildFolderItemRects(panel: GlassPanel, mobile: boolean, items: WindowId[]) {
+function buildFolderItemRects(panel: GlassPanel, mobile: boolean, items: MacLabAppId[]) {
   const paddingX = mobile ? 34 : 48;
   const paddingTop = mobile ? 52 : 56;
   const iconSize = mobile ? 68 : 72;
@@ -567,7 +569,7 @@ function folderPanelHeight(panelW: number, mobile: boolean, availableH: number) 
   return Math.min(preferredH, availableH);
 }
 
-function buildFolderThumbRects(source: Rect, items: WindowId[]) {
+function buildFolderThumbRects(source: Rect, items: MacLabAppId[]) {
   const gridSize = source.w * 0.68;
   const thumbGap = source.w * 0.045;
   const thumbSize = (gridSize - thumbGap * 2) / 3;
@@ -1048,10 +1050,13 @@ export function buildMacCanvasLayout(
       cursor: 'default',
     });
     folder.items.forEach((item) => {
+      const videoApp = videoLabAppDefinition(item.id);
       hitTargets.push({
         ...item.hit,
         cursor: 'pointer',
-        action: { type: 'open', id: item.id, origin: 'folder' },
+        action: videoApp
+          ? { type: 'open', id: 'video', origin: 'folder', clipIndex: videoApp.clipIndex }
+          : { type: 'open', id: item.id as WindowId, origin: 'folder' },
       });
     });
   }
@@ -1216,8 +1221,10 @@ function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: num
   return `${text.slice(0, Math.max(0, end))}${suffix}`;
 }
 
-function folderAppLabel(state: MacCanvasState, id: WindowId) {
-  const app = appDefinition(id);
+function folderAppLabel(state: MacCanvasState, id: MacLabAppId) {
+  const videoApp = videoLabAppDefinition(id);
+  if (videoApp) return videoApp.labels[state.lang];
+  const app = appDefinition(id as WindowId);
   if (!app) return id;
   return desktopCopy[state.lang][app.labelKey].replace(/\.app$/i, '');
 }
