@@ -18,7 +18,7 @@ import {
   syncComparePanel,
   type ComparePanelContent,
 } from './macDomPanels';
-import { createAppLoader, div, setAppLoaderState } from './macDomElements';
+import { createAppLoader, div, setAppLoaderState, setText } from './macDomElements';
 import { dispatchBackgroundPointerBlock, dispatchWindowAction, setCanvasRendering } from './macDomWindowState';
 import type { MacDomWindowRecord } from './macDomWindowContent';
 
@@ -107,10 +107,13 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   }
 }
 
+const photoViewerMeta = (lang: Lang) => (lang === 'zh' ? '无损 WebP atlas' : 'lossless WebP atlas');
+
 export function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   if (record.photoNote) {
     const details = record.body.querySelector('[data-compare-details="photo"]');
     if (details instanceof HTMLElement) syncComparePanel(details, photoCompareContent(lang));
+    setText(record.body.querySelector('.mac-photo__viewer-label span'), photoViewerMeta(lang));
     return;
   }
 
@@ -135,7 +138,7 @@ export function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   const viewerTitle = document.createElement('strong');
   viewerTitle.textContent = 'Photo3D / LDI';
   const viewerMeta = document.createElement('span');
-  viewerMeta.textContent = lang === 'zh' ? '无损 WebP atlas' : 'lossless WebP atlas';
+  viewerMeta.textContent = photoViewerMeta(lang);
   viewerLabel.append(viewerTitle, viewerMeta);
 
   const hud = div('mac-photo__hud');
