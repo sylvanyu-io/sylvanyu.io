@@ -311,6 +311,7 @@ function updateWindowLayout(record: MacDomWindowRecord, win: WindowLayout, layou
   element.style.transform = rectTransform(win);
   element.style.zIndex = String(1000 + win.z);
   element.style.setProperty('--mac-window-title-h', `${win.titleH}px`);
+  element.style.setProperty('--mac-window-radius', `${win.r}px`);
   element.style.setProperty('--mac-safe-top', `${layout.mobile ? layout.safeTop : 0}px`);
   element.style.setProperty('--mac-safe-bottom', `${layout.mobile ? layout.safeBottom : 0}px`);
   record.close.setAttribute('aria-label', layout.mobile ? 'Back' : 'Minimize window');
