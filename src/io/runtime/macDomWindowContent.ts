@@ -130,7 +130,9 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
   }
 
   if (win.id === 'moments') {
-    setText(record.accessory, `${mediaMomentPosts[state.lang].length} POSTS`);
+    const filteredCount = Number(record.element.dataset.momentPostCount);
+    const postCount = Number.isFinite(filteredCount) ? filteredCount : mediaMomentPosts[state.lang].length;
+    setText(record.accessory, `${postCount} POSTS`);
     return;
   }
 

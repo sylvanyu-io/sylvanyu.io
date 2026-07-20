@@ -197,7 +197,7 @@ const LAYOUT = {
     spatial: { x: 210, y: 82, w: 720, h: 500 },
     projects: { x: 180, y: 72, w: 620, h: 540 },
     moments: { x: 300, y: 58, w: 450, h: 560 },
-    video: { x: 230, y: 92, w: 720, h: 560 },
+    video: { x: 230, y: 92, w: 720, h: 510 },
   },
   dock: {
     mobileIcon: 54,
@@ -339,7 +339,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
       spatial: { x: 150, y: 74, w: 640, h: 460 },
       projects: { x: 150, y: 68, w: 560, h: 500 },
       moments: { x: 260, y: 58, w: 418, h: 510 },
-      video: { x: 190, y: 86, w: 660, h: 520 },
+      video: { x: 190, y: 86, w: 660, h: 475 },
     };
   }
   if (tier === 'spacious') {
@@ -355,7 +355,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
       spatial: { x: 250, y: 104, w: 820, h: 560 },
       projects: { x: 212, y: 88, w: 700, h: 596 },
       moments: { x: 360, y: 76, w: 510, h: 610 },
-      video: { x: 280, y: 110, w: 840, h: 636 },
+      video: { x: 280, y: 110, w: 840, h: 580 },
     };
   }
   return base;

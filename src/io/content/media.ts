@@ -193,6 +193,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
   avatarSrc?: string;
   time: string;
   body: string;
+  category: 'daily' | 'project';
   photoIndexes: number[];
   videoClipIndex?: number;
 }>> = {
@@ -203,6 +204,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.24 22:18',
       body: 'June so far: night drives, two cats, one reluctant clinic run.',
+      category: 'daily',
       photoIndexes: [0, 1, 2, 3, 8],
     },
     {
@@ -211,6 +213,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.23 18:42',
       body: 'A blue week. Slow water, small fish, one manta.',
+      category: 'daily',
       photoIndexes: [4, 5, 6, 7],
     },
     {
@@ -219,6 +222,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.08',
       body: 'Cold air: one ridge, one jump, one fast trail.',
+      category: 'daily',
       photoIndexes: [9, 10, 11, 12],
     },
     {
@@ -227,6 +231,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2025.07.30 · REDNOTE',
       body: 'An Android take on spatial photos, published on my own RedNote account.',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 0,
     },
@@ -236,6 +241,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.05.27 · ANT GROUP',
       body: 'A 60-second Vision Pro MR water-gun game built for the 527 tech expo.',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 3,
     },
@@ -245,6 +251,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.04.18 · ANT GROUP',
       body: 'A mobile runtime capture from Xiaobao World, a cross-platform simulation project.',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 2,
     },
@@ -254,6 +261,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.04.12 · PERSONAL',
       body: 'A small Blender experiment with inertial motion compensation for character animation.',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 1,
     },
@@ -263,6 +271,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2023.03.16 · ANT GROUP',
       body: 'A high-fidelity Galacean rendering demo built with an exportable Unity art workflow.',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 4,
     },
@@ -274,6 +283,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.24 22:18',
       body: '六月：夜路、两只猫，和一次不太情愿的看诊。',
+      category: 'daily',
       photoIndexes: [0, 1, 2, 3, 8],
     },
     {
@@ -282,6 +292,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.23 18:42',
       body: '蓝色的一周。水很慢，鱼很小，还路过一只蝠鲼。',
+      category: 'daily',
       photoIndexes: [4, 5, 6, 7],
     },
     {
@@ -290,6 +301,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2026.06.08',
       body: '冷空气：一道雪脊、一次跳伞、一条快雪道。',
+      category: 'daily',
       photoIndexes: [9, 10, 11, 12],
     },
     {
@@ -298,6 +310,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2025.07.30 · 小红书',
       body: 'Android 也可以有空间照片。这条发在我自己的小红书账号。',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 0,
     },
@@ -307,6 +320,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.05.27 · 蚂蚁集团',
       body: '为 527 技术展制作的 60 秒 Vision Pro MR 水枪游戏。',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 3,
     },
@@ -316,6 +330,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.04.18 · 蚂蚁集团',
       body: '小宝大世界的移动端运行时录屏，来自一个跨端模拟经营项目。',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 2,
     },
@@ -325,6 +340,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2024.04.12 · 个人实验',
       body: '在 Blender 里随手做的角色动画惯性动补实验。',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 1,
     },
@@ -334,6 +350,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
       avatarSrc: momentsAvatar,
       time: '2023.03.16 · 蚂蚁集团',
       body: '基于 Unity 美术工作流制作、可导出到 Galacean 的极致渲染 Demo。',
+      category: 'project',
       photoIndexes: [],
       videoClipIndex: 4,
     },

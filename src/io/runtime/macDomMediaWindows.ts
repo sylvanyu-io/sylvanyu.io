@@ -24,6 +24,14 @@ function momentMediaLabel(lang: Lang, imageCount: number, hasVideo: boolean) {
   return lang === 'zh' ? '文字' : 'TEXT';
 }
 
+type MomentFilter = 'daily' | 'project';
+
+function momentFilterLabels(lang: Lang): Record<MomentFilter, string> {
+  return lang === 'zh'
+    ? { daily: '日常', project: '项目' }
+    : { daily: 'Daily', project: 'Projects' };
+}
+
 function showMomentsImagePreview(record: MacDomWindowRecord, lang: Lang, photo: (typeof mediaPhotos)[Lang][number]) {
   record.element.querySelector('.mac-moments-preview')?.remove();
 
@@ -104,10 +112,55 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
   cover.append(coverImage, profileRow);
   feed.append(cover);
 
+  const filters = div('mac-moments__filters');
+  filters.setAttribute('role', 'tablist');
+  filters.setAttribute('aria-label', lang === 'zh' ? '动态分类' : 'Moment categories');
+  const filterLabels = momentFilterLabels(lang);
+  const filterOrder: MomentFilter[] = ['project', 'daily'];
+  const filterCounts: Record<MomentFilter, number> = {
+    daily: posts.filter((entry) => entry.category === 'daily').length,
+    project: posts.filter((entry) => entry.category === 'project').length,
+  };
+  const filterButtons = new Map<MomentFilter, HTMLButtonElement>();
+  const postElements: Array<{ article: HTMLElement; category: 'daily' | 'project' }> = [];
+  let activeFilter: MomentFilter = 'project';
+
+  const applyFilter = (filter: MomentFilter) => {
+    activeFilter = filter;
+    postElements.forEach(({ article, category }) => {
+      article.hidden = category !== filter;
+    });
+    filterButtons.forEach((button, key) => {
+      const active = key === activeFilter;
+      button.dataset.active = active ? 'true' : 'false';
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+    });
+    record.element.dataset.momentPostCount = String(filterCounts[filter]);
+    setText(record.accessory, `${filterCounts[filter]} POSTS`);
+  };
+
+  filterOrder.forEach((filter) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mac-moments__filter';
+    button.setAttribute('role', 'tab');
+    const label = document.createElement('span');
+    label.textContent = filterLabels[filter];
+    const count = document.createElement('small');
+    count.textContent = String(filterCounts[filter]);
+    button.append(label, count);
+    button.addEventListener('click', () => applyFilter(filter));
+    filterButtons.set(filter, button);
+    filters.append(button);
+  });
+  feed.append(filters);
+
   const list = div('mac-moments__list');
   posts.forEach((entry) => {
     const article = document.createElement('article');
     article.className = 'mac-moment';
+    article.dataset.category = entry.category;
     const avatar = div('mac-moment__avatar');
     if (entry.avatarSrc) {
       const avatarImage = document.createElement('img');
@@ -183,10 +236,12 @@ export function renderMoments(record: MacDomWindowRecord, lang: Lang) {
     content.append(metaBar);
     article.append(avatar, content);
     list.append(article);
+    postElements.push({ article, category: entry.category });
   });
 
   feed.append(list);
   record.body.append(feed);
+  applyFilter('project');
 }
 
 export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
@@ -196,7 +251,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   record.body.replaceChildren();
 
   const requestedIndex = Number(record.element.dataset.videoClipIndex ?? 0);
-  let activeIndex = Number.isFinite(requestedIndex)
+  const activeIndex = Number.isFinite(requestedIndex)
     ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
     : 0;
   const shell = div('mac-video');
@@ -252,8 +307,6 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const metaBody = document.createElement('p');
   meta.append(metaTitle, metaDate, metaBody);
 
-  const playlist = div('mac-video__playlist');
-
   const syncMeta = () => {
     const clip = clips[activeIndex];
     metaTitle.textContent = clip.title;
@@ -262,9 +315,6 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     metaBody.textContent = clip.caption ?? '';
     metaBody.hidden = !clip.caption;
     meta.hidden = !clip.date && !clip.caption;
-    [...playlist.children].forEach((child, index) => {
-      (child as HTMLElement).dataset.active = index === activeIndex ? 'true' : 'false';
-    });
   };
 
   const syncPlayButton = (playing: boolean) => {
@@ -329,27 +379,6 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     });
   };
 
-  const setClip = (index: number) => {
-    activeIndex = index;
-    const clip = clips[activeIndex];
-    stopProgressLoop();
-    video.src = clip.src;
-    video.poster = clip.poster;
-    record.videoGlassController?.setPoster(clip.poster);
-    progress.value = '0';
-    syncPlayButton(false);
-    syncMeta();
-  };
-
-  clips.forEach((clip, index) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'mac-video__clip';
-    item.textContent = clip.title;
-    item.addEventListener('click', () => setClip(index));
-    playlist.append(item);
-  });
-
   play.addEventListener('pointerdown', () => {
     syncPlayButton(video.paused);
   }, { passive: true });
@@ -405,7 +434,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
 
   syncPlayButton(false);
   syncMeta();
-  shell.append(close, stage, meta, playlist);
+  shell.append(close, stage, meta);
   record.body.append(shell);
   const glassController = mountMacVideoGlass(stage, video, glassCanvas);
   if (glassController) {

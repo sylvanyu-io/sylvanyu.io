@@ -1639,6 +1639,68 @@
     object-fit: cover;
   }
 
+  .mac-moments__filters {
+    position: sticky;
+    top: 8px;
+    z-index: 8;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0 12px 10px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, .76);
+    border-radius: 15px;
+    background: rgba(241, 245, 250, .78);
+    box-shadow:
+      0 10px 24px rgba(19, 28, 40, .12),
+      inset 0 1px 0 rgba(255, 255, 255, .84);
+    backdrop-filter: blur(22px) saturate(1.2);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  }
+
+  .mac-moments__filter {
+    display: flex;
+    min-width: 0;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 11px;
+    color: rgba(30, 38, 49, .54);
+    background: transparent;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    font-weight: 680;
+    line-height: 1;
+  }
+
+  .mac-moments__filter small {
+    color: rgba(30, 38, 49, .4);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 8px;
+    font-weight: 760;
+  }
+
+  .mac-moments__filter[data-active="true"] {
+    color: rgba(255, 255, 255, .94);
+    background: rgba(35, 37, 34, .88);
+    box-shadow:
+      0 5px 12px rgba(35, 38, 34, .14),
+      inset 0 1px 0 rgba(255, 255, 255, .2);
+  }
+
+  .mac-moments__filter[data-active="true"] small {
+    color: rgba(255, 255, 255, .58);
+  }
+
+  .mac-moments__filter:focus-visible {
+    outline: 2px solid rgba(38, 42, 37, .42);
+    outline-offset: 1px;
+  }
+
   .mac-moments__list {
     display: grid;
     gap: 10px;
@@ -1658,6 +1720,10 @@
       inset 0 1px 0 rgba(255, 255, 255, .72);
     backdrop-filter: blur(20px) saturate(1.18);
     -webkit-backdrop-filter: blur(20px) saturate(1.18);
+  }
+
+  .mac-moment[hidden] {
+    display: none;
   }
 
   .mac-moment__avatar {
@@ -2059,8 +2125,7 @@
   }
 
   .mac-video__button,
-  .mac-video__scrub,
-  .mac-video__clip {
+  .mac-video__scrub {
     pointer-events: auto;
   }
 
@@ -2080,6 +2145,11 @@
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-weight: 700;
     line-height: 1;
+  }
+
+  .mac-video__button:focus,
+  .mac-video__button:focus-visible {
+    outline: none;
   }
 
   .mac-video__button--small {
@@ -2246,30 +2316,6 @@
     line-height: 1.45;
   }
 
-  .mac-video__playlist {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .mac-video__clip {
-    min-height: 28px;
-    padding: 0 12px;
-    border: 1px solid rgba(255, 255, 255, .18);
-    border-radius: 999px;
-    color: rgba(255, 255, 255, .72);
-    background: rgba(255, 255, 255, .08);
-    cursor: pointer;
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 9px;
-    font-weight: 700;
-  }
-
-  .mac-video__clip[data-active="true"] {
-    color: #081016;
-    background: rgba(188, 238, 255, .88);
-  }
-
   .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__controls {
     gap: 0 12px;
     padding: 0 28px 22px;
@@ -2305,8 +2351,7 @@
     padding: 0 14px;
   }
 
-  .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__meta,
-  .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__playlist {
+  .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__meta {
     display: none;
   }
 
