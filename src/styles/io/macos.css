@@ -2241,6 +2241,7 @@
 
   .mac-video__scrub {
     --mac-video-progress: 0%;
+    box-sizing: border-box;
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
@@ -2437,6 +2438,43 @@
     .mac-video__play-icon {
       width: 22px;
       height: 25px;
+    }
+  }
+
+  @container (max-width: 210px) {
+    .mac-video__controls {
+      gap: 0 4px;
+      padding: 0 6px 10px;
+    }
+
+    .mac-video__button--small {
+      width: 36px;
+      height: 36px;
+    }
+
+    .mac-video__button--play {
+      width: 52px;
+      height: 52px;
+    }
+
+    .mac-video__skip-icon {
+      width: 28px;
+      height: 27px;
+    }
+
+    .mac-video__play-icon {
+      width: 18px;
+      height: 21px;
+    }
+
+    .mac-video__pause-icon {
+      width: 14px;
+      height: 18px;
+    }
+
+    .mac-video__scrub {
+      height: 30px;
+      padding: 0 8px;
     }
   }
 

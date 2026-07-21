@@ -551,8 +551,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const metaReserve = 100;
     const titleHeight = layout.windows.find((win) => win.id === 'video')?.titleH ?? 34;
     const nonStageHeight = titleHeight + bodyTopPadding + bodyBottomPadding + metaReserve;
-    const maxWindowWidth = Math.max(240, cssWidth - sideMargin * 2);
-    const maxWindowHeight = Math.max(300, cssHeight - topMargin - bottomMargin);
+    const maxWindowWidth = Math.max(240, Math.min(
+      cssWidth - sideMargin * 2,
+      cssWidth * 0.62,
+      1260,
+    ));
+    const maxWindowHeight = Math.max(300, Math.min(
+      cssHeight - topMargin - bottomMargin,
+      cssHeight * 0.74,
+      920,
+    ));
     const maxStageWidth = Math.max(120, maxWindowWidth - bodySidePadding);
     const maxStageHeight = Math.max(120, maxWindowHeight - nonStageHeight);
 
