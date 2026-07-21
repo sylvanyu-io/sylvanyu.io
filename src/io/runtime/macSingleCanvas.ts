@@ -95,6 +95,7 @@ const WINDOW_RESIZE_LIMITS = {
 
 const FOLDER_OPEN_DURATION_MS = 280;
 const FOLDER_CLOSE_DURATION_MS = 220;
+const FOLDER_PREHEAT_TIMEOUT_MS = 160;
 const PERF_HUD_PARAM = 'perf';
 
 const blurredBackdropFragmentShader = `
@@ -356,19 +357,27 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let folderReleaseAfterRender = false;
 
   function setOpenFolder(id: FolderId | null) {
-    const nowMs = performance.now();
     if (id) {
       folderReleaseAfterRender = false;
       const from = state.folder === id ? state.folderProgress : 0;
+      cancelFolderBackdropPreheat();
+      // If the user beats the scheduled preheat, build the frozen backdrop
+      // before starting the animation clock. The click may take one setup
+      // frame, but texture allocation and the multi-level Kawase chain can no
+      // longer stall an animation already in flight.
+      if (backgroundTarget && folderSnapshotDirty && !folderBackdropTexture) {
+        ensureFolderBackdrop(new Date());
+      }
+      const nowMs = performance.now();
       state.folder = id;
       state.folderProgress = from;
-      cancelFolderBackdropPreheat();
       folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
       markLayoutDirty();
       return;
     }
 
     if (!state.folder) return;
+    const nowMs = performance.now();
     folderReleaseAfterRender = false;
     folderAnimation = {
       id: state.folder,
@@ -759,6 +768,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
     folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
+    // Allocate the snapshot target during the existing resize/setup work so a
+    // fast first click never has to allocate it inside the folder transition.
+    ensureFolderTargets();
 
     layoutDirty = true;
     renderDirty = true;
@@ -1002,12 +1014,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (idleWindow.requestIdleCallback) {
       folderPreheatUsesIdle = true;
-      folderPreheatHandle = idleWindow.requestIdleCallback(run, { timeout: 1200 });
+      folderPreheatHandle = idleWindow.requestIdleCallback(run, { timeout: FOLDER_PREHEAT_TIMEOUT_MS });
       return;
     }
 
     folderPreheatUsesIdle = false;
-    folderPreheatHandle = window.setTimeout(run, 600);
+    folderPreheatHandle = window.setTimeout(run, 0);
   }
 
   // Reused across frames: the pill plus the lens thumb that slides to the
