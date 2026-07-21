@@ -254,17 +254,14 @@ vec3 sampleBlurredScene(vec2 uv) {
 void main() {
   vec2 uv = vScreenUv;
   vec2 screenPx = vec2(uv.x * uResolution.x, (1.0 - uv.y) * uResolution.y);
-  vec2 panelLocal = (screenPx - uPanel.xy) / max(uPanel.zw, vec2(1.0));
-
-  if (panelLocal.x < 0.0 || panelLocal.y < 0.0 || panelLocal.x > 1.0 || panelLocal.y > 1.0) {
-    discard;
-  }
-
   vec2 halfPx = max(uPanel.zw * 0.5, vec2(1.0));
-  vec2 pointPx = (panelLocal - vec2(0.5)) * uPanel.zw;
+  vec2 pointPx = screenPx - (uPanel.xy + halfPx);
   float radiusPx = min(uRadius, min(halfPx.x, halfPx.y));
   float sdfPx = roundedBoxSdf(pointPx, halfPx, radiusPx);
-  float mask = 1.0 - smoothstep(-0.55, 0.55, sdfPx);
+  // Keep rounded-glass coverage stable below native DPR. GLASS_PANEL_PAD lets
+  // the symmetric derivative ramp include fragments just outside the panel.
+  float aaPx = max(fwidth(sdfPx), 0.45);
+  float mask = 1.0 - smoothstep(-aaPx, aaPx, sdfPx);
 
   if (mask <= 0.001) {
     discard;
