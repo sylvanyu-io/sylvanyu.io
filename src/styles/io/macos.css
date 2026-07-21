@@ -2010,7 +2010,8 @@
   }
 
   .mac-dom-window__body--video {
-    padding: 14px;
+    box-sizing: border-box;
+    padding: 14px 14px 28px;
     background:
       radial-gradient(circle at 50% 0%, rgba(120, 212, 255, .16), transparent 42%),
       rgba(6, 8, 11, .76);
@@ -2037,7 +2038,7 @@
   }
 
   .mac-video {
-    height: 100%;
+    min-height: 100%;
     color: rgba(255, 255, 255, .9);
   }
 
@@ -2076,8 +2077,9 @@
 
   .mac-video__stage {
     position: relative;
+    container-type: inline-size;
     overflow: hidden;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: var(--mac-video-aspect, 16 / 9);
     border: 1px solid rgba(255, 255, 255, .24);
     border-radius: 18px;
     background: #07090d;
@@ -2095,7 +2097,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
   }
 
   .mac-video__glass {
@@ -2242,8 +2244,8 @@
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
-    height: 48px;
-    padding: 0 20px;
+    height: 38px;
+    padding: 0 18px;
     border: 0;
     border-radius: 999px;
     background: transparent;
@@ -2267,7 +2269,7 @@
   }
 
   .mac-video__scrub::-webkit-slider-runnable-track {
-    height: 5px;
+    height: 4px;
     border-radius: 999px;
     background: linear-gradient(
       90deg,
@@ -2278,9 +2280,9 @@
   }
 
   .mac-video__scrub::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
-    margin-top: -9.5px;
+    width: 20px;
+    height: 20px;
+    margin-top: -8px;
     border: 0;
     border-radius: 50%;
     background: #fff;
@@ -2290,21 +2292,21 @@
   }
 
   .mac-video__scrub::-moz-range-track {
-    height: 5px;
+    height: 4px;
     border-radius: 999px;
     background: rgba(255, 255, 255, .36);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, .2);
   }
 
   .mac-video__scrub::-moz-range-progress {
-    height: 5px;
+    height: 4px;
     border-radius: 999px;
     background: rgba(255, 255, 255, .94);
   }
 
   .mac-video__scrub::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border: 0;
     border-radius: 50%;
     background: #fff;
@@ -2372,6 +2374,70 @@
   .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__scrub {
     height: 42px;
     padding: 0 14px;
+  }
+
+  @container (max-width: 420px) {
+    .mac-video__controls {
+      gap: 0 10px;
+      padding: 0 18px 20px;
+    }
+
+    .mac-video__button--small {
+      width: 48px;
+      height: 48px;
+    }
+
+    .mac-video__button--play {
+      width: 72px;
+      height: 72px;
+    }
+
+    .mac-video__skip-icon {
+      width: 36px;
+      height: 34px;
+    }
+
+    .mac-video__play-icon {
+      width: 25px;
+      height: 29px;
+    }
+
+    .mac-video__pause-icon {
+      width: 17px;
+      height: 22px;
+    }
+
+    .mac-video__scrub {
+      height: 34px;
+      padding: 0 12px;
+    }
+  }
+
+  @container (max-width: 290px) {
+    .mac-video__controls {
+      gap: 0 6px;
+      padding: 0 10px 14px;
+    }
+
+    .mac-video__button--small {
+      width: 40px;
+      height: 40px;
+    }
+
+    .mac-video__button--play {
+      width: 62px;
+      height: 62px;
+    }
+
+    .mac-video__skip-icon {
+      width: 31px;
+      height: 30px;
+    }
+
+    .mac-video__play-icon {
+      width: 22px;
+      height: 25px;
+    }
   }
 
   .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video__meta {

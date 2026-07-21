@@ -14,5 +14,9 @@ export type MacDomWindowActionEventDetail =
       id: WindowId;
     }
   | {
+      type: 'fit-video-window';
+      aspectRatio: number;
+    }
+  | {
       type: 'compare-photo-sharp';
     };

@@ -24,32 +24,46 @@ void main() {
 }
 `;
 
-const PLAY_GLASS: GlassPanelInput['params'] = {
+const BUTTON_GLASS: GlassPanelInput['params'] = {
   splay: 1,
   kawasePasses: 1,
-  kawaseOffset: 1,
+  kawaseOffset: 0,
   kawaseDownsample: 3,
-  frost: 0.08,
-  tint: 0.05,
+  frost: 0.02,
+  tint: 0.18,
   specularAngle: 45,
-  scale: 0.58,
-  depth: 8,
-  chroma: 0.48,
-  curvature: 60,
-  glow: 0.28,
-  edge: 0.42,
+  scale: 0.24,
+  depth: 5,
+  chroma: 0.2,
+  curvature: 128,
+  glow: 0.42,
+  edge: 0.74,
+};
+
+const PLAY_GLASS: GlassPanelInput['params'] = {
+  ...BUTTON_GLASS,
+  scale: 0.3,
+  depth: 7,
+  curvature: 150,
+  tint: 0.22,
+  glow: 0.6,
+  edge: 0.82,
 };
 
 const SCRUB_GLASS: GlassPanelInput['params'] = {
-  scale: 0.08,
-  depth: 3,
-  curvature: 72,
-  chroma: 0.1,
-  kawaseOffset: 0,
-  frost: 0.02,
-  tint: 0.12,
-  glow: 0.2,
-  edge: 0.4,
+  splay: 1,
+  kawasePasses: 1,
+  kawaseOffset: 3.4,
+  kawaseDownsample: 3,
+  frost: 0.18,
+  tint: 0.2,
+  specularAngle: 45,
+  scale: 0.16,
+  depth: 12,
+  chroma: 0.22,
+  curvature: 118,
+  glow: 0.22,
+  edge: 0.32,
 };
 
 export type MacVideoGlassController = {
@@ -252,7 +266,8 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     if (!panelsDirty) return cachedPanels;
     const panels: GlassPanelInput[] = [];
     stage.querySelectorAll('.mac-video__button').forEach((button) => {
-      const panel = panelFromElement(stage, button, PLAY_GLASS);
+      const params = button.classList.contains('mac-video__button--play') ? PLAY_GLASS : BUTTON_GLASS;
+      const panel = panelFromElement(stage, button, params);
       if (panel) panels.push(panel);
     });
     const scrub = stage.querySelector('.mac-video__scrub');

@@ -89,7 +89,7 @@ const WINDOW_RESIZE_LIMITS = {
     worklog: { w: 420, h: 300 },
     projects: { w: 420, h: 380 },
     moments: { w: 360, h: 420 },
-    video: { w: 520, h: 360 },
+    video: { w: 240, h: 300 },
   } satisfies Record<WindowId, { w: number; h: number }>,
 } as const;
 
@@ -538,6 +538,42 @@ export function mountMacSingleCanvas(rootInput: Element) {
     markLayoutDirty();
   }
 
+  function fitVideoWindow(aspectRatio: number) {
+    if (layout.mobile || !Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+
+    const aspect = THREE.MathUtils.clamp(aspectRatio, 0.35, 3.2);
+    const sideMargin = 24;
+    const topMargin = MAC_MENUBAR_HEIGHT + 12;
+    const bottomMargin = 12;
+    const bodySidePadding = 28;
+    const bodyTopPadding = 14;
+    const bodyBottomPadding = 28;
+    const metaReserve = 100;
+    const titleHeight = layout.windows.find((win) => win.id === 'video')?.titleH ?? 34;
+    const nonStageHeight = titleHeight + bodyTopPadding + bodyBottomPadding + metaReserve;
+    const maxWindowWidth = Math.max(240, cssWidth - sideMargin * 2);
+    const maxWindowHeight = Math.max(300, cssHeight - topMargin - bottomMargin);
+    const maxStageWidth = Math.max(120, maxWindowWidth - bodySidePadding);
+    const maxStageHeight = Math.max(120, maxWindowHeight - nonStageHeight);
+
+    let stageWidth = Math.min(maxStageWidth, maxStageHeight * aspect);
+    let stageHeight = stageWidth / aspect;
+    if (stageHeight > maxStageHeight) {
+      stageHeight = maxStageHeight;
+      stageWidth = stageHeight * aspect;
+    }
+
+    const width = Math.round(stageWidth + bodySidePadding);
+    const height = Math.round(stageHeight + nonStageHeight);
+    setSavedWindowRect('video', {
+      x: Math.round(THREE.MathUtils.clamp((cssWidth - width) * 0.5, sideMargin, cssWidth - sideMargin - width)),
+      y: Math.round(THREE.MathUtils.clamp((cssHeight - height) * 0.5, topMargin, cssHeight - bottomMargin - height)),
+      w: width,
+      h: height,
+    });
+    markLayoutDirty();
+  }
+
   const domWindows = createMacDomWindows(root, {
     bringFront(id) {
       bringWindowFront(state, id);
@@ -552,6 +588,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       markLayoutDirty();
     },
     comparePhotoSharp,
+    fitVideoWindow,
     moveWindow(id, x, y) {
       const next = clampWindowPosition(id, x, y);
       state.windows[id].x = next.x;

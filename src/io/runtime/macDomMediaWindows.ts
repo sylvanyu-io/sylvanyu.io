@@ -7,7 +7,7 @@ import {
 } from '../data';
 import type { Lang } from '../content/common';
 import { div, setText } from './macDomElements';
-import { dispatchWindowAction } from './macDomWindowState';
+import { dispatchBackgroundPointerBlock, dispatchWindowAction } from './macDomWindowState';
 import { mountMacVideoGlass } from './macVideoGlass';
 import type { MacDomWindowRecord } from './macDomWindowContent';
 
@@ -254,6 +254,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const activeIndex = Number.isFinite(requestedIndex)
     ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
     : 0;
+  const clip = clips[activeIndex];
   const shell = div('mac-video');
   const close = document.createElement('button');
   close.type = 'button';
@@ -263,10 +264,11 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   close.addEventListener('click', () => record.close.click());
 
   const stage = div('mac-video__stage');
+  stage.style.setProperty('--mac-video-aspect', String(clip.aspectRatio));
   const video = document.createElement('video');
   video.className = 'mac-video__media';
-  video.src = clips[activeIndex].src;
-  video.poster = clips[activeIndex].poster;
+  video.src = clip.src;
+  video.poster = clip.poster;
   video.loop = true;
   video.playsInline = true;
   video.preload = 'metadata';
@@ -332,12 +334,34 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   let scrubPointerId: number | null = null;
   let hasStarted = false;
   let pointerInside = false;
+  let pointerIdle = false;
+  let keyboardInteraction = false;
+  let controlsIdleTimer = 0;
+  const clearControlsIdleTimer = () => {
+    if (!controlsIdleTimer) return;
+    window.clearTimeout(controlsIdleTimer);
+    controlsIdleTimer = 0;
+  };
   const setControlsVisible = (visible: boolean) => {
     stage.dataset.controlsVisible = visible ? 'true' : 'false';
   };
   const syncControlsVisible = () => {
-    const focusInside = stage.contains(document.activeElement);
-    setControlsVisible(!hasStarted || pointerInside || focusInside || scrubbing);
+    const keyboardFocusInside = keyboardInteraction && stage.contains(document.activeElement);
+    setControlsVisible(!hasStarted || (pointerInside && !pointerIdle) || keyboardFocusInside || scrubbing);
+  };
+  const armControlsIdleTimer = () => {
+    clearControlsIdleTimer();
+    if (!hasStarted || !pointerInside || scrubbing || keyboardInteraction) return;
+    controlsIdleTimer = window.setTimeout(() => {
+      controlsIdleTimer = 0;
+      pointerIdle = true;
+      syncControlsVisible();
+    }, 1800);
+  };
+  const revealPointerControls = () => {
+    pointerIdle = false;
+    syncControlsVisible();
+    armControlsIdleTimer();
   };
   const syncProgressVisual = () => {
     const value = Math.min(1000, Math.max(0, Number(progress.value) || 0));
@@ -372,6 +396,8 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const beginScrub = (event: PointerEvent) => {
     if (!video.duration) return;
     scrubbing = true;
+    pointerIdle = false;
+    clearControlsIdleTimer();
     scrubPointerId = event.pointerId;
     resumeAfterScrub = !video.paused && !video.ended;
     stopProgressLoop();
@@ -388,6 +414,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId);
     seekToProgress();
     syncControlsVisible();
+    armControlsIdleTimer();
     if (!shouldResume) {
       syncProgress();
       return;
@@ -439,20 +466,34 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   video.addEventListener('play', () => {
     hasStarted = true;
     stage.dataset.hasStarted = 'true';
+    pointerIdle = false;
+    dispatchBackgroundPointerBlock(record, true);
     syncPlayButton(true);
     startProgressLoop();
     syncControlsVisible();
+    armControlsIdleTimer();
   });
   video.addEventListener('pause', () => {
+    dispatchBackgroundPointerBlock(record, false);
     syncPlayButton(false);
     stopProgressLoop();
     syncProgress();
+    armControlsIdleTimer();
   });
   video.addEventListener('ended', () => {
+    dispatchBackgroundPointerBlock(record, false);
     stopProgressLoop();
     syncProgress();
   });
-  video.addEventListener('loadedmetadata', syncProgress);
+  video.addEventListener('loadedmetadata', () => {
+    syncProgress();
+    if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
+    const actualAspect = video.videoWidth / video.videoHeight;
+    stage.style.setProperty('--mac-video-aspect', String(actualAspect));
+    if (Math.abs(actualAspect - clip.aspectRatio) > 0.002) {
+      dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: actualAspect });
+    }
+  });
   video.addEventListener('seeked', syncProgress);
   const syncPointerPosition = (event: MouseEvent) => {
     const rect = stage.getBoundingClientRect();
@@ -460,27 +501,41 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
       && event.clientX <= rect.right
       && event.clientY >= rect.top
       && event.clientY <= rect.bottom;
-    if (nextPointerInside === pointerInside) return;
+    keyboardInteraction = false;
     pointerInside = nextPointerInside;
     if (pointerInside) {
-      syncControlsVisible();
+      revealPointerControls();
       return;
     }
+    pointerIdle = true;
+    clearControlsIdleTimer();
     const focused = document.activeElement;
     if (focused instanceof HTMLElement && stage.contains(focused)) focused.blur();
     syncControlsVisible();
   };
   document.addEventListener('mousemove', syncPointerPosition, { passive: true });
   stage.addEventListener('pointerdown', (event) => {
-    if (event.pointerType !== 'touch') return;
+    keyboardInteraction = false;
     pointerInside = true;
+    pointerIdle = false;
     setControlsVisible(true);
+    if (event.pointerType !== 'touch') armControlsIdleTimer();
   }, { passive: true });
+  stage.addEventListener('keydown', () => {
+    keyboardInteraction = true;
+    pointerIdle = false;
+    clearControlsIdleTimer();
+    syncControlsVisible();
+  });
   stage.addEventListener('focusin', syncControlsVisible);
   stage.addEventListener('focusout', () => {
-    requestAnimationFrame(syncControlsVisible);
+    requestAnimationFrame(() => {
+      syncControlsVisible();
+      armControlsIdleTimer();
+    });
   });
-  record.cleanup.push(stopProgressLoop, () => {
+  record.cleanup.push(stopProgressLoop, clearControlsIdleTimer, () => {
+    dispatchBackgroundPointerBlock(record, false);
     document.removeEventListener('mousemove', syncPointerPosition);
   });
 
@@ -490,6 +545,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   syncMeta();
   shell.append(close, stage, meta);
   record.body.append(shell);
+  dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: clip.aspectRatio });
   const glassController = mountMacVideoGlass(stage, video, glassCanvas);
   if (glassController) {
     record.videoGlassController = glassController;
