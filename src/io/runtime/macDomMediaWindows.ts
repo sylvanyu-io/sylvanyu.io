@@ -393,8 +393,18 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     if (progressFrame || video.paused || video.ended) return;
     progressFrame = requestAnimationFrame(tickProgress);
   };
+  const seekFromPointer = (event: PointerEvent) => {
+    const rect = progress.getBoundingClientRect();
+    const style = getComputedStyle(progress);
+    const trackLeft = rect.left + (Number.parseFloat(style.paddingLeft) || 0);
+    const trackRight = rect.right - (Number.parseFloat(style.paddingRight) || 0);
+    const ratio = Math.min(1, Math.max(0, (event.clientX - trackLeft) / Math.max(1, trackRight - trackLeft)));
+    progress.value = String(Math.round(ratio * 1000));
+    seekToProgress();
+  };
   const beginScrub = (event: PointerEvent) => {
     if (!video.duration) return;
+    event.preventDefault();
     scrubbing = true;
     pointerIdle = false;
     clearControlsIdleTimer();
@@ -403,22 +413,29 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     stopProgressLoop();
     if (resumeAfterScrub) video.pause();
     progress.setPointerCapture(event.pointerId);
+    seekFromPointer(event);
     syncControlsVisible();
   };
-  const endScrub = (event: PointerEvent) => {
+  const moveScrub = (event: PointerEvent) => {
     if (!scrubbing || scrubPointerId !== event.pointerId) return;
+    event.preventDefault();
+    seekFromPointer(event);
+  };
+  const finishScrub = (event: PointerEvent, commitPointerPosition: boolean) => {
+    if (!scrubbing || scrubPointerId !== event.pointerId) return;
+    event.preventDefault();
+    // pointercancel coordinates are not a valid seek position on every
+    // browser; some engines report the cancellation at (0, 0). Preserve the
+    // last position accepted by pointerdown/pointermove in that case.
+    if (commitPointerPosition) seekFromPointer(event);
     const shouldResume = resumeAfterScrub;
     scrubbing = false;
     resumeAfterScrub = false;
     scrubPointerId = null;
     if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId);
-    seekToProgress();
     syncControlsVisible();
     armControlsIdleTimer();
-    if (!shouldResume) {
-      syncProgress();
-      return;
-    }
+    if (!shouldResume) return;
     syncPlayButton(true);
     video.play().catch(() => {
       syncPlayButton(false);
@@ -426,6 +443,8 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
       syncProgress();
     });
   };
+  const endScrub = (event: PointerEvent) => finishScrub(event, true);
+  const cancelScrub = (event: PointerEvent) => finishScrub(event, false);
 
   play.addEventListener('pointerdown', () => {
     syncPlayButton(video.paused);
@@ -451,13 +470,14 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     syncProgress();
   });
   progress.addEventListener('pointerdown', beginScrub);
+  progress.addEventListener('pointermove', moveScrub);
   progress.addEventListener('pointerup', endScrub);
-  progress.addEventListener('pointercancel', endScrub);
+  progress.addEventListener('pointercancel', cancelScrub);
   progress.addEventListener('input', () => {
     seekToProgress();
   });
   progress.addEventListener('change', () => {
-    if (!scrubbing) syncProgress();
+    seekToProgress();
   });
   video.addEventListener('timeupdate', () => {
     if (!video.paused && !video.ended) return;
