@@ -107,10 +107,6 @@ export type MacCanvasLayout = {
   dock: DockLayout;
   langSwitch: LangSwitchLayout | null;
   widgets: WidgetsLayout;
-  iconsRect: Rect;
-  widgetsRect: Rect;
-  dockRect: Rect;
-  menubarRect: Rect;
 };
 
 export type MacCanvasLayoutOptions = {
@@ -189,6 +185,7 @@ const LAYOUT = {
     photoMobileMinStageH: 120,
     photoDesktopMinStageH: 160,
     photoBaseW: 560,
+    photoDefaultScale: 0.82,
     photoMinWindowH: 390,
     photoHeightMargin: 116,
     photoX: 560,
@@ -216,12 +213,6 @@ const LAYOUT = {
     desktopRadius: 22,
     z: 220,
     hitExtraH: 10,
-  },
-  boundsPad: {
-    icons: 16,
-    widgets: 14,
-    dock: 24,
-    menubarExtraH: 10,
   },
 } as const;
 
@@ -477,18 +468,6 @@ function placeWindow(state: MacCanvasState, windowLayout: WindowLayout, mobile: 
       h: Math.max(1, windowLayout.h - windowLayout.titleH),
     };
   }
-}
-
-function padRect(rect: Rect, pad: number): Rect {
-  return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };
-}
-
-function boundsOf(rects: Rect[]): Rect {
-  const minX = Math.min(...rects.map((rect) => rect.x));
-  const minY = Math.min(...rects.map((rect) => rect.y));
-  const maxX = Math.max(...rects.map((rect) => rect.x + rect.w));
-  const maxY = Math.max(...rects.map((rect) => rect.y + rect.h));
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -906,8 +885,10 @@ export function buildMacCanvasLayout(
     const basePhotoW = desktopWindows.photoBaseW;
     const photoMaxWindowH = Math.max(desktopWindows.photoMinWindowH, height - desktopWindows.photoHeightMargin);
     const photoMaxStageH = Math.max(desktopWindows.photoDesktopMinStageH, photoMaxWindowH - titleH - photoNoteH);
-    const photoW = Math.round(basePhotoW);
-    const photoStageH = Math.round(Math.min(photoW / photoAspect, photoMaxStageH));
+    const basePhotoStageH = Math.min(basePhotoW / photoAspect, photoMaxStageH);
+    const photoW = Math.round(basePhotoW * desktopWindows.photoDefaultScale);
+    const photoH = Math.round((titleH + basePhotoStageH + photoNoteH + 2) * desktopWindows.photoDefaultScale);
+    const photoStageH = Math.max(1, photoH - titleH - photoNoteH - 2);
     const photoX = desktopWindows.photoX;
     const photoY = desktopWindows.photoY;
     photo = {
@@ -916,7 +897,7 @@ export function buildMacCanvasLayout(
       x: photoX,
       y: photoY,
       w: photoW,
-      h: titleH + photoStageH + photoNoteH + 2,
+      h: photoH,
       r: desktopWindows.radius,
       z: state.windows.photo.z,
       titleH,
@@ -1018,7 +999,8 @@ export function buildMacCanvasLayout(
     slots: DOCK_APPS.map((app, index) => ({
       id: app.id,
       x: dockX + dockPadX + index * (dockIcon + dockGap),
-      y: dockY + dockPadY,
+      // Include the running indicator in the optical center of the dock.
+      y: dockY + dockPadY - 3,
       size: dockIcon,
     })),
   };
@@ -1081,12 +1063,6 @@ export function buildMacCanvasLayout(
     dock,
     langSwitch,
     widgets,
-    iconsRect: padRect(boundsOf(iconCells), LAYOUT.boundsPad.icons),
-    widgetsRect: padRect(boundsOf(widgetGlassPanels), LAYOUT.boundsPad.widgets),
-    dockRect: padRect(dock.panel, LAYOUT.boundsPad.dock),
-    menubarRect: mobile
-      ? { x: 0, y: 0, w: 0, h: 0 }
-      : { x: 0, y: 0, w: width, h: MAC_MENUBAR_HEIGHT + LAYOUT.boundsPad.menubarExtraH },
   };
 }
 

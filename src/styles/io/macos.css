@@ -1,5 +1,5 @@
-  /* The macOS page renders the desktop inside one Three.js canvas; windows
-     are DOM islands layered above it. Only this shell needs CSS. */
+  /* Photo3D and liquid glass stay in WebGL. Icons, labels, widgets, menu-bar
+     copy, and app windows are native DOM layers above the canvas. */
 
   html,
   body {
@@ -27,6 +27,480 @@
     height: 100%;
     outline: none;
     touch-action: none;
+  }
+
+  .mac-dom-desktop,
+  .mac-dom-desktop__home,
+  .mac-dom-menubar,
+  .mac-dom-widgets,
+  .mac-dom-icons,
+  .mac-dom-dock,
+  .mac-dom-folder,
+  .mac-dom-folder__items {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .mac-dom-desktop {
+    z-index: 3;
+    font-synthesis: none;
+  }
+
+  .mac-dom-desktop__home {
+    opacity: 1;
+    will-change: opacity;
+  }
+
+  .mac-dom-menubar {
+    z-index: 4;
+    height: 34px;
+    color: rgba(255, 255, 255, .96);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 34px;
+    text-shadow: 0 0 4px rgba(0, 0, 0, .45);
+  }
+
+  .mac-dom-menubar[hidden] {
+    display: none;
+  }
+
+  .mac-dom-menubar__dot,
+  .mac-dom-menubar__brand,
+  .mac-dom-menubar__role,
+  .mac-dom-menubar__time {
+    position: absolute;
+    top: 0;
+    white-space: nowrap;
+  }
+
+  .mac-dom-menubar__dot {
+    left: 17.5px;
+    top: 12.5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 0 4px rgba(0, 0, 0, .45);
+  }
+
+  .mac-dom-menubar__brand {
+    left: 40px;
+    font-weight: 600;
+  }
+
+  .mac-dom-menubar__role {
+    left: 154px;
+    color: rgba(255, 255, 255, .74);
+    font-weight: 500;
+  }
+
+  .mac-dom-menubar__time {
+    right: 20px;
+    color: rgba(255, 255, 255, .74);
+    font-weight: 500;
+  }
+
+  .mac-dom-menubar__lang {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: grid;
+    grid-template-columns: repeat(2, var(--mac-lang-segment-width, 30px));
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: rgba(255, 255, 255, .85);
+    background: transparent;
+    font: 600 10px/20px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-shadow: 0 0 4px rgba(0, 0, 0, .45);
+    appearance: none;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-menubar__lang-option {
+    transition: color .18s ease, text-shadow .18s ease;
+  }
+
+  .mac-dom-menubar__lang-option[data-active="true"] {
+    color: rgb(23, 50, 74);
+    text-shadow: none;
+  }
+
+  .mac-dom-widget {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-sizing: border-box;
+    color: rgba(246, 250, 255, .94);
+    text-shadow: 0 1px 6px rgba(0, 10, 6, .68);
+  }
+
+  .mac-dom-widget[hidden] {
+    display: none;
+  }
+
+  .mac-dom-widget--clock {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: calc(7px * var(--mac-clock-scale, 1));
+    padding: 0 max(18px, calc(20px * var(--mac-clock-scale, 1)));
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .mac-dom-widget__time {
+    font-size: calc(34px * var(--mac-clock-scale, 1));
+    font-weight: 600;
+    line-height: 1.08;
+  }
+
+  .mac-dom-widget__date {
+    color: rgba(246, 250, 255, .62);
+    font-size: calc(10px * var(--mac-clock-scale, 1));
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  .mac-dom-widget--status {
+    --mac-widget-inset: clamp(18px, calc(20px * var(--mac-widget-scale, 1)), 24px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    padding: 0 var(--mac-widget-inset);
+  }
+
+  .mac-dom-widget__title,
+  .mac-dom-widget__foot,
+  .mac-dom-widget__stat-value,
+  .mac-dom-widget__stat-label {
+    display: block;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .mac-dom-widget__title {
+    margin-bottom: calc(22px * var(--mac-widget-scale, 1));
+    color: rgba(246, 250, 255, .66);
+    font-size: calc(10px * var(--mac-widget-scale, 1));
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .mac-dom-widget__body {
+    display: block;
+    margin-bottom: calc(24px * var(--mac-widget-scale, 1));
+    color: rgba(246, 250, 255, .9);
+    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: calc(14px * var(--mac-widget-scale, 1));
+    font-weight: 600;
+    line-height: calc(20px * var(--mac-widget-scale, 1));
+    white-space: pre-line;
+  }
+
+  .mac-dom-widget__foot {
+    margin-bottom: calc(22px * var(--mac-widget-scale, 1));
+    color: rgba(204, 226, 255, .86);
+    font-size: calc(11px * var(--mac-widget-scale, 1));
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  .mac-dom-widget__stats {
+    display: grid;
+    grid-template-columns: 1fr .86fr;
+    column-gap: 8px;
+    row-gap: calc(10px * var(--mac-widget-scale, 1));
+  }
+
+  .mac-dom-widget__stat-value {
+    color: rgba(246, 250, 255, .9);
+    font-size: calc(15px * var(--mac-widget-scale, 1));
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .mac-dom-widget__stat-label {
+    margin-top: calc(5px * var(--mac-widget-scale, 1));
+    overflow: hidden;
+    color: rgba(246, 250, 255, .58);
+    font-size: calc(9px * var(--mac-widget-scale, 1));
+    font-weight: 500;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mac-dom-icon,
+  .mac-dom-dock__item,
+  .mac-dom-folder__backdrop,
+  .mac-dom-folder__item {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    appearance: none;
+  }
+
+  .mac-dom-icon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-icon__visual {
+    position: absolute;
+    left: var(--mac-icon-x, 0);
+    top: var(--mac-icon-y, 0);
+    display: block;
+    width: var(--mac-icon-size, 48px);
+    height: var(--mac-icon-size, 48px);
+    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, .34));
+    pointer-events: none;
+  }
+
+  .mac-dom-icon__visual > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .mac-dom-icon__label {
+    position: absolute;
+    left: 0;
+    top: var(--mac-label-y, 0);
+    display: block;
+    width: 100%;
+    overflow: visible;
+    color: rgba(255, 255, 255, .94);
+    font: 500 11px/1.2 "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .82);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .mac-dom-icon__visual--folder,
+  .mac-dom-icon__visual--language {
+    filter: none;
+  }
+
+  .mac-dom-folder-thumb {
+    position: absolute;
+    left: 16%;
+    top: 16%;
+    display: grid;
+    width: 68%;
+    height: 68%;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 4.5%;
+  }
+
+  .mac-dom-folder-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 24%;
+    object-fit: cover;
+    box-shadow: 0 0 5px rgba(0, 0, 0, .18);
+  }
+
+  .mac-dom-icon__visual--language {
+    color: rgba(255, 255, 255, .96);
+    font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-weight: 700;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .42);
+  }
+
+  .mac-dom-language-icon__latin,
+  .mac-dom-language-icon__han {
+    position: absolute;
+    line-height: 1;
+  }
+
+  .mac-dom-language-icon__latin {
+    left: 18%;
+    top: 18%;
+    font-size: 40%;
+  }
+
+  .mac-dom-language-icon__han {
+    right: 13%;
+    bottom: 13%;
+    font-size: 34%;
+    font-weight: 600;
+  }
+
+  .mac-dom-icon:active .mac-dom-icon__visual,
+  .mac-dom-dock__item:active img,
+  .mac-dom-folder__item:active .mac-dom-folder__item-image {
+    transform: scale(.94);
+  }
+
+  .mac-dom-icon:focus-visible,
+  .mac-dom-dock__item:focus-visible,
+  .mac-dom-folder__item:focus-visible,
+  .mac-dom-menubar__lang:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .92);
+    outline-offset: 3px;
+  }
+
+  .mac-dom-dock {
+    z-index: 5;
+  }
+
+  .mac-dom-dock__item {
+    position: absolute;
+    left: 0;
+    top: 0;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-dock__item img {
+    position: relative;
+    top: -1px;
+    display: block;
+    width: var(--mac-dock-icon-size, 48px);
+    height: var(--mac-dock-icon-size, 48px);
+    object-fit: contain;
+    filter: drop-shadow(0 5px 6px rgba(0, 0, 0, .34));
+    transform-origin: 50% 70%;
+  }
+
+  .mac-dom-dock__dot {
+    position: absolute;
+    left: calc(var(--mac-dock-icon-size, 48px) * .5 - 2.3px);
+    top: calc(var(--mac-dock-icon-size, 48px) + 10.7px);
+    width: 4.6px;
+    height: 4.6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92);
+    opacity: 0;
+    transition: opacity .14s ease;
+    pointer-events: none;
+  }
+
+  .mac-dom-dock__dot[data-visible="true"] {
+    opacity: 1;
+  }
+
+  .mac-dom-folder {
+    z-index: 7;
+  }
+
+  .mac-dom-folder[hidden] {
+    display: none;
+  }
+
+  .mac-dom-folder__backdrop {
+    position: absolute;
+    inset: 0;
+    cursor: default;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-folder__backdrop:disabled {
+    pointer-events: none;
+  }
+
+  .mac-dom-folder__panel-guard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: auto;
+  }
+
+  .mac-dom-folder__title {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-sizing: border-box;
+    margin: 0;
+    color: rgba(255, 255, 255, .95);
+    font: 700 31px/42px "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    text-align: left;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .48);
+    pointer-events: none;
+  }
+
+  .mac-dom-desktop[data-mobile="true"] .mac-dom-folder__title {
+    font-size: 34px;
+  }
+
+  .mac-dom-folder__item {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .mac-dom-folder__item:disabled {
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .mac-dom-folder__item-image {
+    position: absolute;
+    left: var(--mac-folder-icon-x, 0);
+    top: var(--mac-folder-icon-y, 0);
+    display: block;
+    width: var(--mac-folder-icon-w, 72px);
+    height: var(--mac-folder-icon-h, 72px);
+    border-radius: 24%;
+    object-fit: cover;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, .24);
+    transform-origin: 50% 60%;
+    pointer-events: none;
+  }
+
+  .mac-dom-folder__item-label {
+    position: absolute;
+    left: var(--mac-folder-label-x, 0);
+    top: var(--mac-folder-label-y, 0);
+    display: block;
+    width: var(--mac-folder-label-w, 96px);
+    overflow: hidden;
+    color: rgba(255, 255, 255, .94);
+    font: 600 14px/17px "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .72);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .mac-dom-desktop[data-mobile="true"] .mac-dom-folder__item-label {
+    font-size: 12px;
+    line-height: 15px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mac-dom-icon__visual,
+    .mac-dom-dock__item img,
+    .mac-dom-folder__item-image,
+    .mac-dom-menubar__lang-option,
+    .mac-dom-dock__dot {
+      transition: none;
+    }
   }
 
   .mac-power-off {

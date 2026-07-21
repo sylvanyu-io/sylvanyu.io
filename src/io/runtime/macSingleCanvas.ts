@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createMacDomDesktop } from './macDomDesktop';
 import { createMacDomWindows } from './macDomWindows';
 import { MAC_BACKGROUND_POINTER_BLOCK_EVENT } from './macDomWindowEvents';
 import { scheduleIdleImagePreload } from './assetPreload';
@@ -12,20 +13,13 @@ import {
   buildMacCanvasLayout,
   bringWindowFront,
   createInitialMacCanvasState,
-  drawMacDesktopIcons,
-  drawMacDockOverlay,
-  drawMacFolderOverlay,
-  drawMacMenubarOverlay,
-  drawMacWidgetOverlay,
   hitTest,
   isMacMobileViewport,
-  loadMacUiAssets,
   MAC_MENUBAR_HEIGHT,
   MAC_WINDOW_IDS,
   type HitTarget,
   type MacCanvasLayout,
   type MacCanvasState,
-  type MacUiAssets,
   type Rect,
   type SafeInsets,
   type WindowId,
@@ -38,19 +32,13 @@ import {
 import {
   baseUpscaleFragmentShader,
   coverFragmentShader,
-  rectVertexShader,
   screenVertexShader,
-  uiRectFragmentShader,
 } from './macCanvas/shaders';
 import {
   disposeTarget,
-  frameMinuteKey,
-  makeCanvasLayer,
   makePlaceholderTexture,
   makeRenderTarget,
   renderPass,
-  syncCanvasLayerRect,
-  type CanvasLayer,
 } from './macCanvas/threeHelpers';
 import { createFpsSampler, createFrameLimiter } from './canvasTiming';
 import {
@@ -83,8 +71,8 @@ const WINDOW_RESIZE_LIMITS = {
   screenMargin: 12,
   minSize: {
     readme: { w: 360, h: 360 },
-    photo: { w: 500, h: 440 },
-    spatial: { w: 500, h: 440 },
+    photo: { w: 420, h: 440 },
+    spatial: { w: 420, h: 440 },
     reflection: { w: 360, h: 280 },
     worklog: { w: 420, h: 300 },
     projects: { w: 420, h: 380 },
@@ -152,12 +140,6 @@ function createPerfHud(root: HTMLElement) {
   return hud;
 }
 
-function dockStateKey(layout: MacCanvasLayout, state: MacCanvasState, assets: MacUiAssets | null) {
-  const slotIds = layout.dock.slots.map((slot) => slot.id).join(',');
-  const dots = layout.dock.slots.map((slot) => (state.windows[slot.id].open ? '1' : '0')).join('');
-  return `dock:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${assets ? 1 : 0}:${slotIds}:${dots}`;
-}
-
 export function mountMacSingleCanvas(rootInput: Element) {
   if (!(rootInput instanceof HTMLElement) || rootInput.dataset.macSingleCanvasMounted === 'true') return;
   const root: HTMLElement = rootInput;
@@ -177,7 +159,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let hoverBackgroundPointerBlocked = false;
   let appBackgroundPointerBlocked = false;
   let gyroPromptAttempted = false;
-  let assets: MacUiAssets | null = null;
   let wallpaperPass: Photo3DPass | null = null;
   let initialModeApplied = false;
 
@@ -215,11 +196,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let layout = buildMacCanvasLayout(1, 1, state, layoutOptions());
   let layoutDirty = true;
   let renderDirty = true;
-  // Cache keys for the layout-stable canvas layers (icons, dock). They only
-  // change when the layout, language, window-open state, or assets change, so
-  // they are rebuilt on rebuildLayout() instead of every frame.
-  let iconsCacheKey = '';
-  let dockCacheKey = '';
   let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
   let renderWidth = 1;
@@ -265,12 +241,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     uOverscan: { value: 1.0 },
     uShade: { value: new THREE.Vector2(0, 0) },
   };
-  const uiUniforms = {
-    uUi: { value: placeholder as THREE.Texture },
-    uAlpha: { value: 1 },
-    uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
-    uViewport: { value: new THREE.Vector2(1, 1) },
-  };
   const upscaleUniforms = {
     uScene: { value: placeholder as THREE.Texture },
   };
@@ -283,14 +253,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     uniforms: coverUniforms,
     vertexShader: screenVertexShader,
     fragmentShader: coverFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const uiRectMaterial = new THREE.ShaderMaterial({
-    uniforms: uiUniforms,
-    vertexShader: rectVertexShader,
-    fragmentShader: uiRectFragmentShader,
-    transparent: true,
     depthTest: false,
     depthWrite: false,
   });
@@ -309,14 +271,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     depthTest: false,
     depthWrite: false,
   });
-
-  const iconsLayer = makeCanvasLayer();
-  const widgetLayer = makeCanvasLayer();
-  const folderLayer = makeCanvasLayer();
-  const dockLayer = makeCanvasLayer();
-  const menubarLayer = makeCanvasLayer();
-  const allLayers = [iconsLayer, widgetLayer, folderLayer, dockLayer, menubarLayer];
-  if (allLayers.some((layer) => !layer)) return;
 
   const idleWindow = window as IdleWindow;
   let destroyed = false;
@@ -364,7 +318,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // frame, but texture allocation and the multi-level Kawase chain can no
       // longer stall an animation already in flight.
       if (backgroundTarget && folderSnapshotDirty && !folderBackdropTexture) {
-        ensureFolderBackdrop(new Date());
+        ensureFolderBackdrop();
       }
       const nowMs = performance.now();
       state.folder = id;
@@ -622,6 +576,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     },
   });
 
+  const domDesktop = createMacDomDesktop(root, {
+    activate(action) {
+      requestGyroFromGestureOnce();
+      applyHitAction(action);
+    },
+  });
+
   // Owns the phone back-button / power-off history state machine and overlay.
   const mobileNav = createMacMobileNav({
     root,
@@ -632,7 +593,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   });
   // backgroundTarget contains only the Photo3D wallpaper and its shade. It is
   // the single source for screen presentation and liquid-glass blur; all text
-  // and icons are drawn later as crisp overlays.
+  // and icons live in the native DOM layer above it.
   let backgroundTarget: THREE.WebGLRenderTarget | null = null;
   let folderSnapshotTarget: THREE.WebGLRenderTarget | null = null;
   let folderBackdropTexture: THREE.Texture | null = null;
@@ -676,15 +637,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     root.dataset.macMobile = layout.mobile ? 'true' : 'false';
     root.dataset.macFolderOpen = folderOwnsScreen() ? 'true' : 'false';
-    refreshLayerKeys();
+    domDesktop.sync(layout, state);
     mobileNav.ensureHomeHistory();
-  }
-
-  function refreshLayerKeys() {
-    const assetFlag = assets ? 1 : 0;
-    const iconSig = layout.iconCells.map((cell) => `${cell.id}:${cell.labelKey ?? ''}`).join(',');
-    iconsCacheKey = `icons:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${layout.safeTop}:${state.lang}:${assetFlag}:${iconSig}`;
-    dockCacheKey = dockStateKey(layout, state, assets);
   }
 
   function resize() {
@@ -750,19 +704,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
 
-    allLayers.forEach((layer) => {
-      if (!layer) return;
-      layer.cacheKey = null;
-      layer.dirty = true;
-    });
-
     state.bufferText = `BUF ${baseWidth}x${baseHeight}->${renderWidth}x${renderHeight}`;
 
     disposeTargets();
 
     // backgroundTarget renders only the wallpaper at
     // MAC_RENDER_TUNING.baseRenderScale and is upscaled to the screen. Text,
-    // icons, and DOM windows remain on the native canvas/DOM layers.
+    // icons, and windows remain independent at native DOM resolution.
     backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
     folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
@@ -820,144 +768,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return true;
   }
 
-  function drawRectLayer(
-    layer: CanvasLayer,
-    rect: Rect,
-    cacheKey: string,
-    draw: (context: CanvasRenderingContext2D) => void,
-    target: THREE.WebGLRenderTarget | null,
-    presentRect: Rect = rect,
-    alpha = 1,
-  ) {
-    if (rect.w <= 0 || rect.h <= 0 || presentRect.w <= 0 || presentRect.h <= 0 || alpha <= 0) return;
-
-    syncCanvasLayerRect(layer, rect, pixelRatio);
-
-    if (layer.dirty || layer.cacheKey !== cacheKey) {
-      const context = layer.context;
-      context.setTransform(1, 0, 0, 1, 0, 0);
-      context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, -layer.rect.x * pixelRatio, -layer.rect.y * pixelRatio);
-      draw(context);
-      layer.texture.needsUpdate = true;
-      layer.cacheKey = cacheKey;
-      layer.dirty = false;
-    }
-
-    uiUniforms.uUi.value = layer.texture;
-    uiUniforms.uAlpha.value = THREE.MathUtils.clamp(alpha, 0, 1);
-    uiUniforms.uRect.value.set(presentRect.x, presentRect.y, presentRect.w, presentRect.h);
-    uiUniforms.uViewport.value.set(cssWidth, cssHeight);
-    renderPass(renderer, scene, camera, passMesh, uiRectMaterial, target);
-  }
-
-  function renderDesktopIcons(target: THREE.WebGLRenderTarget | null) {
-    drawRectLayer(
-      iconsLayer as CanvasLayer,
-      layout.iconsRect,
-      iconsCacheKey,
-      (context) => drawMacDesktopIcons(context, layout, assets, state),
-      target,
-    );
-  }
-
-  function folderOverlayRect(): Rect {
-    const folder = layout.folder;
-    if (!folder) return { x: 0, y: 0, w: 0, h: 0 };
-
-    const rects: Rect[] = [
-      folder.titleRect,
-      folder.finalPanel,
-      ...folder.items.flatMap((item) => [item.hit]),
-    ];
-    const minX = Math.min(...rects.map((rect) => rect.x));
-    const minY = Math.min(...rects.map((rect) => rect.y));
-    const maxX = Math.max(...rects.map((rect) => rect.x + rect.w));
-    const maxY = Math.max(...rects.map((rect) => rect.y + rect.h));
-    const pad = 24;
-    const x = Math.max(0, Math.floor(minX - pad));
-    const y = Math.max(0, Math.floor(minY - pad));
-    return {
-      x,
-      y,
-      w: Math.min(cssWidth - x, Math.ceil(maxX - minX + pad * 2)),
-      h: Math.min(cssHeight - y, Math.ceil(maxY - minY + pad * 2)),
-    };
-  }
-
-  function folderOverlayPresentRect(finalRect: Rect): Rect {
-    const folder = layout.folder;
-    if (!folder) return finalRect;
-
-    const scaleX = folder.panel.w / Math.max(folder.finalPanel.w, 1);
-    const scaleY = folder.panel.h / Math.max(folder.finalPanel.h, 1);
-    return {
-      x: folder.panel.x + (finalRect.x - folder.finalPanel.x) * scaleX,
-      y: folder.panel.y + (finalRect.y - folder.finalPanel.y) * scaleY,
-      w: finalRect.w * scaleX,
-      h: finalRect.h * scaleY,
-    };
-  }
-
-  function folderOverlayAlpha() {
-    const progress = layout.folder?.progress ?? 0;
-    const t = THREE.MathUtils.clamp((progress - 0.08) / 0.52, 0, 1);
-    return t * t * (3 - 2 * t);
-  }
-
   function folderBackdropAlpha() {
     const progress = layout.folder?.progress ?? 0;
     const t = THREE.MathUtils.clamp(progress / 0.55, 0, 1);
     return t * t * (3 - 2 * t);
   }
 
-  function renderFolderOverlay(target: THREE.WebGLRenderTarget | null) {
-    if (!layout.folder) return;
-
-    const itemSig = layout.folder.items.map((item) => item.id).join(',');
-    const finalRect = folderOverlayRect();
-    // The folder's icon/title atlas is rasterized once at the final layout.
-    // Opening/closing only changes this quad's transform and alpha, avoiding a
-    // Canvas2D redraw plus texture upload on every animation frame.
-    drawRectLayer(
-      folderLayer as CanvasLayer,
-      finalRect,
-      `folder:${layout.width}:${layout.height}:${layout.mobile ? 1 : 0}:${state.lang}:${assets ? 1 : 0}:${layout.folder.id}:${itemSig}`,
-      (context) => drawMacFolderOverlay(context, layout, assets, state, true),
-      target,
-      folderOverlayPresentRect(finalRect),
-      folderOverlayAlpha(),
-    );
-  }
-
-  function renderHomeScreen(target: THREE.WebGLRenderTarget | null, blurred: THREE.Texture, now: Date) {
+  function renderHomeScreen(target: THREE.WebGLRenderTarget | null, blurred: THREE.Texture) {
     if (!backgroundTarget) return;
 
     presentBackground(backgroundTarget.texture, target);
     glassPipeline.renderPanels(blurred, collectHomeGlassPanels(), cssWidth, cssHeight, target);
-
-    renderDesktopIcons(target);
-    drawRectLayer(
-      widgetLayer as CanvasLayer,
-      layout.widgetsRect ?? { x: 0, y: 0, w: 0, h: 0 },
-      `widget:${layout.width}:${layout.height}:${state.lang}:${frameMinuteKey(now)}:${Math.round(state.fps)}`,
-      (context) => drawMacWidgetOverlay(context, layout, state, now),
-      target,
-    );
-    drawRectLayer(
-      dockLayer as CanvasLayer,
-      layout.dockRect,
-      dockCacheKey,
-      (context) => drawMacDockOverlay(context, layout, assets, state),
-      target,
-    );
-    drawRectLayer(
-      menubarLayer as CanvasLayer,
-      layout.menubarRect,
-      `menubar:${layout.width}:${state.lang}:${frameMinuteKey(now)}:${langAnim.toFixed(3)}`,
-      (context) => drawMacMenubarOverlay(context, layout, state, now, langAnim),
-      target,
-    );
   }
 
   function ensureFolderTargets() {
@@ -971,20 +792,20 @@ export function mountMacSingleCanvas(rootInput: Element) {
     folderSnapshotTarget = makeRenderTarget(folderBackdropWidth, folderBackdropHeight);
   }
 
-  function captureFolderBackdrop(blurred: THREE.Texture, now: Date) {
+  function captureFolderBackdrop(blurred: THREE.Texture) {
     ensureFolderTargets();
     if (!folderSnapshotTarget) return;
 
-    renderHomeScreen(folderSnapshotTarget, blurred, now);
+    renderHomeScreen(folderSnapshotTarget, blurred);
     folderBackdropTexture = folderBackdropBlur.renderBlur(folderSnapshotTarget);
     folderSnapshotDirty = false;
   }
 
-  function ensureFolderBackdrop(now: Date) {
+  function ensureFolderBackdrop() {
     if (!backgroundTarget) return;
 
     const liveBlurred = glassPipeline.renderBlur(backgroundTarget);
-    captureFolderBackdrop(liveBlurred, now);
+    captureFolderBackdrop(liveBlurred);
   }
 
   function scheduleFolderBackdropPreheat() {
@@ -1006,7 +827,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       if (destroyed || document.hidden || state.folder || !backgroundTarget || !folderSnapshotDirty || folderBackdropTexture) {
         return;
       }
-      ensureFolderBackdrop(new Date());
+      ensureFolderBackdrop();
     };
 
     if (idleWindow.requestIdleCallback) {
@@ -1059,7 +880,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const fpsSampler = createFpsSampler();
   let activeCanvasFpsLimit = MAC_FPS_TUNING.maxCanvasFps;
   const startTime = performance.now();
-  let lastClockKey = '';
 
   function clearQueuedFrame() {
     cancelAnimationFrame(raf);
@@ -1175,11 +995,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (useGyro) pointer.set(gyro.x, gyro.y);
 
     const now = new Date();
-    const clockKey = frameMinuteKey(now);
-    if (clockKey !== lastClockKey) {
-      lastClockKey = clockKey;
-      renderDirty = true;
-    }
     const wallpaperRendered = !layout.folder && !backgroundPointerBlocked
       ? renderWallpaper(time, pointerActive || useGyro, dt)
       : false;
@@ -1209,22 +1024,21 @@ export function mountMacSingleCanvas(rootInput: Element) {
           // Freeze the current canvas home screen once, then blur that frozen
           // frame. While the folder is open, the wallpaper/photo3d background
           // does not keep refreshing behind it.
-          captureFolderBackdrop(liveBlurred ?? glassPipeline.renderBlur(backgroundTarget), now);
+          captureFolderBackdrop(liveBlurred ?? glassPipeline.renderBlur(backgroundTarget));
         }
 
         const backdropTexture = folderBackdropTexture ?? folderSnapshotTarget?.texture ?? backgroundTarget.texture;
         // Crossfade from the normal home screen to the blurred cached backdrop.
         // Do not show the low-resolution sharp snapshot directly; that causes a
         // visible flash before the blur reaches full opacity.
-        if (backdropAlpha < 0.999) renderHomeScreen(null, liveBlurred ?? glassPipeline.renderBlur(backgroundTarget), now);
+        if (backdropAlpha < 0.999) renderHomeScreen(null, liveBlurred ?? glassPipeline.renderBlur(backgroundTarget));
         presentBlurredBackdrop(backdropTexture, backdropAlpha);
         folderPanels[0] = layout.folder.panel;
         folderPanels.length = 1;
         glassPipeline.renderPanels(backdropTexture, folderPanels, cssWidth, cssHeight, null);
-        renderFolderOverlay(null);
       } else {
         const blurred = glassPipeline.renderBlur(backgroundTarget);
-        renderHomeScreen(null, blurred, now);
+        renderHomeScreen(null, blurred);
         scheduleFolderBackdropPreheat();
       }
       renderDirty = false;
@@ -1238,6 +1052,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     const keepRunning = animationActive || renderDirty;
+    domDesktop.updateDynamic(state, now);
     updatePerfHud(nowMs, keepRunning ? 'running' : 'frozen', keepRunning ? activeCanvasFpsLimit : 0);
     if (keepRunning) {
       if (running) queueFrame();
@@ -1458,7 +1273,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('popstate', onPopState);
-  const clockTimer = window.setInterval(markRenderDirty, 60_000);
+  const clockTimer = window.setInterval(() => {
+    domDesktop.updateDynamic(state);
+  }, 60_000);
   canvas.style.touchAction = 'none';
   gyro.enable();
   markLayoutDirty();
@@ -1467,21 +1284,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
   resizeObserver.observe(root);
   resize();
 
-  Promise.all([
-    loadMacUiAssets().then((loaded) => {
-      assets = loaded;
-      // Icons/dock cache keys fold in an "assets ready" flag; rebuild so the
-      // freshly-loaded glyphs actually rasterize into their layers.
-      markLayoutDirty();
-    }),
-    createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
-      wallpaperPass = pass;
-      // Desktop opens Photo3D.app by default; its mount path will fetch the
-      // atlas once. Only preload while the app is closed, mainly for mobile.
-      if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
-      resize();
-    }),
-  ]).catch((error) => {
+  createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
+    wallpaperPass = pass;
+    // Desktop opens Photo3D.app by default; its mount path will fetch the
+    // atlas once. Only preload while the app is closed, mainly for mobile.
+    if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
+    resize();
+  }).catch((error) => {
     console.warn('mac single canvas:', error);
   });
 
@@ -1512,15 +1321,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
     mobileNav.destroy();
     root.dataset.macFolderOpen = 'false';
     disposeTargets();
+    domDesktop.destroy();
     domWindows.destroy();
     glassPipeline.dispose();
     folderBackdropBlur.dispose();
     wallpaperPass?.dispose();
     placeholder.dispose();
-    allLayers.forEach((layer) => layer?.texture.dispose());
     geometry.dispose();
     coverMaterial.dispose();
-    uiRectMaterial.dispose();
     upscaleMaterial.dispose();
     blurredBackdropMaterial.dispose();
     renderer.dispose();
