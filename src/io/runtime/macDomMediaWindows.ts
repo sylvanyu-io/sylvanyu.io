@@ -270,6 +270,9 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   video.loop = true;
   video.playsInline = true;
   video.preload = 'metadata';
+  video.disablePictureInPicture = true;
+  video.disableRemotePlayback = true;
+  video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback');
   const glassCanvas = document.createElement('canvas');
   glassCanvas.className = 'mac-video__glass';
   glassCanvas.setAttribute('aria-hidden', 'true');
@@ -297,6 +300,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   progress.min = '0';
   progress.max = '1000';
   progress.value = '0';
+  progress.style.setProperty('--mac-video-progress', '0%');
   progress.setAttribute('aria-label', lang === 'zh' ? '播放进度' : 'Video progress');
   controls.append(skipBack, play, skipForward, progress);
   stage.append(video, glassCanvas, controls);
@@ -326,12 +330,27 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   let scrubbing = false;
   let resumeAfterScrub = false;
   let scrubPointerId: number | null = null;
+  let hasStarted = false;
+  let pointerInside = false;
+  const setControlsVisible = (visible: boolean) => {
+    stage.dataset.controlsVisible = visible ? 'true' : 'false';
+  };
+  const syncControlsVisible = () => {
+    const focusInside = stage.contains(document.activeElement);
+    setControlsVisible(!hasStarted || pointerInside || focusInside || scrubbing);
+  };
+  const syncProgressVisual = () => {
+    const value = Math.min(1000, Math.max(0, Number(progress.value) || 0));
+    progress.style.setProperty('--mac-video-progress', `${value / 10}%`);
+  };
   const syncProgress = () => {
     if (!video.duration || scrubbing) return;
     progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+    syncProgressVisual();
   };
   const seekToProgress = () => {
     if (!video.duration) return;
+    syncProgressVisual();
     video.currentTime = (Number(progress.value) / 1000) * video.duration;
   };
   const stopProgressLoop = () => {
@@ -358,6 +377,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     stopProgressLoop();
     if (resumeAfterScrub) video.pause();
     progress.setPointerCapture(event.pointerId);
+    syncControlsVisible();
   };
   const endScrub = (event: PointerEvent) => {
     if (!scrubbing || scrubPointerId !== event.pointerId) return;
@@ -367,6 +387,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     scrubPointerId = null;
     if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId);
     seekToProgress();
+    syncControlsVisible();
     if (!shouldResume) {
       syncProgress();
       return;
@@ -416,8 +437,11 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     syncProgress();
   });
   video.addEventListener('play', () => {
+    hasStarted = true;
+    stage.dataset.hasStarted = 'true';
     syncPlayButton(true);
     startProgressLoop();
+    syncControlsVisible();
   });
   video.addEventListener('pause', () => {
     syncPlayButton(false);
@@ -430,8 +454,38 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   });
   video.addEventListener('loadedmetadata', syncProgress);
   video.addEventListener('seeked', syncProgress);
-  record.cleanup.push(stopProgressLoop);
+  const syncPointerPosition = (event: MouseEvent) => {
+    const rect = stage.getBoundingClientRect();
+    const nextPointerInside = event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom;
+    if (nextPointerInside === pointerInside) return;
+    pointerInside = nextPointerInside;
+    if (pointerInside) {
+      syncControlsVisible();
+      return;
+    }
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && stage.contains(focused)) focused.blur();
+    syncControlsVisible();
+  };
+  document.addEventListener('mousemove', syncPointerPosition, { passive: true });
+  stage.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'touch') return;
+    pointerInside = true;
+    setControlsVisible(true);
+  }, { passive: true });
+  stage.addEventListener('focusin', syncControlsVisible);
+  stage.addEventListener('focusout', () => {
+    requestAnimationFrame(syncControlsVisible);
+  });
+  record.cleanup.push(stopProgressLoop, () => {
+    document.removeEventListener('mousemove', syncPointerPosition);
+  });
 
+  stage.dataset.hasStarted = 'false';
+  setControlsVisible(true);
   syncPlayButton(false);
   syncMeta();
   shell.append(close, stage, meta);
