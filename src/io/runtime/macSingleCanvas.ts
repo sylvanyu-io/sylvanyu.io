@@ -221,7 +221,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let dockCacheKey = '';
   let langAnim = state.lang === 'zh' ? 1 : 0;
   let pixelRatio = 1;
-  let backgroundPixelRatio = 1;
   let renderWidth = 1;
   let renderHeight = 1;
   let baseWidth = 1;
@@ -688,21 +687,24 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const nextSafeInsets = readSafeInsets();
     const mobileViewport = isMacMobileViewport(nextCssWidth, nextCssHeight);
     const nextPixelRatio = cappedDevicePixelRatio(nextCssWidth, nextCssHeight, mobileViewport);
-    const nextBackgroundPixelRatio = Math.min(
-      nextPixelRatio,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssWidth,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssHeight,
-    );
     const nextRenderWidth = Math.max(1, Math.round(nextCssWidth * nextPixelRatio));
     const nextRenderHeight = Math.max(1, Math.round(nextCssHeight * nextPixelRatio));
-    const nextBaseWidth = Math.max(1, Math.round(nextRenderWidth * MAC_RENDER_TUNING.baseRenderScale));
-    const nextBaseHeight = Math.max(1, Math.round(nextRenderHeight * MAC_RENDER_TUNING.baseRenderScale));
-    const nextBackgroundWidth = Math.max(1, Math.round(nextCssWidth * nextBackgroundPixelRatio));
-    const nextBackgroundHeight = Math.max(1, Math.round(nextCssHeight * nextBackgroundPixelRatio));
+    const wallpaperRenderScale = Math.min(
+      MAC_RENDER_TUNING.baseRenderScale,
+      MAC_RENDER_TUNING.maxWallpaperRenderEdge / nextRenderWidth,
+      MAC_RENDER_TUNING.maxWallpaperRenderEdge / nextRenderHeight,
+    );
+    const nextBaseWidth = Math.max(1, Math.round(nextRenderWidth * wallpaperRenderScale));
+    const nextBaseHeight = Math.max(1, Math.round(nextRenderHeight * wallpaperRenderScale));
+    // The glass blur consumes the Photo3D target directly. Keep the entire
+    // down/up chain at that actual source size instead of upsampling its final
+    // pass to a larger intermediate target.
+    const nextBackgroundWidth = nextBaseWidth;
+    const nextBackgroundHeight = nextBaseHeight;
     const folderBackdropPixelRatio = Math.min(
       nextPixelRatio * MAC_RENDER_TUNING.folderBackdropScale,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssWidth,
-      MAC_RENDER_TUNING.maxBackgroundRenderEdge / nextCssHeight,
+      MAC_RENDER_TUNING.maxFolderBackdropRenderEdge / nextCssWidth,
+      MAC_RENDER_TUNING.maxFolderBackdropRenderEdge / nextCssHeight,
     );
     const nextFolderBackdropWidth = Math.max(1, Math.round(nextCssWidth * folderBackdropPixelRatio));
     const nextFolderBackdropHeight = Math.max(1, Math.round(nextCssHeight * folderBackdropPixelRatio));
@@ -712,7 +714,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
       && cssWidth === nextCssWidth
       && cssHeight === nextCssHeight
       && pixelRatio === nextPixelRatio
-      && backgroundPixelRatio === nextBackgroundPixelRatio
       && renderWidth === nextRenderWidth
       && renderHeight === nextRenderHeight
       && baseWidth === nextBaseWidth
@@ -730,7 +731,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
     cssHeight = nextCssHeight;
     safeInsets = nextSafeInsets;
     pixelRatio = nextPixelRatio;
-    backgroundPixelRatio = nextBackgroundPixelRatio;
     renderWidth = nextRenderWidth;
     renderHeight = nextRenderHeight;
     baseWidth = nextBaseWidth;
