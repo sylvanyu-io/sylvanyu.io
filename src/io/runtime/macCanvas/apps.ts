@@ -154,31 +154,31 @@ export const MAC_APPS: MacAppDefinition[] = [
 export const MAC_VIDEO_LAB_APPS: MacVideoLabAppDefinition[] = [
   {
     id: 'video-spatial-photo',
-    icon: 'videos/xhs-android-spatial-photo-demo.jpg',
+    icon: 'icon-video-spatial-photo.webp',
     labels: { en: 'Spatial Photo', zh: '空间照片' },
     clipIndex: 0,
   },
   {
     id: 'video-blender-motion',
-    icon: 'videos/blender-personal-inertial-motion-test.jpg',
+    icon: 'icon-video-blender-motion.webp',
     labels: { en: 'Blender Motion', zh: '惯性动补' },
     clipIndex: 1,
   },
   {
     id: 'video-xiaobao-world',
-    icon: 'videos/xiaobao-world-mobile-runtime-demo.jpg',
+    icon: 'icon-video-xiaobao-world.webp',
     labels: { en: 'Xiaobao World', zh: '小宝大世界' },
     clipIndex: 2,
   },
   {
     id: 'video-vision-pro',
-    icon: 'videos/vision-pro-mr-water-gun-demo.jpg',
+    icon: 'icon-video-vision-pro.webp',
     labels: { en: 'Vision Pro MR', zh: 'Vision Pro MR' },
     clipIndex: 3,
   },
   {
     id: 'video-galacean-render',
-    icon: 'videos/galacean-high-fidelity-rendering-demo.jpg',
+    icon: 'icon-video-galacean-render.webp',
     labels: { en: 'Galacean Render', zh: '极致渲染' },
     clipIndex: 4,
   },
