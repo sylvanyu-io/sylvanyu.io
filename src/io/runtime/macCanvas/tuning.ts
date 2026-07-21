@@ -32,7 +32,6 @@ export const MAC_RENDER_TUNING = {
   // A/B result: background upscale is visually close enough here and showed a
   // clear performance lift on both desktop and mobile.
   baseRenderScale: 0.52,
-  baseUpscaleSharpness: 0.1,
   // Folder backdrops are heavily blurred and do not need full-DPR source detail.
   folderBackdropScale: 0.5,
   wallpaperShadeStrength: 0.16,

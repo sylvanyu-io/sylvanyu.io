@@ -273,8 +273,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
   const upscaleUniforms = {
     uScene: { value: placeholder as THREE.Texture },
-    uInputSize: { value: new THREE.Vector2(1, 1) },
-    uSharpness: { value: MAC_RENDER_TUNING.baseUpscaleSharpness },
   };
   const blurredBackdropUniforms = {
     uScene: { value: placeholder as THREE.Texture },
@@ -780,7 +778,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
   // Presents the already-screen-aspect background to the chosen framebuffer.
   function presentBackground(texture: THREE.Texture, target: THREE.WebGLRenderTarget | null) {
     upscaleUniforms.uScene.value = texture;
-    upscaleUniforms.uInputSize.value.set(baseWidth, baseHeight);
     renderPass(renderer, scene, camera, passMesh, upscaleMaterial, target);
   }
 
