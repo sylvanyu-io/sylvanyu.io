@@ -21,6 +21,7 @@ import {
 import { createAppLoader, div, setAppLoaderState, setText } from './macDomElements';
 import { dispatchBackgroundPointerBlock, dispatchWindowAction, setCanvasRendering } from './macDomWindowState';
 import type { MacDomWindowRecord } from './macDomWindowContent';
+import { ensureVideoGlassMounted, releaseVideoWindow } from './macDomMediaWindows';
 
 function photoCompareContent(lang: Lang): ComparePanelContent {
   const copy = desktopCopy[lang];
@@ -349,6 +350,11 @@ export function ensureWindowContentMounted(record: MacDomWindowRecord) {
     return;
   }
 
+  if (record.id === 'video') {
+    ensureVideoGlassMounted(record);
+    return;
+  }
+
   if (record.id !== 'photo') return;
 
   mountPhotoIsland(record).catch((error) => {
@@ -383,6 +389,10 @@ export function syncWindowCanvasActivity(record: MacDomWindowRecord, active: boo
 }
 
 export function releaseWindowCanvasDemo(record: MacDomWindowRecord) {
+  if (record.id === 'video') {
+    releaseVideoWindow(record);
+    return;
+  }
   if (record.id !== 'reflection') return;
   record.canvasDemoMountToken = (record.canvasDemoMountToken ?? 0) + 1;
   record.canvasDemoCleanup?.();

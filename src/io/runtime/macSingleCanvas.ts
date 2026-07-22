@@ -160,6 +160,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let appBackgroundPointerBlocked = false;
   let gyroPromptAttempted = false;
   let wallpaperPass: Photo3DPass | null = null;
+  let forceWallpaperFrame = false;
   let initialModeApplied = false;
 
   // env(safe-area-inset-*) is only readable through CSS, so a hidden probe
@@ -317,7 +318,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       // before starting the animation clock. The click may take one setup
       // frame, but texture allocation and the multi-level Kawase chain can no
       // longer stall an animation already in flight.
-      if (backgroundTarget && folderSnapshotDirty && !folderBackdropTexture) {
+      if (wallpaperPass && backgroundTarget && folderSnapshotDirty && !folderBackdropTexture) {
         ensureFolderBackdrop();
       }
       const nowMs = performance.now();
@@ -610,6 +611,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
     folderSnapshotDirty = true;
   }
 
+  function invalidateFolderBackdrop() {
+    folderBackdropTexture = null;
+    folderSnapshotDirty = true;
+  }
+
   function disposeTargets() {
     disposeTarget(backgroundTarget);
     backgroundTarget = null;
@@ -814,6 +820,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       || document.hidden
       || state.folder
       || folderPreheatHandle !== null
+      || !wallpaperPass
       || !backgroundTarget
       || !folderSnapshotDirty
       || folderBackdropTexture
@@ -824,7 +831,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const run = () => {
       folderPreheatHandle = null;
       folderPreheatUsesIdle = false;
-      if (destroyed || document.hidden || state.folder || !backgroundTarget || !folderSnapshotDirty || folderBackdropTexture) {
+      if (
+        destroyed
+        || document.hidden
+        || state.folder
+        || !wallpaperPass
+        || !backgroundTarget
+        || !folderSnapshotDirty
+        || folderBackdropTexture
+      ) {
         return;
       }
       ensureFolderBackdrop();
@@ -995,9 +1010,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (useGyro) pointer.set(gyro.x, gyro.y);
 
     const now = new Date();
-    const wallpaperRendered = !layout.folder && !backgroundPointerBlocked
+    const renderWallpaperOnce = forceWallpaperFrame && Boolean(wallpaperPass);
+    const wallpaperRendered = ((!layout.folder && !backgroundPointerBlocked) || renderWallpaperOnce)
       ? renderWallpaper(time, pointerActive || useGyro, dt)
       : false;
+    if (renderWallpaperOnce) forceWallpaperFrame = false;
     const animationActive = folderAnimating
       || langAnimating
       || wallpaperRendered
@@ -1286,10 +1303,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
     wallpaperPass = pass;
+    // Safari falls back to timer-based folder preheating. If that timer ran
+    // before the Photo3D atlas was ready, discard the placeholder snapshot and
+    // force one real wallpaper frame even when a folder has already opened.
+    invalidateFolderBackdrop();
+    forceWallpaperFrame = true;
     // Desktop opens Photo3D.app by default; its mount path will fetch the
     // atlas once. Only preload while the app is closed, mainly for mobile.
     if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
-    resize();
+    markRenderDirty();
   }).catch((error) => {
     console.warn('mac single canvas:', error);
   });

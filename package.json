@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:video-manifest": "node scripts/generate-video-byte-lengths.mjs",
+    "check:video-manifest": "node scripts/generate-video-byte-lengths.mjs --check",
+    "predev": "npm run sync:video-manifest",
     "dev": "astro dev",
+    "prebuild": "npm run sync:video-manifest",
     "build": "rm -rf dist && astro build",
     "preview": "astro preview",
     "astro": "astro"

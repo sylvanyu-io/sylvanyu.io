@@ -43,6 +43,9 @@ export type MacDomWindowRecord = {
   spatialParamPanel?: HTMLElement;
   spatialPendingParams?: Record<string, number>;
   videoGlassController?: MacVideoGlassController | null;
+  videoGlassMountToken?: number;
+  videoGlassMountingToken?: number;
+  videoCleanup?: (() => void)[];
   contentLang?: Lang;
   internalBack?: () => boolean;
 };

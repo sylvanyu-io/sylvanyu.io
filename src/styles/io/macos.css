@@ -2502,10 +2502,10 @@
 
   .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-dom-window__body--video {
     box-sizing: border-box;
-    display: flex;
+    display: grid;
     height: 100%;
-    align-items: center;
-    justify-content: center;
+    min-height: 0;
+    place-items: center;
     overflow: hidden;
     padding: max(20px, calc(var(--mac-safe-top, 0px) + 16px)) 18px max(20px, calc(var(--mac-safe-bottom, 0px) + 16px));
     background: transparent;
@@ -2519,10 +2519,10 @@
   .mac-dom-window[data-window-id="video"][data-mobile="true"] .mac-video {
     width: min(100%, 560px);
     height: auto;
-    max-height: 100%;
-    overflow: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
     overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   .mac-video__close {

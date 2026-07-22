@@ -578,6 +578,7 @@ export function createMacDomWindows(
       animations.forEach((animation) => animation.cancel());
       records.forEach((record) => {
         releaseWindowCanvasDemo(record);
+        record.videoCleanup?.splice(0).forEach((cleanup) => cleanup());
         record.cleanup.forEach((cleanup) => cleanup());
       });
       layer.remove();

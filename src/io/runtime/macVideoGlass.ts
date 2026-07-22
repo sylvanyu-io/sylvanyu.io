@@ -68,6 +68,7 @@ const SCRUB_GLASS: GlassPanelInput['params'] = {
 
 export type MacVideoGlassController = {
   setActive: (active: boolean) => void;
+  setControlsVisible: (visible: boolean) => void;
   setPoster: (src: string) => void;
   resize: () => void;
   dispose: () => void;
@@ -161,7 +162,9 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   let deviceWidth = 1;
   let deviceHeight = 1;
   let active = true;
+  let controlsVisible = true;
   let raf = 0;
+  let videoFrameRequest = 0;
   let running = false;
   let disposed = false;
   let needsResize = true;
@@ -205,7 +208,12 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   }
 
   function shouldLoop() {
-    return active && !document.hidden && !video.paused && !video.ended && hasLiveVideoFrame();
+    return active
+      && controlsVisible
+      && !document.hidden
+      && !video.paused
+      && !video.ended
+      && hasLiveVideoFrame();
   }
 
   function sourceTexture() {
@@ -302,14 +310,16 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     frameLimiter.consumeDelta(nowMs);
   }
 
+  const supportsVideoFrameCallback = typeof video.requestVideoFrameCallback === 'function';
+
   function frame(nowMs: number) {
     raf = 0;
+    videoFrameRequest = 0;
     if (!shouldLoop()) {
       running = false;
-      renderOnce(nowMs);
       return;
     }
-    if (!frameLimiter.shouldRender(nowMs, MAC_FPS_TUNING.videoGlassFps)) {
+    if (!supportsVideoFrameCallback && !frameLimiter.shouldRender(nowMs, MAC_FPS_TUNING.videoGlassFps)) {
       queue();
       return;
     }
@@ -318,7 +328,11 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   }
 
   function queue() {
-    if (!running || raf) return;
+    if (!running || raf || videoFrameRequest) return;
+    if (supportsVideoFrameCallback) {
+      videoFrameRequest = video.requestVideoFrameCallback(frame);
+      return;
+    }
     raf = requestAnimationFrame(frame);
   }
 
@@ -332,7 +346,11 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   function stop() {
     running = false;
     if (raf) cancelAnimationFrame(raf);
+    if (videoFrameRequest && typeof video.cancelVideoFrameCallback === 'function') {
+      video.cancelVideoFrameCallback(videoFrameRequest);
+    }
     raf = 0;
+    videoFrameRequest = 0;
   }
 
   const resizeObserver = new ResizeObserver(() => {
@@ -377,6 +395,17 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     setActive(nextActive) {
       active = nextActive;
       if (active) {
+        renderOnce();
+        start();
+      } else {
+        stop();
+      }
+    },
+    setControlsVisible(nextVisible) {
+      if (controlsVisible === nextVisible) return;
+      controlsVisible = nextVisible;
+      if (controlsVisible) {
+        panelsDirty = true;
         renderOnce();
         start();
       } else {
