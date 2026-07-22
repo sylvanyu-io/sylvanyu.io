@@ -42,6 +42,18 @@ function cacheableVideoResponse(response: Response) {
   });
 }
 
+function ifRangeMatches(ifRange: string | null, response: Response) {
+  if (!ifRange) return true;
+
+  const validator = ifRange.trim();
+  if (validator.startsWith('"')) {
+    const etag = response.headers.get('etag')?.trim();
+    return Boolean(etag && !etag.startsWith('W/') && etag === validator);
+  }
+
+  return response.headers.get('last-modified')?.trim() === validator;
+}
+
 function parseByteRange(value: string, total: number): ByteRange | null {
   const match = /^bytes=(\d*)-(\d*)$/.exec(value.trim());
   if (!match || total <= 0) return null;
@@ -132,14 +144,27 @@ export default {
 
     const total = VIDEO_BYTE_LENGTHS[new URL(request.url).pathname] ?? 0;
     const cache = caches.default;
-    const cachedRange = await cache.match(request);
-    if (cachedRange) {
-      return cachedRange.status === 206
-        ? cachedRange
-        : rangedVideoResponse(cachedRange, range, total);
+    const fullRequest = withoutRange(request);
+    const ifRange = request.headers.get('if-range');
+
+    if (ifRange) {
+      const cachedFull = await cache.match(fullRequest);
+      if (cachedFull) {
+        if (!ifRangeMatches(ifRange, cachedFull)) return cachedFull;
+        const cachedRange = await cache.match(request);
+        return cachedRange?.status === 206
+          ? cachedRange
+          : rangedVideoResponse(cachedFull, range, total);
+      }
+    } else {
+      const cachedRange = await cache.match(request);
+      if (cachedRange) {
+        return cachedRange.status === 206
+          ? cachedRange
+          : rangedVideoResponse(cachedRange, range, total);
+      }
     }
 
-    const fullRequest = withoutRange(request);
     const assetResponse = await env.ASSETS.fetch(fullRequest);
     if (!assetResponse.ok) return assetResponse;
 
@@ -149,6 +174,7 @@ export default {
     // Stream the requested slice immediately on a cold cache. At the same
     // time, the complete asset is cached so later seeks are native 206 cache
     // hits instead of repeatedly walking the full static-asset stream.
+    if (!ifRangeMatches(ifRange, fullResponse)) return fullResponse;
     return rangedVideoResponse(fullResponse, range, total);
   },
 };
