@@ -1,28 +1,17 @@
-import * as THREE from 'three';
-import { createGlassPipeline, type GlassPanelInput } from './macCanvas/glassPipeline';
-import { screenVertexShader } from './macCanvas/shaders';
+import * as THREE from 'three/webgpu';
+import { createWebGpuGlassPipeline } from './macCanvas/webgpuGlassPipeline';
+import type { GlassPanelInput } from './macCanvas/glassTypes';
 import {
-  disposeTarget,
-  makePlaceholderTexture,
-  makeRenderTarget,
-  renderPass,
-} from './macCanvas/threeHelpers';
+  disposeWebGpuTarget,
+  makeWebGpuPlaceholderTexture,
+  makeWebGpuRenderTarget,
+  renderWebGpuPass,
+} from './macCanvas/webgpuHelpers';
+import { createScaledTexturePass } from './macCanvas/webgpuPasses';
 import { createFrameLimiter } from './canvasTiming';
 import { MAC_FPS_TUNING, MAC_RENDER_TUNING } from './macCanvas/tuning';
 
-const videoSourceFragmentShader = `
-precision highp float;
-
-uniform sampler2D uScene;
-uniform vec2 uUvScale;
-
-varying vec2 vUv;
-
-void main() {
-  vec2 coverUv = (vUv - 0.5) * uUvScale + 0.5;
-  gl_FragColor = texture2D(uScene, clamp(coverUv, vec2(0.001), vec2(0.999)));
-}
-`;
+const RENDERER_PARAM = 'renderer';
 
 const BUTTON_GLASS: GlassPanelInput['params'] = {
   splay: 1,
@@ -127,12 +116,11 @@ function loadPosterTexture(src: string, onLoad: () => void) {
 }
 
 export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, canvas: HTMLCanvasElement): MacVideoGlassController | null {
-  const renderer = new THREE.WebGLRenderer({
+  const renderer = new THREE.WebGPURenderer({
     canvas,
     alpha: true,
     antialias: false,
-    premultipliedAlpha: true,
-    preserveDrawingBuffer: false,
+    forceWebGL: new URLSearchParams(window.location.search).get(RENDERER_PARAM) === 'webgl',
     powerPreference: 'high-performance',
   });
   renderer.setClearColor(0x000000, 0);
@@ -145,8 +133,9 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   const mesh = new THREE.Mesh(geometry);
   mesh.frustumCulled = false;
   scene.add(mesh);
+  const passContext = { renderer, scene, camera, mesh };
 
-  const placeholder = makePlaceholderTexture();
+  const placeholder = makeWebGpuPlaceholderTexture();
   const videoTexture = new THREE.VideoTexture(video);
   videoTexture.colorSpace = THREE.SRGBColorSpace;
   videoTexture.minFilter = THREE.LinearFilter;
@@ -156,7 +145,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   let posterTexture: THREE.Texture | null = null;
   let posterTextureReady = false;
   let posterLoadId = 0;
-  let sourceTarget: THREE.WebGLRenderTarget | null = null;
+  let sourceTarget: THREE.RenderTarget | null = null;
   let cssWidth = 1;
   let cssHeight = 1;
   let deviceWidth = 1;
@@ -170,21 +159,12 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   let needsResize = true;
   let panelsDirty = true;
   let sourceReady = false;
+  let rendererReady = false;
   let cachedPanels: GlassPanelInput[] = [];
 
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.videoGlassFps);
-  const sourceUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
-    uUvScale: { value: new THREE.Vector2(1, 1) },
-  };
-  const sourceMaterial = new THREE.ShaderMaterial({
-    uniforms: sourceUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: videoSourceFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const glassPipeline = createGlassPipeline({ renderer, scene, camera, mesh }, placeholder);
+  const sourcePass = createScaledTexturePass(placeholder);
+  const glassPipeline = createWebGpuGlassPipeline(passContext, placeholder);
 
   function hasLiveVideoFrame() {
     return video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
@@ -244,14 +224,13 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     return width > 0 && height > 0 ? width / height : cssWidth / cssHeight;
   }
 
-  function syncCoverUv(texture: THREE.Texture) {
+  function coverUvScale(texture: THREE.Texture) {
     const imageAspect = sourceAspect(texture);
     const stageAspect = cssWidth / Math.max(1, cssHeight);
     if (imageAspect > stageAspect) {
-      sourceUniforms.uUvScale.value.set(stageAspect / imageAspect, 1);
-    } else {
-      sourceUniforms.uUvScale.value.set(1, imageAspect / stageAspect);
+      return { x: stageAspect / imageAspect, y: 1 };
     }
+    return { x: 1, y: imageAspect / stageAspect };
   }
 
   function resize() {
@@ -262,8 +241,8 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     deviceHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(cssWidth, cssHeight, false);
-    disposeTarget(sourceTarget);
-    sourceTarget = makeRenderTarget(deviceWidth, deviceHeight);
+    disposeWebGpuTarget(sourceTarget);
+    sourceTarget = makeWebGpuRenderTarget(deviceWidth, deviceHeight);
     glassPipeline.resize(deviceWidth, deviceHeight);
     sourceReady = false;
     needsResize = false;
@@ -289,7 +268,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   }
 
   function renderOnce(nowMs = performance.now()) {
-    if (disposed || !active || document.hidden) return;
+    if (disposed || !rendererReady || !active || document.hidden) return;
     if (needsResize || !sourceTarget) resize();
     if (!sourceTarget) return;
 
@@ -297,16 +276,17 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     renderer.setRenderTarget(null);
     renderer.clear(true, true, true);
     if (texture) {
-      sourceUniforms.uScene.value = texture;
-      syncCoverUv(texture);
-      renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
+      const scale = coverUvScale(texture);
+      sourcePass.set(texture, scale.x, scale.y);
+      renderWebGpuPass(passContext, sourcePass.material, sourceTarget);
       sourceReady = true;
     } else if (!sourceReady) {
       frameLimiter.consumeDelta(nowMs);
       return;
     }
 
-    glassPipeline.renderPanels(sourceTarget.texture, collectPanels(), cssWidth, cssHeight, null);
+    const blurred = glassPipeline.renderBlur(sourceTarget);
+    glassPipeline.renderPanels(blurred, collectPanels(), cssWidth, cssHeight, null);
     frameLimiter.consumeDelta(nowMs);
   }
 
@@ -388,8 +368,26 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   video.addEventListener('pause', onPause);
   document.addEventListener('visibilitychange', onVisibilityChange);
   setPosterTexture(video.poster);
-  renderOnce();
-  start();
+
+  void renderer.init().then(() => {
+    if (disposed) {
+      renderer.dispose();
+      return;
+    }
+    rendererReady = true;
+    const backend = (renderer as THREE.WebGPURenderer & {
+      backend?: { isWebGPUBackend?: boolean; isWebGLBackend?: boolean };
+    }).backend;
+    canvas.dataset.macVideoRenderer = backend?.isWebGPUBackend
+      ? 'webgpu'
+      : backend?.isWebGLBackend ? 'webgl2-fallback' : 'ready';
+    renderOnce();
+    start();
+  }).catch((error) => {
+    if (disposed) return;
+    canvas.dataset.macVideoRenderer = 'failed';
+    console.warn('mac video glass renderer:', error);
+  });
 
   return {
     setActive(nextActive) {
@@ -433,14 +431,15 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      disposeTarget(sourceTarget);
+      disposeWebGpuTarget(sourceTarget);
       posterTexture?.dispose();
       videoTexture.dispose();
       placeholder.dispose();
-      sourceMaterial.dispose();
+      sourcePass.material.dispose();
       glassPipeline.dispose();
       geometry.dispose();
       renderer.dispose();
+      delete canvas.dataset.macVideoRenderer;
     },
   };
 }

@@ -1,12 +1,12 @@
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import { createMacDomDesktop } from './macDomDesktop';
 import { createMacDomWindows } from './macDomWindows';
 import { MAC_BACKGROUND_POINTER_BLOCK_EVENT } from './macDomWindowEvents';
 import { scheduleIdleImagePreload } from './assetPreload';
 import {
-  createPhoto3DPass,
-  type Photo3DPass,
-} from './macCanvas/photo3d';
+  createWebGpuPhoto3DPass,
+  type WebGpuPhoto3DPass,
+} from './macCanvas/webgpuPhoto3d';
 import { createGyroPointer } from './macCanvas/gyroPointer';
 import { createMacMobileNav } from './macMobileNav';
 import {
@@ -24,22 +24,22 @@ import {
   type SafeInsets,
   type WindowId,
 } from './macCanvas/ui';
+import type { GlassPanelInput } from './macCanvas/glassTypes';
 import {
-  createGlassPipeline,
-  createKawaseBlurPipeline,
-  type GlassPanelInput,
-} from './macCanvas/glassPipeline';
+  createWebGpuGlassPipeline,
+  createWebGpuKawaseBlurPipeline,
+} from './macCanvas/webgpuGlassPipeline';
 import {
-  baseUpscaleFragmentShader,
-  coverFragmentShader,
-  screenVertexShader,
-} from './macCanvas/shaders';
+  disposeWebGpuTarget,
+  makeWebGpuPlaceholderTexture,
+  makeWebGpuRenderTarget,
+  renderWebGpuPass,
+} from './macCanvas/webgpuHelpers';
 import {
-  disposeTarget,
-  makePlaceholderTexture,
-  makeRenderTarget,
-  renderPass,
-} from './macCanvas/threeHelpers';
+  createBackdropPass,
+  createCopyPass,
+  createCoverPass,
+} from './macCanvas/webgpuPasses';
 import { createFpsSampler, createFrameLimiter } from './canvasTiming';
 import {
   FOLDER_BACKDROP_BLUR,
@@ -51,7 +51,6 @@ import {
   MAC_WALLPAPER_MOTION,
 } from './macCanvas/tuning';
 import {
-  PHOTO3D_SHADER_URL,
   PHOTO_APP_ATLAS,
   PHOTO_APP_META,
   WALLPAPER_ATLAS,
@@ -85,20 +84,7 @@ const FOLDER_OPEN_DURATION_MS = 280;
 const FOLDER_CLOSE_DURATION_MS = 220;
 const FOLDER_PREHEAT_TIMEOUT_MS = 160;
 const PERF_HUD_PARAM = 'perf';
-
-const blurredBackdropFragmentShader = `
-precision highp float;
-
-uniform sampler2D uScene;
-uniform float uAlpha;
-
-varying vec2 vUv;
-
-void main() {
-  vec3 color = texture2D(uScene, clamp(vUv, vec2(0.001), vec2(0.999))).rgb;
-  gl_FragColor = vec4(color, uAlpha);
-}
-`;
+const RENDERER_PARAM = 'renderer';
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
@@ -150,7 +136,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   if (!canvasEl) return;
   const canvas: HTMLCanvasElement = canvasEl;
 
-  const placeholder = makePlaceholderTexture();
+  const placeholder = makeWebGpuPlaceholderTexture();
   const state = createInitialMacCanvasState();
   const pointer = new THREE.Vector2(0, 0);
   const gyro = createGyroPointer(() => markRenderDirty());
@@ -159,7 +145,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let hoverBackgroundPointerBlocked = false;
   let appBackgroundPointerBlocked = false;
   let gyroPromptAttempted = false;
-  let wallpaperPass: Photo3DPass | null = null;
+  let wallpaperPass: WebGpuPhoto3DPass | null = null;
   let forceWallpaperFrame = false;
   let initialModeApplied = false;
 
@@ -208,13 +194,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let folderBackdropWidth = 1;
   let folderBackdropHeight = 1;
   let lastPerfHudUpdateMs = 0;
+  let rendererReady = false;
+  let rendererBackend = 'initializing';
 
-  const renderer = new THREE.WebGLRenderer({
+  const renderer = new THREE.WebGPURenderer({
     canvas,
     antialias: false,
     alpha: false,
-    premultipliedAlpha: false,
-    preserveDrawingBuffer: false,
+    // Three's WebGPU renderer already falls back automatically when WebGPU is
+    // unavailable. The query override keeps that TSL/WebGL2 path testable on a
+    // WebGPU-capable development machine: ?renderer=webgl.
+    forceWebGL: new URLSearchParams(window.location.search).get(RENDERER_PARAM) === 'webgl',
     powerPreference: 'high-performance',
   });
   renderer.setClearColor(0x0a1723, 1);
@@ -228,50 +218,17 @@ export function mountMacSingleCanvas(rootInput: Element) {
   passMesh.frustumCulled = false;
   scene.add(passMesh);
 
-  const glassPipeline = createGlassPipeline({ renderer, scene, camera, mesh: passMesh }, placeholder);
-  const folderBackdropBlur = createKawaseBlurPipeline(
-    { renderer, scene, camera, mesh: passMesh },
+  const passContext = { renderer, scene, camera, mesh: passMesh };
+  const glassPipeline = createWebGpuGlassPipeline(passContext, placeholder);
+  const folderBackdropBlur = createWebGpuKawaseBlurPipeline(
+    passContext,
     placeholder,
     FOLDER_BACKDROP_BLUR,
   );
 
-  const coverUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
-    uResolution: { value: new THREE.Vector2(1, 1) },
-    uImageAspect: { value: 1 },
-    uOverscan: { value: 1.0 },
-    uShade: { value: new THREE.Vector2(0, 0) },
-  };
-  const upscaleUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
-  };
-  const blurredBackdropUniforms = {
-    uScene: { value: placeholder as THREE.Texture },
-    uAlpha: { value: 0 },
-  };
-
-  const coverMaterial = new THREE.ShaderMaterial({
-    uniforms: coverUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: coverFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const upscaleMaterial = new THREE.ShaderMaterial({
-    uniforms: upscaleUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: baseUpscaleFragmentShader,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const blurredBackdropMaterial = new THREE.ShaderMaterial({
-    uniforms: blurredBackdropUniforms,
-    vertexShader: screenVertexShader,
-    fragmentShader: blurredBackdropFragmentShader,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-  });
+  const coverPass = createCoverPass(placeholder);
+  const upscalePass = createCopyPass(placeholder);
+  const blurredBackdropPass = createBackdropPass(placeholder);
 
   const idleWindow = window as IdleWindow;
   let destroyed = false;
@@ -595,8 +552,8 @@ export function mountMacSingleCanvas(rootInput: Element) {
   // backgroundTarget contains only the Photo3D wallpaper and its shade. It is
   // the single source for screen presentation and liquid-glass blur; all text
   // and icons live in the native DOM layer above it.
-  let backgroundTarget: THREE.WebGLRenderTarget | null = null;
-  let folderSnapshotTarget: THREE.WebGLRenderTarget | null = null;
+  let backgroundTarget: THREE.RenderTarget | null = null;
+  let folderSnapshotTarget: THREE.RenderTarget | null = null;
   let folderBackdropTexture: THREE.Texture | null = null;
   // Folder blur is visually abstract enough that the first valid snapshot can
   // be reused across repeated open/close cycles. Resize/destroy are the only
@@ -605,7 +562,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
   function disposeFolderTargets() {
     cancelFolderBackdropPreheat();
-    disposeTarget(folderSnapshotTarget);
+    disposeWebGpuTarget(folderSnapshotTarget);
     folderSnapshotTarget = null;
     folderBackdropTexture = null;
     folderSnapshotDirty = true;
@@ -617,7 +574,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function disposeTargets() {
-    disposeTarget(backgroundTarget);
+    disposeWebGpuTarget(backgroundTarget);
     backgroundTarget = null;
     disposeFolderTargets();
   }
@@ -717,7 +674,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // backgroundTarget renders only the wallpaper at
     // MAC_RENDER_TUNING.baseRenderScale and is upscaled to the screen. Text,
     // icons, and windows remain independent at native DOM resolution.
-    backgroundTarget = makeRenderTarget(baseWidth, baseHeight);
+    backgroundTarget = makeWebGpuRenderTarget(baseWidth, baseHeight);
     glassPipeline.resize(backgroundWidth, backgroundHeight);
     folderBackdropBlur.resize(folderBackdropWidth, folderBackdropHeight);
     // Allocate the snapshot target during the existing resize/setup work so a
@@ -730,15 +687,14 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   // Presents the already-screen-aspect background to the chosen framebuffer.
-  function presentBackground(texture: THREE.Texture, target: THREE.WebGLRenderTarget | null) {
-    upscaleUniforms.uScene.value = texture;
-    renderPass(renderer, scene, camera, passMesh, upscaleMaterial, target);
+  function presentBackground(texture: THREE.Texture, target: THREE.RenderTarget | null) {
+    upscalePass.setTexture(texture);
+    renderWebGpuPass(passContext, upscalePass.material, target);
   }
 
   function presentBlurredBackdrop(texture: THREE.Texture, alpha: number) {
-    blurredBackdropUniforms.uScene.value = texture;
-    blurredBackdropUniforms.uAlpha.value = THREE.MathUtils.clamp(alpha, 0, 1);
-    renderPass(renderer, scene, camera, passMesh, blurredBackdropMaterial, null);
+    blurredBackdropPass.set(texture, THREE.MathUtils.clamp(alpha, 0, 1));
+    renderWebGpuPass(passContext, blurredBackdropPass.material, null);
   }
 
   function renderWallpaper(time: number, parallaxActive: boolean, dt: number) {
@@ -750,7 +706,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       cssHeight * MAC_WALLPAPER_MOTION.shadeHeightRatio,
     ) * basePixelRatio;
     if (wallpaperPass) {
-      return wallpaperPass.render(renderer, backgroundTarget, {
+      return wallpaperPass.render(backgroundTarget, {
         time,
         pointer,
         pointerActive: parallaxActive,
@@ -765,12 +721,16 @@ export function mountMacSingleCanvas(rootInput: Element) {
       });
     }
 
-    coverUniforms.uScene.value = placeholder;
-    coverUniforms.uImageAspect.value = 1;
-    coverUniforms.uOverscan.value = 1.0;
-    coverUniforms.uResolution.value.set(baseWidth, baseHeight);
-    coverUniforms.uShade.value.set(shadeHeightPx, MAC_RENDER_TUNING.wallpaperShadeStrength);
-    renderPass(renderer, scene, camera, passMesh, coverMaterial, backgroundTarget);
+    coverPass.set({
+      texture: placeholder,
+      width: baseWidth,
+      height: baseHeight,
+      imageAspect: 1,
+      overscan: 1,
+      shadeHeight: shadeHeightPx,
+      shadeStrength: MAC_RENDER_TUNING.wallpaperShadeStrength,
+    });
+    renderWebGpuPass(passContext, coverPass.material, backgroundTarget);
     return true;
   }
 
@@ -780,7 +740,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     return t * t * (3 - 2 * t);
   }
 
-  function renderHomeScreen(target: THREE.WebGLRenderTarget | null, blurred: THREE.Texture) {
+  function renderHomeScreen(target: THREE.RenderTarget | null, blurred: THREE.Texture) {
     if (!backgroundTarget) return;
 
     presentBackground(backgroundTarget.texture, target);
@@ -795,7 +755,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     if (snapshotSizeMatches) return;
 
     disposeFolderTargets();
-    folderSnapshotTarget = makeRenderTarget(folderBackdropWidth, folderBackdropHeight);
+    folderSnapshotTarget = makeWebGpuRenderTarget(folderBackdropWidth, folderBackdropHeight);
   }
 
   function captureFolderBackdrop(blurred: THREE.Texture) {
@@ -935,6 +895,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     lastPerfHudUpdateMs = nowMs;
     const photoDebug = wallpaperPass?.getDebug();
     perfHud.textContent = [
+      `renderer ${rendererBackend}`,
       `fps ${Math.round(state.fps)} / cap ${displayFpsLimit}`,
       `state ${status}`,
       `dpr ${pixelRatio.toFixed(2)} native ${(window.devicePixelRatio || 1).toFixed(2)} ${layout.mobile ? 'mobile' : 'desktop'}`,
@@ -1079,7 +1040,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   }
 
   function start() {
-    if (running || document.hidden) return;
+    if (running || document.hidden || !rendererReady) return;
     running = true;
     resetFrameTiming();
     queueFrame();
@@ -1301,17 +1262,46 @@ export function mountMacSingleCanvas(rootInput: Element) {
   resizeObserver.observe(root);
   resize();
 
-  createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
+  void renderer.init().then(() => {
+    // dispose() is a no-op before WebGPURenderer finishes initializing. If the
+    // page was torn down during init, release the newly-created backend here.
+    if (destroyed) {
+      renderer.dispose();
+      return;
+    }
+    rendererReady = true;
+    const backend = (renderer as THREE.WebGPURenderer & {
+      backend?: { isWebGPUBackend?: boolean; isWebGLBackend?: boolean };
+    }).backend;
+    rendererBackend = backend?.isWebGPUBackend ? 'webgpu' : backend?.isWebGLBackend ? 'webgl2-fallback' : 'ready';
+    root.dataset.macRenderer = rendererBackend;
+    markLayoutDirty();
+  }).catch((error) => {
+    if (destroyed) return;
+    rendererBackend = 'failed';
+    root.dataset.macRenderer = rendererBackend;
+    console.warn('mac single canvas renderer:', error);
+  });
+
+  createWebGpuPhoto3DPass(
+    passContext,
+    WALLPAPER_ATLAS,
+    MAC_WALLPAPER_MOTION.layers,
+    PHOTO3D_WALLPAPER_ATLAS_META,
+  ).then((pass) => {
+    if (destroyed) {
+      pass.dispose();
+      return;
+    }
     wallpaperPass = pass;
-    // Safari falls back to timer-based folder preheating. If that timer ran
-    // before the Photo3D atlas was ready, discard the placeholder snapshot and
-    // force one real wallpaper frame even when a folder has already opened.
+    // If a folder opened before the WebGPU Photo3D pass finished loading,
+    // invalidate the placeholder snapshot and force one real wallpaper frame.
     invalidateFolderBackdrop();
     forceWallpaperFrame = true;
     // Desktop opens Photo3D.app by default; its mount path will fetch the
     // atlas once. Only preload while the app is closed, mainly for mobile.
     if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
-    markRenderDirty();
+    markLayoutDirty();
   }).catch((error) => {
     console.warn('mac single canvas:', error);
   });
@@ -1342,6 +1332,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     safeAreaProbe.remove();
     mobileNav.destroy();
     root.dataset.macFolderOpen = 'false';
+    delete root.dataset.macRenderer;
     disposeTargets();
     domDesktop.destroy();
     domWindows.destroy();
@@ -1350,9 +1341,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
     wallpaperPass?.dispose();
     placeholder.dispose();
     geometry.dispose();
-    coverMaterial.dispose();
-    upscaleMaterial.dispose();
-    blurredBackdropMaterial.dispose();
+    coverPass.material.dispose();
+    upscalePass.material.dispose();
+    blurredBackdropPass.material.dispose();
     renderer.dispose();
   };
 

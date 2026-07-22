@@ -14,7 +14,19 @@ export default defineConfig({
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('/node_modules/three/')) return 'vendor-three';
+            if (id.includes('/node_modules/three/build/three.core')) {
+              return 'vendor-three-core';
+            }
+            if (
+              id.includes('/node_modules/three/build/three.webgpu')
+              || id.includes('/node_modules/three/build/three.tsl')
+            ) {
+              return 'vendor-three-webgpu';
+            }
+            if (id.includes('/node_modules/three/build/three.module')) {
+              return 'vendor-three-webgl';
+            }
+            if (id.includes('/node_modules/three/')) return 'vendor-three-addons';
             if (id.includes('/node_modules/@galacean/')) return 'vendor-galacean';
             return undefined;
           },

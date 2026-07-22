@@ -7,16 +7,10 @@ import {
   screenVertexShader,
 } from './shaders';
 import { disposeTarget, makeRenderTarget, renderPass } from './threeHelpers';
-import { DEFAULT_GLASS_PARAMS, GLASS_PANEL_PAD, type GlassParams } from './tuning';
+import type { GlassPanelInput, KawaseBlurParams } from './glassTypes';
+import { DEFAULT_GLASS_PARAMS, GLASS_PANEL_PAD } from './tuning';
 
-export type GlassPanelInput = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  r: number;
-  params?: Partial<GlassParams>;
-};
+export type { GlassPanelInput, KawaseBlurParams } from './glassTypes';
 
 export type GlassPassContext = {
   renderer: THREE.WebGLRenderer;
@@ -24,8 +18,6 @@ export type GlassPassContext = {
   camera: THREE.Camera;
   mesh: THREE.Mesh;
 };
-
-export type KawaseBlurParams = Pick<GlassParams, 'kawasePasses' | 'kawaseOffset' | 'kawaseDownsample'>;
 
 function smoothstep01(edge1: number, value: number) {
   const t = THREE.MathUtils.clamp(value / edge1, 0, 1);
