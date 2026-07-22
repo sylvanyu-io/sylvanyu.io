@@ -52,7 +52,11 @@ export function createBackdropPass(placeholder: THREE.Texture) {
   const source = texture(placeholder);
   const alpha = uniform(0);
   const fragment = Fn(() => {
-    const color = source.sample(clamp(uv(), vec2(0.001), vec2(0.999)));
+    // The folder snapshot is rendered into an offscreen target before this
+    // final presentation pass. Flip that render-target texture once when it
+    // returns to the screen; direct wallpaper presentation needs no such flip.
+    const sourceUv = vec2(uv().x, float(1).sub(uv().y));
+    const color = source.sample(clamp(sourceUv, vec2(0.001), vec2(0.999)));
     return vec4(color.rgb, alpha);
   })();
   return {

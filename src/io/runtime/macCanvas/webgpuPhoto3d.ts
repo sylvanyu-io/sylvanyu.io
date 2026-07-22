@@ -227,7 +227,10 @@ function createPhoto3DNodes(atlasTexture: THREE.Texture, layerCount: number, atl
     const perspectiveUv = mapped.sub(0.5).div(crop).add(0.5);
     const renderCamera = vec3(
       cameraOffset.x.mul(-10),
-      cameraOffset.y.mul(-10),
+      // Atlas cells are sampled with an explicit Y flip for TSL's top-left
+      // screen UV. Mirror the camera transform as well so pointer parallax
+      // keeps the same direction as the legacy WebGL implementation.
+      cameraOffset.y.mul(10),
       cameraOffset.z.mul(8),
     );
     const convergenceDepth = float(1).sub(focus).mul(invZMin);
