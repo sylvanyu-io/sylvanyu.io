@@ -264,13 +264,16 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   close.addEventListener('click', () => record.close.click());
 
   const stage = div('mac-video__stage');
-  stage.style.setProperty('--mac-video-aspect', String(clip.aspectRatio));
+  let mediaAspect = clip.aspectRatio;
+  stage.style.setProperty('--mac-video-aspect', String(mediaAspect));
   const video = document.createElement('video');
   video.className = 'mac-video__media';
   video.src = clip.src;
   video.poster = clip.poster;
   video.loop = true;
   video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
   video.preload = 'metadata';
   video.disablePictureInPicture = true;
   video.disableRemotePlayback = true;
@@ -344,6 +347,9 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   };
   const setControlsVisible = (visible: boolean) => {
     stage.dataset.controlsVisible = visible ? 'true' : 'false';
+    record.videoGlassController?.setControlsVisible(visible);
+    if (visible) startProgressLoop();
+    else stopProgressLoop();
   };
   const syncControlsVisible = () => {
     const keyboardFocusInside = keyboardInteraction && stage.contains(document.activeElement);
@@ -480,7 +486,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     seekToProgress();
   });
   video.addEventListener('timeupdate', () => {
-    if (!video.paused && !video.ended) return;
+    if (!video.paused && !video.ended && stage.dataset.controlsVisible !== 'false') return;
     syncProgress();
   });
   video.addEventListener('play', () => {
@@ -509,7 +515,9 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     syncProgress();
     if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
     const actualAspect = video.videoWidth / video.videoHeight;
+    mediaAspect = actualAspect;
     stage.style.setProperty('--mac-video-aspect', String(actualAspect));
+    fitMobileStage();
     if (Math.abs(actualAspect - clip.aspectRatio) > 0.002) {
       dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: actualAspect });
     }
@@ -539,7 +547,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     pointerInside = true;
     pointerIdle = false;
     setControlsVisible(true);
-    if (event.pointerType !== 'touch') armControlsIdleTimer();
+    armControlsIdleTimer();
   }, { passive: true });
   stage.addEventListener('keydown', () => {
     keyboardInteraction = true;
@@ -565,11 +573,31 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   syncMeta();
   shell.append(close, stage, meta);
   record.body.append(shell);
+  const fitMobileStage = () => {
+    if (record.element.dataset.mobile !== 'true') {
+      shell.style.removeProperty('width');
+      return;
+    }
+    const style = getComputedStyle(record.body);
+    const availableWidth = record.body.clientWidth
+      - (Number.parseFloat(style.paddingLeft) || 0)
+      - (Number.parseFloat(style.paddingRight) || 0);
+    const availableHeight = record.body.clientHeight
+      - (Number.parseFloat(style.paddingTop) || 0)
+      - (Number.parseFloat(style.paddingBottom) || 0);
+    const fittedWidth = Math.min(560, availableWidth, availableHeight * mediaAspect);
+    shell.style.width = `${Math.max(1, fittedWidth)}px`;
+  };
+  const mobileFitObserver = new ResizeObserver(fitMobileStage);
+  mobileFitObserver.observe(record.body);
+  record.cleanup.push(() => mobileFitObserver.disconnect());
+  fitMobileStage();
   dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: clip.aspectRatio });
   const glassController = mountMacVideoGlass(stage, video, glassCanvas);
   if (glassController) {
     record.videoGlassController = glassController;
     glassController.setActive(record.element.dataset.active === 'true');
+    glassController.setControlsVisible(stage.dataset.controlsVisible !== 'false');
     record.cleanup.push(() => glassController.dispose());
   }
 }
