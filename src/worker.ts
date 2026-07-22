@@ -1,3 +1,5 @@
+import { VIDEO_BYTE_LENGTHS } from './generated/videoByteLengths';
+
 interface AssetsBinding {
   fetch(request: Request): Promise<Response>;
 }
@@ -17,14 +19,6 @@ type ByteRange = {
 
 const VIDEO_PATH_PREFIX = '/io-design/assets/videos/';
 const VIDEO_CACHE_CONTROL = 'public, max-age=3600';
-const VIDEO_BYTE_LENGTHS: Record<string, number> = {
-  [`${VIDEO_PATH_PREFIX}blender-personal-inertial-motion-test.mp4`]: 1_952_359,
-  [`${VIDEO_PATH_PREFIX}galacean-high-fidelity-rendering-demo.mp4`]: 3_116_725,
-  [`${VIDEO_PATH_PREFIX}vision-pro-mr-water-gun-demo.mp4`]: 14_512_114,
-  [`${VIDEO_PATH_PREFIX}xhs-android-spatial-photo-demo.mp4`]: 16_528_743,
-  [`${VIDEO_PATH_PREFIX}xiaobao-world-mobile-runtime-demo.mp4`]: 1_101_001,
-};
-
 function isVideoRequest(request: Request) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return false;
   return new URL(request.url).pathname.startsWith(VIDEO_PATH_PREFIX);
