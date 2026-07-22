@@ -8,6 +8,7 @@ import {
   float,
   max,
   min,
+  sRGBTransferEOTF,
   smoothstep,
   texture,
   uniform,
@@ -70,8 +71,9 @@ function makeAtlasTexture(image: HTMLImageElement) {
   atlas.wrapS = THREE.ClampToEdgeWrapping;
   atlas.wrapT = THREE.ClampToEdgeWrapping;
   atlas.generateMipmaps = false;
-  // The original GLSL path intentionally sampled the encoded atlas as linear
-  // data. Preserve that transfer curve so the native TSL pass matches it.
+  // RGB and disparity/mask share this atlas, so keep the texture untagged and
+  // decode only RGB in the shader. Tagging the whole atlas as sRGB would also
+  // apply the transfer curve to the packed data rows.
   atlas.colorSpace = THREE.NoColorSpace;
   atlas.needsUpdate = true;
   return atlas;
@@ -104,22 +106,28 @@ function createPhoto3DNodes(atlasTexture: THREE.Texture, layerCount: number, atl
   const focal = float(PHOTO3D_FOCAL_LENGTH);
   const invZMin = float(PHOTO3D_INV_Z_MIN);
   const invZMax = float(0);
-  const background = vec3(0.1);
+  const background = sRGBTransferEOTF(vec3(0.1));
 
   const atlasUv = (sourceUv: any, layerIndex: number, row: number) => {
     const paddingUv = vec2(padding).div(frameSize);
     const safeUv = clamp(sourceUv, paddingUv.negate(), vec2(1).add(paddingUv));
+    // TSL's full-screen UV has a top-left origin on both WebGPU and its WebGL2
+    // fallback. Flip inside each atlas cell, without swapping the RGB/data rows.
+    const cellUv = vec2(safeUv.x, float(1).sub(safeUv.y));
     const origin = vec2(
       cellSize.x.mul(float(layerIndex)).add(padding),
       cellSize.y.mul(float(row)).add(padding),
     );
-    return origin.add(safeUv.mul(frameSize)).div(atlasSize);
+    return origin.add(cellUv.mul(frameSize)).div(atlasSize);
   };
 
   // The atlas file stores disparity on its PNG top row and RGB on the bottom.
   // Three's image upload flips Y just like the old WebGL path, so shader row 0
-  // addresses RGB and row 1 addresses disparity/mask.
-  const readColor = (sourceUv: any, layerIndex: number) => atlas.sample(atlasUv(sourceUv, layerIndex, 0)).level(0).rgb;
+  // addresses RGB and row 1 addresses disparity/mask. NodeMaterial applies the
+  // final linear-to-sRGB conversion, so decode only the encoded RGB samples.
+  const readColor = (sourceUv: any, layerIndex: number) => sRGBTransferEOTF(
+    atlas.sample(atlasUv(sourceUv, layerIndex, 0)).level(0).rgb,
+  );
   const readMask = (sourceUv: any, layerIndex: number) => atlas.sample(atlasUv(sourceUv, layerIndex, 1)).level(0).g;
   const readDisp = (sourceUv: any, layerIndex: number) => {
     const safeUv = clamp(sourceUv, vec2(0.001), vec2(0.999));
