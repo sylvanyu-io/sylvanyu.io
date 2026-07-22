@@ -14,28 +14,56 @@ const videoSourceFragmentShader = `
 precision highp float;
 
 uniform sampler2D uScene;
+uniform vec2 uUvScale;
 
 varying vec2 vUv;
 
 void main() {
-  gl_FragColor = texture2D(uScene, clamp(vUv, vec2(0.001), vec2(0.999)));
+  vec2 coverUv = (vUv - 0.5) * uUvScale + 0.5;
+  gl_FragColor = texture2D(uScene, clamp(coverUv, vec2(0.001), vec2(0.999)));
 }
 `;
 
-const PLAY_GLASS: GlassPanelInput['params'] = {
+const BUTTON_GLASS: GlassPanelInput['params'] = {
   splay: 1,
   kawasePasses: 1,
-  kawaseOffset: 1,
+  kawaseOffset: 0,
   kawaseDownsample: 3,
-  frost: 0.08,
-  tint: 0.05,
+  frost: 0.02,
+  tint: 0.18,
   specularAngle: 45,
-  scale: 0.58,
-  depth: 8,
-  chroma: 0.48,
-  curvature: 60,
-  glow: 0.28,
-  edge: 0.42,
+  scale: 0.24,
+  depth: 5,
+  chroma: 0.2,
+  curvature: 128,
+  glow: 0.42,
+  edge: 0.74,
+};
+
+const PLAY_GLASS: GlassPanelInput['params'] = {
+  ...BUTTON_GLASS,
+  scale: 0.3,
+  depth: 7,
+  curvature: 150,
+  tint: 0.22,
+  glow: 0.6,
+  edge: 0.82,
+};
+
+const SCRUB_GLASS: GlassPanelInput['params'] = {
+  splay: 1,
+  kawasePasses: 1,
+  kawaseOffset: 3.4,
+  kawaseDownsample: 3,
+  frost: 0.18,
+  tint: 0.2,
+  specularAngle: 45,
+  scale: 0.16,
+  depth: 12,
+  chroma: 0.22,
+  curvature: 118,
+  glow: 0.22,
+  edge: 0.32,
 };
 
 export type MacVideoGlassController = {
@@ -144,6 +172,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
   const frameLimiter = createFrameLimiter(MAC_FPS_TUNING.videoGlassFps);
   const sourceUniforms = {
     uScene: { value: placeholder as THREE.Texture },
+    uUvScale: { value: new THREE.Vector2(1, 1) },
   };
   const sourceMaterial = new THREE.ShaderMaterial({
     uniforms: sourceUniforms,
@@ -181,12 +210,40 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
 
   function sourceTexture() {
     if (video.seeking && sourceReady) return null;
+    if (stage.dataset.hasStarted !== 'true' && posterTexture && posterTextureReady) {
+      return posterTexture;
+    }
     if (hasLiveVideoFrame()) {
       videoTexture.needsUpdate = true;
       return videoTexture;
     }
     if (posterTexture && posterTextureReady) return posterTexture;
     return null;
+  }
+
+  function sourceAspect(texture: THREE.Texture) {
+    if (texture === videoTexture && video.videoWidth > 0 && video.videoHeight > 0) {
+      return video.videoWidth / video.videoHeight;
+    }
+    const image = texture.image as {
+      width?: number;
+      height?: number;
+      naturalWidth?: number;
+      naturalHeight?: number;
+    } | undefined;
+    const width = image?.naturalWidth ?? image?.width ?? 0;
+    const height = image?.naturalHeight ?? image?.height ?? 0;
+    return width > 0 && height > 0 ? width / height : cssWidth / cssHeight;
+  }
+
+  function syncCoverUv(texture: THREE.Texture) {
+    const imageAspect = sourceAspect(texture);
+    const stageAspect = cssWidth / Math.max(1, cssHeight);
+    if (imageAspect > stageAspect) {
+      sourceUniforms.uUvScale.value.set(stageAspect / imageAspect, 1);
+    } else {
+      sourceUniforms.uUvScale.value.set(1, imageAspect / stageAspect);
+    }
   }
 
   function resize() {
@@ -209,12 +266,13 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     if (!panelsDirty) return cachedPanels;
     const panels: GlassPanelInput[] = [];
     stage.querySelectorAll('.mac-video__button').forEach((button) => {
-      const panel = panelFromElement(stage, button, PLAY_GLASS);
+      const params = button.classList.contains('mac-video__button--play') ? PLAY_GLASS : BUTTON_GLASS;
+      const panel = panelFromElement(stage, button, params);
       if (panel) panels.push(panel);
     });
     const scrub = stage.querySelector('.mac-video__scrub');
     if (scrub) {
-      const panel = panelFromElement(stage, scrub, PLAY_GLASS);
+      const panel = panelFromElement(stage, scrub, SCRUB_GLASS);
       if (panel) panels.push(panel);
     }
     cachedPanels = panels;
@@ -232,6 +290,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     renderer.clear(true, true, true);
     if (texture) {
       sourceUniforms.uScene.value = texture;
+      syncCoverUv(texture);
       renderPass(renderer, scene, camera, mesh, sourceMaterial, sourceTarget);
       sourceReady = true;
     } else if (!sourceReady) {

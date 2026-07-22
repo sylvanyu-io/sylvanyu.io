@@ -7,7 +7,7 @@ import {
 } from '../data';
 import type { Lang } from '../content/common';
 import { div, setText } from './macDomElements';
-import { dispatchWindowAction } from './macDomWindowState';
+import { dispatchBackgroundPointerBlock, dispatchWindowAction } from './macDomWindowState';
 import { mountMacVideoGlass } from './macVideoGlass';
 import type { MacDomWindowRecord } from './macDomWindowContent';
 
@@ -254,6 +254,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   const activeIndex = Number.isFinite(requestedIndex)
     ? Math.min(Math.max(0, requestedIndex), Math.max(0, clips.length - 1))
     : 0;
+  const clip = clips[activeIndex];
   const shell = div('mac-video');
   const close = document.createElement('button');
   close.type = 'button';
@@ -263,13 +264,17 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   close.addEventListener('click', () => record.close.click());
 
   const stage = div('mac-video__stage');
+  stage.style.setProperty('--mac-video-aspect', String(clip.aspectRatio));
   const video = document.createElement('video');
   video.className = 'mac-video__media';
-  video.src = clips[activeIndex].src;
-  video.poster = clips[activeIndex].poster;
+  video.src = clip.src;
+  video.poster = clip.poster;
   video.loop = true;
   video.playsInline = true;
   video.preload = 'metadata';
+  video.disablePictureInPicture = true;
+  video.disableRemotePlayback = true;
+  video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback');
   const glassCanvas = document.createElement('canvas');
   glassCanvas.className = 'mac-video__glass';
   glassCanvas.setAttribute('aria-hidden', 'true');
@@ -297,6 +302,7 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   progress.min = '0';
   progress.max = '1000';
   progress.value = '0';
+  progress.style.setProperty('--mac-video-progress', '0%');
   progress.setAttribute('aria-label', lang === 'zh' ? '播放进度' : 'Video progress');
   controls.append(skipBack, play, skipForward, progress);
   stage.append(video, glassCanvas, controls);
@@ -326,12 +332,49 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   let scrubbing = false;
   let resumeAfterScrub = false;
   let scrubPointerId: number | null = null;
+  let hasStarted = false;
+  let pointerInside = false;
+  let pointerIdle = false;
+  let keyboardInteraction = false;
+  let controlsIdleTimer = 0;
+  const clearControlsIdleTimer = () => {
+    if (!controlsIdleTimer) return;
+    window.clearTimeout(controlsIdleTimer);
+    controlsIdleTimer = 0;
+  };
+  const setControlsVisible = (visible: boolean) => {
+    stage.dataset.controlsVisible = visible ? 'true' : 'false';
+  };
+  const syncControlsVisible = () => {
+    const keyboardFocusInside = keyboardInteraction && stage.contains(document.activeElement);
+    setControlsVisible(!hasStarted || (pointerInside && !pointerIdle) || keyboardFocusInside || scrubbing);
+  };
+  const armControlsIdleTimer = () => {
+    clearControlsIdleTimer();
+    if (!hasStarted || !pointerInside || scrubbing || keyboardInteraction) return;
+    controlsIdleTimer = window.setTimeout(() => {
+      controlsIdleTimer = 0;
+      pointerIdle = true;
+      syncControlsVisible();
+    }, 1800);
+  };
+  const revealPointerControls = () => {
+    pointerIdle = false;
+    syncControlsVisible();
+    armControlsIdleTimer();
+  };
+  const syncProgressVisual = () => {
+    const value = Math.min(1000, Math.max(0, Number(progress.value) || 0));
+    progress.style.setProperty('--mac-video-progress', `${value / 10}%`);
+  };
   const syncProgress = () => {
     if (!video.duration || scrubbing) return;
     progress.value = String(Math.round((video.currentTime / video.duration) * 1000));
+    syncProgressVisual();
   };
   const seekToProgress = () => {
     if (!video.duration) return;
+    syncProgressVisual();
     video.currentTime = (Number(progress.value) / 1000) * video.duration;
   };
   const stopProgressLoop = () => {
@@ -350,27 +393,49 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     if (progressFrame || video.paused || video.ended) return;
     progressFrame = requestAnimationFrame(tickProgress);
   };
+  const seekFromPointer = (event: PointerEvent) => {
+    const rect = progress.getBoundingClientRect();
+    const style = getComputedStyle(progress);
+    const trackLeft = rect.left + (Number.parseFloat(style.paddingLeft) || 0);
+    const trackRight = rect.right - (Number.parseFloat(style.paddingRight) || 0);
+    const ratio = Math.min(1, Math.max(0, (event.clientX - trackLeft) / Math.max(1, trackRight - trackLeft)));
+    progress.value = String(Math.round(ratio * 1000));
+    seekToProgress();
+  };
   const beginScrub = (event: PointerEvent) => {
     if (!video.duration) return;
+    event.preventDefault();
     scrubbing = true;
+    pointerIdle = false;
+    clearControlsIdleTimer();
     scrubPointerId = event.pointerId;
     resumeAfterScrub = !video.paused && !video.ended;
     stopProgressLoop();
     if (resumeAfterScrub) video.pause();
     progress.setPointerCapture(event.pointerId);
+    seekFromPointer(event);
+    syncControlsVisible();
   };
-  const endScrub = (event: PointerEvent) => {
+  const moveScrub = (event: PointerEvent) => {
     if (!scrubbing || scrubPointerId !== event.pointerId) return;
+    event.preventDefault();
+    seekFromPointer(event);
+  };
+  const finishScrub = (event: PointerEvent, commitPointerPosition: boolean) => {
+    if (!scrubbing || scrubPointerId !== event.pointerId) return;
+    event.preventDefault();
+    // pointercancel coordinates are not a valid seek position on every
+    // browser; some engines report the cancellation at (0, 0). Preserve the
+    // last position accepted by pointerdown/pointermove in that case.
+    if (commitPointerPosition) seekFromPointer(event);
     const shouldResume = resumeAfterScrub;
     scrubbing = false;
     resumeAfterScrub = false;
     scrubPointerId = null;
     if (progress.hasPointerCapture(event.pointerId)) progress.releasePointerCapture(event.pointerId);
-    seekToProgress();
-    if (!shouldResume) {
-      syncProgress();
-      return;
-    }
+    syncControlsVisible();
+    armControlsIdleTimer();
+    if (!shouldResume) return;
     syncPlayButton(true);
     video.play().catch(() => {
       syncPlayButton(false);
@@ -378,6 +443,8 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
       syncProgress();
     });
   };
+  const endScrub = (event: PointerEvent) => finishScrub(event, true);
+  const cancelScrub = (event: PointerEvent) => finishScrub(event, false);
 
   play.addEventListener('pointerdown', () => {
     syncPlayButton(video.paused);
@@ -403,39 +470,102 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
     syncProgress();
   });
   progress.addEventListener('pointerdown', beginScrub);
+  progress.addEventListener('pointermove', moveScrub);
   progress.addEventListener('pointerup', endScrub);
-  progress.addEventListener('pointercancel', endScrub);
+  progress.addEventListener('pointercancel', cancelScrub);
   progress.addEventListener('input', () => {
     seekToProgress();
   });
   progress.addEventListener('change', () => {
-    if (!scrubbing) syncProgress();
+    seekToProgress();
   });
   video.addEventListener('timeupdate', () => {
     if (!video.paused && !video.ended) return;
     syncProgress();
   });
   video.addEventListener('play', () => {
+    hasStarted = true;
+    stage.dataset.hasStarted = 'true';
+    pointerIdle = false;
+    dispatchBackgroundPointerBlock(record, true);
     syncPlayButton(true);
     startProgressLoop();
+    syncControlsVisible();
+    armControlsIdleTimer();
   });
   video.addEventListener('pause', () => {
+    dispatchBackgroundPointerBlock(record, false);
     syncPlayButton(false);
     stopProgressLoop();
     syncProgress();
+    armControlsIdleTimer();
   });
   video.addEventListener('ended', () => {
+    dispatchBackgroundPointerBlock(record, false);
     stopProgressLoop();
     syncProgress();
   });
-  video.addEventListener('loadedmetadata', syncProgress);
+  video.addEventListener('loadedmetadata', () => {
+    syncProgress();
+    if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
+    const actualAspect = video.videoWidth / video.videoHeight;
+    stage.style.setProperty('--mac-video-aspect', String(actualAspect));
+    if (Math.abs(actualAspect - clip.aspectRatio) > 0.002) {
+      dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: actualAspect });
+    }
+  });
   video.addEventListener('seeked', syncProgress);
-  record.cleanup.push(stopProgressLoop);
+  const syncPointerPosition = (event: MouseEvent) => {
+    const rect = stage.getBoundingClientRect();
+    const nextPointerInside = event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom;
+    keyboardInteraction = false;
+    pointerInside = nextPointerInside;
+    if (pointerInside) {
+      revealPointerControls();
+      return;
+    }
+    pointerIdle = true;
+    clearControlsIdleTimer();
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && stage.contains(focused)) focused.blur();
+    syncControlsVisible();
+  };
+  document.addEventListener('mousemove', syncPointerPosition, { passive: true });
+  stage.addEventListener('pointerdown', (event) => {
+    keyboardInteraction = false;
+    pointerInside = true;
+    pointerIdle = false;
+    setControlsVisible(true);
+    if (event.pointerType !== 'touch') armControlsIdleTimer();
+  }, { passive: true });
+  stage.addEventListener('keydown', () => {
+    keyboardInteraction = true;
+    pointerIdle = false;
+    clearControlsIdleTimer();
+    syncControlsVisible();
+  });
+  stage.addEventListener('focusin', syncControlsVisible);
+  stage.addEventListener('focusout', () => {
+    requestAnimationFrame(() => {
+      syncControlsVisible();
+      armControlsIdleTimer();
+    });
+  });
+  record.cleanup.push(stopProgressLoop, clearControlsIdleTimer, () => {
+    dispatchBackgroundPointerBlock(record, false);
+    document.removeEventListener('mousemove', syncPointerPosition);
+  });
 
+  stage.dataset.hasStarted = 'false';
+  setControlsVisible(true);
   syncPlayButton(false);
   syncMeta();
   shell.append(close, stage, meta);
   record.body.append(shell);
+  dispatchWindowAction(record, { type: 'fit-video-window', aspectRatio: clip.aspectRatio });
   const glassController = mountMacVideoGlass(stage, video, glassCanvas);
   if (glassController) {
     record.videoGlassController = glassController;

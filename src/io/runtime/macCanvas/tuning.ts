@@ -18,17 +18,20 @@ export type GlassParams = {
 };
 
 export const MAC_RENDER_TUNING = {
-  maxDesktopDevicePixelRatio: 2,
+  maxDesktopDevicePixelRatio: 1.5,
   maxMobileDevicePixelRatio: 3,
   maxVideoDevicePixelRatio: 1.35,
   maxPhotoAppDevicePixelRatio: 2,
   maxCanvasRenderPixels: 16_000_000,
   maxVideoRenderPixels: 1_800_000,
-  maxBackgroundRenderEdge: 1600,
+  // Photo3D is a soft, full-screen scene; rendering it above this internal
+  // resolution adds substantial GPU work on HiDPI displays without useful
+  // detail. Canvas UI is composed later at the native canvas resolution.
+  maxWallpaperRenderEdge: 1024,
+  maxFolderBackdropRenderEdge: 1600,
   // A/B result: background upscale is visually close enough here and showed a
   // clear performance lift on both desktop and mobile.
   baseRenderScale: 0.52,
-  baseUpscaleSharpness: 0.1,
   // Folder backdrops are heavily blurred and do not need full-DPR source detail.
   folderBackdropScale: 0.5,
   wallpaperShadeStrength: 0.16,

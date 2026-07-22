@@ -20,6 +20,7 @@ type MacDomWindowActions = {
   bringFront: (id: WindowId) => void;
   setOpen: (id: WindowId, open: boolean) => void;
   comparePhotoSharp: () => void;
+  fitVideoWindow: (aspectRatio: number) => void;
   moveWindow: (id: WindowId, x: number, y: number) => void;
   resizeWindow: (
     id: WindowId,
@@ -408,6 +409,10 @@ export function createMacDomWindows(
     }
     if (detail.type === 'compare-photo-sharp') {
       actions.comparePhotoSharp();
+      return;
+    }
+    if (detail.type === 'fit-video-window') {
+      actions.fitVideoWindow(detail.aspectRatio);
       return;
     }
     if (detail.type !== 'open-window') return;

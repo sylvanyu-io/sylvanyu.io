@@ -360,6 +360,7 @@ export const mediaMomentPosts: Record<Lang, Array<{
 export const videoClips: Record<Lang, Array<{
   src: string;
   poster: string;
+  aspectRatio: number;
   title: string;
   date?: string;
   caption?: string;
@@ -368,6 +369,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/xhs-android-spatial-photo-demo.mp4',
       poster: '/io-design/assets/videos/xhs-android-spatial-photo-demo.jpg',
+      aspectRatio: 1080 / 1422,
       title: 'Android spatial photos',
       date: '2025.07.30 · Personal / RedNote',
       caption: 'A spatial-photo demo published on my own RedNote account.',
@@ -375,6 +377,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/blender-personal-inertial-motion-test.mp4',
       poster: '/io-design/assets/videos/blender-personal-inertial-motion-test.jpg',
+      aspectRatio: 16 / 9,
       title: 'Blender inertial motion test',
       date: '2024.04.12 · Personal',
       caption: 'A personal Blender viewport experiment with inertial motion compensation for character animation.',
@@ -382,6 +385,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/xiaobao-world-mobile-runtime-demo.mp4',
       poster: '/io-design/assets/videos/xiaobao-world-mobile-runtime-demo.jpg',
+      aspectRatio: 20 / 9,
       title: 'Xiaobao World · mobile runtime',
       date: '2024.03–2024.11 · Ant Group',
       caption: 'A short mobile capture from the cross-platform Xiaobao World simulation project, running at 60 FPS.',
@@ -389,6 +393,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/vision-pro-mr-water-gun-demo.mp4',
       poster: '/io-design/assets/videos/vision-pro-mr-water-gun-demo.jpg',
+      aspectRatio: 16 / 9,
       title: 'Vision Pro MR water-gun demo',
       date: '2024.04–2024.05 · Ant Group',
       caption: 'A 60-second mixed-reality expo game built in three weeks, from Unity setup to the on-device experience.',
@@ -396,6 +401,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/galacean-high-fidelity-rendering-demo.mp4',
       poster: '/io-design/assets/videos/galacean-high-fidelity-rendering-demo.jpg',
+      aspectRatio: 9 / 20,
       title: 'Galacean high-fidelity rendering',
       date: '2023.03–2024.01 · Ant Group',
       caption: "Everything except the character cloth simulation could be exported directly to Galacean's WebGL runtime.",
@@ -405,6 +411,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/xhs-android-spatial-photo-demo.mp4',
       poster: '/io-design/assets/videos/xhs-android-spatial-photo-demo.jpg',
+      aspectRatio: 1080 / 1422,
       title: 'Android 空间照片',
       date: '2025.07.30 · 个人发布 / 小红书',
       caption: '发布在我自己小红书账号的空间照片 Demo。',
@@ -412,6 +419,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/blender-personal-inertial-motion-test.mp4',
       poster: '/io-design/assets/videos/blender-personal-inertial-motion-test.jpg',
+      aspectRatio: 16 / 9,
       title: 'Blender 惯性动补测试',
       date: '2024.04.12 · 个人实验',
       caption: '在 Blender 视口里随手做的角色动画惯性动补实验。',
@@ -419,6 +427,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/xiaobao-world-mobile-runtime-demo.mp4',
       poster: '/io-design/assets/videos/xiaobao-world-mobile-runtime-demo.jpg',
+      aspectRatio: 20 / 9,
       title: '小宝大世界 · 移动端运行时',
       date: '2024.03–2024.11 · 蚂蚁集团',
       caption: '跨端模拟经营项目小宝大世界的移动端录屏，稳定运行在 60 FPS。',
@@ -426,6 +435,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/vision-pro-mr-water-gun-demo.mp4',
       poster: '/io-design/assets/videos/vision-pro-mr-water-gun-demo.jpg',
+      aspectRatio: 16 / 9,
       title: 'Vision Pro MR 水枪 Demo',
       date: '2024.04–2024.05 · 蚂蚁集团',
       caption: '三周内完成的 60 秒 MR 展会游戏，包含 Unity 内容制作与真机效果。',
@@ -433,6 +443,7 @@ export const videoClips: Record<Lang, Array<{
     {
       src: '/io-design/assets/videos/galacean-high-fidelity-rendering-demo.mp4',
       poster: '/io-design/assets/videos/galacean-high-fidelity-rendering-demo.jpg',
+      aspectRatio: 9 / 20,
       title: 'Galacean 极致渲染 Demo',
       date: '2023.03–2024.01 · 蚂蚁集团',
       caption: '除角色身上的布料模拟外，其余内容均可直接导出到 WebGL 的 Galacean 引擎中。',
