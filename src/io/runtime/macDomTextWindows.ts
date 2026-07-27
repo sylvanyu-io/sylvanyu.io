@@ -130,6 +130,7 @@ export function renderProjects(record: MacDomWindowRecord, lang: Lang) {
       const link = document.createElement('a');
       link.href = item.href;
       link.textContent = `${item.label} ↗`;
+      link.dataset.variant = item.variant ?? 'secondary';
       if (item.href.startsWith('http')) {
         link.target = '_blank';
         link.rel = 'noreferrer';

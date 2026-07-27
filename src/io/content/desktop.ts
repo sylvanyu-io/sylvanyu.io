@@ -90,7 +90,7 @@ export const desktopProjects: Record<Lang, Array<{
   body: string;
   metric: string;
   metricLabel: string;
-  links?: Array<{ label: string; href: string }>;
+  links?: Array<{ label: string; href: string; variant?: 'primary' }>;
 }>> = {
   en: [
     {
@@ -100,7 +100,7 @@ export const desktopProjects: Record<Lang, Array<{
         'Predy is RedNote’s internal real-time motion engine, with PlayKit as the product-facing container. I work across Web editor, RN player, and native clients: TextLine, shader / UBO cleanup, binary shape payloads, performance gates, and business surfaces like coupon, CNY, Starlight Market, live widgets, and lottery scenes.',
       metric: '4',
       metricLabel: 'runtimes',
-      links: [{ label: 'Case', href: '/home/#work' }],
+      links: [{ label: 'View case', href: '/home/#work', variant: 'primary' }],
     },
     {
       title: 'Predy editor AI infra',
@@ -109,7 +109,7 @@ export const desktopProjects: Record<Lang, Array<{
         'Local MCP lets agents connect to the real Predy editor through stdio and a localhost bridge. I built source-retrieval skills, Langfuse tracing, token governance, debug import / export, and setup tooling so AI can join a controlled production loop instead of staying as chat.',
       metric: 'MCP',
       metricLabel: 'editor agent',
-      links: [{ label: 'Case', href: '/home/#work' }],
+      links: [{ label: 'View case', href: '/home/#work', variant: 'primary' }],
     },
     {
       title: 'Photo3D',
@@ -162,7 +162,7 @@ export const desktopProjects: Record<Lang, Array<{
         'Predy 是小红书内部实时动效引擎，PlayKit 是业务侧接入容器。我横跨 Web 编辑器、RN 播放器和 Native 客户端做底层能力：TextLine、Shader / UBO 清理、Shape 二进制产物、性能门禁，以及发券、CNY、星光夜市、直播挂件、抽奖机等业务落地。',
       metric: '4',
       metricLabel: '运行时',
-      links: [{ label: '案例', href: '/home/#work' }],
+      links: [{ label: '查看案例', href: '/home/#work', variant: 'primary' }],
     },
     {
       title: 'Predy 编辑器 AI 基建',
@@ -171,7 +171,7 @@ export const desktopProjects: Record<Lang, Array<{
         '本地 MCP 让 Agent 通过 stdio 和 localhost bridge 连接真实 Predy 编辑器。我做源码检索 Skill、Langfuse trace、token 治理、调试导入导出和安装排障工具，让 AI 从聊天进入可控的生产链路。',
       metric: 'MCP',
       metricLabel: '编辑器 Agent',
-      links: [{ label: '案例', href: '/home/#work' }],
+      links: [{ label: '查看案例', href: '/home/#work', variant: 'primary' }],
     },
     {
       title: 'Photo3D',

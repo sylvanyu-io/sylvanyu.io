@@ -2060,8 +2060,8 @@
   .mac-project__links {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
-    margin-top: 9px;
+    gap: 7px;
+    margin-top: 11px;
   }
 
   .mac-project__links:empty {
@@ -2069,17 +2069,47 @@
   }
 
   .mac-project__links a {
+    display: inline-flex;
+    min-height: 25px;
+    align-items: center;
+    padding: 0 9px;
+    border: 1px solid rgba(60, 82, 112, .18);
+    border-radius: 999px;
     color: rgba(60, 82, 112, .9);
+    background: rgba(255, 255, 255, .22);
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 9px;
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1;
     text-decoration: none;
+    transition:
+      color .16s ease,
+      border-color .16s ease,
+      background-color .16s ease,
+      transform .16s ease;
   }
 
   .mac-project__links a:hover {
+    border-color: rgba(31, 66, 95, .3);
     color: #1f425f;
-    text-decoration: underline;
+    background: rgba(255, 255, 255, .48);
+    transform: translateY(-1px);
+  }
+
+  .mac-project__links a[data-variant="primary"] {
+    min-height: 29px;
+    padding: 0 12px;
+    border-color: #263b4c;
+    color: #f4f6ec;
+    background: #263b4c;
+    box-shadow: 0 5px 12px rgba(31, 48, 62, .18);
+  }
+
+  .mac-project__links a[data-variant="primary"]:hover {
+    border-color: #172a3a;
+    color: #fff;
+    background: #172a3a;
+    box-shadow: 0 7px 16px rgba(31, 48, 62, .24);
   }
 
   .mac-project__metric {
