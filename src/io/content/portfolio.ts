@@ -27,18 +27,18 @@ export const projects: Record<Lang, Array<{
       tags: 'WEBGL · UBO · BINARY GEOMETRY',
       body:
         'Unified the scattered Photo3D / video / snapshot modules into one shader / UBO pipeline with WebGL 1/2 fallbacks and low-end degradation. Moved shape geometry from inline JSON to packed binaries, halving payloads. Context-loss auto-recovery, an AE-grade curve editor, a bezier path editor, pixel-diff review tooling and pre-release performance gates.',
-      metric: '−50%',
+      metric: '≈½',
       metricLabel: 'geometry payload',
     },
     {
       idx: 'P-03',
-      title: 'Marketing renderers at 30M PV',
+      title: 'Marketing renderers at tens-of-millions reach',
       meta: 'REDNOTE · 2025.07 — 2026.03',
       tags: 'RN PERF · PARTICLES · CNY',
       body:
-        'A fully parameterized coupon component: Android mount 747 → 200 ms, iOS 134 → 35 ms; claim rate +2.6% on the business dashboard. CNY fireworks: cross-platform particle fixes supporting 100M+ plays at 10× YoY, 56+ FPS across 16 large scenes, crash rates at historic lows (iOS < 0.008‰).',
-      metric: '−73%',
-      metricLabel: 'android mount time',
+        'A fully parameterized coupon component cut mount time by roughly 70% across Android and iOS while improving claim conversion. CNY fireworks added cross-platform particle fixes for nine-figure playback at order-of-magnitude YoY growth, sustained real-time frame rates across a large scene suite, and historically low crash rates.',
+      metric: '≈70%',
+      metricLabel: 'faster mount',
     },
     {
       idx: 'P-04',
@@ -62,13 +62,13 @@ export const projects: Record<Lang, Array<{
     },
     {
       idx: 'P-06',
-      title: 'Galacean engine, toolchain & 100M-DAU products',
+      title: 'Galacean engine, toolchain & high-scale products',
       meta: 'ANT GROUP · 2022 — 2025',
       tags: 'PBR/NPR · UNITY EXPORT · XR',
       body:
-        'Engine features (planar reflection, HDR post, FFD lattice animation), an Uber shader framework covering 90%+ of art needs with zero code, a Unity → Galacean asset exporter, and stylized digital humans for the Asian Games torch relay. Graphics lead on Lunar New Year campaigns; vegetation systems at ~15% of third-party render cost. Early Vision Pro and Quest 3 spatial prototypes.',
-      metric: '90%+',
-      metricLabel: 'art needs, zero code',
+        'Engine features (planar reflection, HDR post, FFD lattice animation), a zero-code Uber shader framework covering most art workflows, a Unity → Galacean asset exporter, and stylized digital humans for the Asian Games torch relay. Graphics lead on Lunar New Year campaigns; vegetation rendering reduced to a fraction of the comparison solution’s cost. Early Vision Pro and Quest 3 spatial prototypes.',
+      metric: 'MOST',
+      metricLabel: 'art workflows, zero code',
     },
   ],
   zh: [
@@ -89,18 +89,18 @@ export const projects: Record<Lang, Array<{
       tags: 'WEBGL · UBO · 二进制几何',
       body:
         '将分散的 Photo3D / 视频 / 快照模块统一收敛到标准 Shader / UBO 体系，解决 WebGL1/2 兼容与低端机降级；Shape 几何从 JSON 内联改为二进制打包，体积约减半。WebGL context lost 自动重建、对标 AE 的曲线编辑器、贝塞尔路径编辑器、像素级比稿插件与发布前性能门禁。',
-      metric: '−50%',
+      metric: '约一半',
       metricLabel: '几何数据体积',
     },
     {
       idx: 'P-03',
-      title: '30M PV 营销渲染支撑',
+      title: '千万级触达的营销渲染支撑',
       meta: '小红书 · 2025.07 — 2026.03',
       tags: 'RN 性能 · 粒子 · 春节互动',
       body:
-        '全参数化发券组件：Android 挂载 747 → 200ms、iOS 134 → 35ms，业务大盘领取率 +2.6%。CNY 烟花补齐粒子跨端一致性，支撑破亿级播放（同比约 10 倍），16 个大型烟花场景 56+ FPS，崩溃率创历史新低（iOS < 0.008‰）。',
-      metric: '−73%',
-      metricLabel: 'Android 挂载耗时',
+        '全参数化发券组件让 Android 与 iOS 挂载耗时下降约七成，并带来领取转化提升。CNY 烟花补齐粒子跨端一致性，支撑亿级播放与数量级同比增长，在大型场景中保持实时帧率，崩溃率处于历史低位。',
+      metric: '约七成',
+      metricLabel: '挂载提速',
     },
     {
       idx: 'P-04',
@@ -128,9 +128,9 @@ export const projects: Record<Lang, Array<{
       meta: '蚂蚁集团 · 2022 — 2025',
       tags: 'PBR/NPR · UNITY 导出 · XR',
       body:
-        '引擎核心能力（平面反射、HDR 后处理、FFD 晶格动画）、覆盖 90%+ 美术需求的零代码 Uber Shader 框架、Unity → Galacean 资产导出工具链、亚运火炬手等数字人渲染。五福互动图形一号位；植被渲染耗时降至第三方方案约 15%。Vision Pro / Quest 3 空间计算早期原型。',
-      metric: '90%+',
-      metricLabel: '美术需求零代码',
+        '引擎核心能力（平面反射、HDR 后处理、FFD 晶格动画）、覆盖大部分美术工作流的零代码 Uber Shader 框架、Unity → Galacean 资产导出工具链、亚运火炬手等数字人渲染。五福互动图形一号位；植被渲染耗时降至对比方案的一小部分。Vision Pro / Quest 3 空间计算早期原型。',
+      metric: '大部分',
+      metricLabel: '美术工作流零代码',
     },
   ],
 };

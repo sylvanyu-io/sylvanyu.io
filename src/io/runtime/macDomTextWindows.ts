@@ -50,6 +50,13 @@ export function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   email.href = `mailto:${profile.email}`;
   email.textContent = profile.email;
 
+  const resume = document.createElement('a');
+  resume.className = 'mac-readme__resume';
+  resume.href = profile.resume[lang];
+  resume.target = '_blank';
+  resume.rel = 'noreferrer';
+  resume.textContent = lang === 'zh' ? '简历 PDF' : 'RESUME PDF';
+
   const socials = div('mac-readme__socials');
   profile.socials.forEach((social) => {
     const link = document.createElement('a');
@@ -64,7 +71,7 @@ export function renderReadme(record: MacDomWindowRecord, lang: Lang) {
     socials.append(link);
   });
 
-  actions.append(email, socials);
+  actions.append(email, resume, socials);
 
   record.body.append(eyebrow, title, body, chips, actions);
 }
@@ -118,7 +125,18 @@ export function renderProjects(record: MacDomWindowRecord, lang: Lang) {
     const body = document.createElement('p');
     body.className = 'mac-project__body';
     body.textContent = project.body;
-    copy.append(title, meta, body);
+    const projectLinks = div('mac-project__links');
+    project.links?.forEach((item) => {
+      const link = document.createElement('a');
+      link.href = item.href;
+      link.textContent = `${item.label} ↗`;
+      if (item.href.startsWith('http')) {
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+      }
+      projectLinks.append(link);
+    });
+    copy.append(title, meta, body, projectLinks);
 
     const metric = div('mac-project__metric');
     const value = document.createElement('strong');
@@ -134,4 +152,3 @@ export function renderProjects(record: MacDomWindowRecord, lang: Lang) {
   shell.append(list);
   record.body.append(shell);
 }
-

@@ -6,11 +6,12 @@ export const profile = {
   email: 'me@sylvanyu.io',
   github: 'https://github.com/sylvanyu-io',
   website: 'https://sylvanyu.io',
+  resume: {
+    en: '/resume/sylvan-yu-en.pdf',
+    zh: '/resume/sylvan-yu-zh.pdf',
+  },
   socials: [
-    { key: 'github', label: 'GitHub', href: '#', icon: 'github' },
-    { key: 'linkedin', label: 'LinkedIn', href: '#', icon: 'linkedin' },
-    { key: 'rednote', label: '小红书', href: '#', icon: 'rednote' },
-    { key: 'instagram', label: 'Instagram', href: '#', icon: 'instagram' },
+    { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'github' },
   ],
   location: {
     en: 'Shanghai, China · always happy to connect',
@@ -92,19 +93,19 @@ export const heroCopy: Record<Lang, {
 
 export const metrics: Record<Lang, Array<{ value: string; label: string }>> = {
   en: [
-    { value: '−73%', label: 'coupon mount, android' },
-    { value: '30M', label: 'coupon PV / month' },
-    { value: '56+', label: 'FPS · effect scenes' },
-    { value: '<0.008‰', label: 'iOS crash rate' },
-    { value: '×10', label: 'Predy playback YoY' },
-    { value: '−50%', label: 'geometry payload' },
+    { value: '≈70%', label: 'faster coupon mount' },
+    { value: '10M+', label: 'monthly reach' },
+    { value: '50+', label: 'steady FPS' },
+    { value: 'LOW', label: 'mobile crash rate' },
+    { value: '10× class', label: 'playback YoY' },
+    { value: '≈½', label: 'geometry payload' },
   ],
   zh: [
-    { value: '−73%', label: '发券挂载 · Android' },
-    { value: '30M', label: '发券 PV / 月' },
-    { value: '56+', label: '动效场景 FPS' },
-    { value: '<0.008‰', label: 'iOS 崩溃率' },
-    { value: '×10', label: 'Predy 播放同比' },
-    { value: '−50%', label: '几何数据体积' },
+    { value: '约 70%', label: '发券挂载提速' },
+    { value: '千万级', label: '月度触达' },
+    { value: '50+', label: '稳定帧率' },
+    { value: '低位', label: '移动端崩溃率' },
+    { value: '数量级', label: '播放同比增长' },
+    { value: '约一半', label: '几何数据体积' },
   ],
 };
