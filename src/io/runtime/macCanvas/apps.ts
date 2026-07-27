@@ -52,7 +52,9 @@ export type MacVideoLabAppDefinition = {
 export const MAC_ASSET_BASE = '/io-design/assets/';
 export const PHOTO3D_SHADER_URL = `${MAC_ASSET_BASE}photo3d.fs`;
 export const WALLPAPER_ATLAS = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas.webp`;
+export const WALLPAPER_ATLAS_MOBILE = `${MAC_ASSET_BASE}photo3d-wallpaper-atlas-mobile.webp`;
 export const PHOTO_APP_ATLAS = `${MAC_ASSET_BASE}photo3d-app-atlas.webp`;
+export const PHOTO_APP_COVER = `${MAC_ASSET_BASE}photo3d-cover.jpg`;
 export const SPATIAL_SCENE_VIEWER_URL = `${MAC_ASSET_BASE}sharp/spatial-scene-viewer.html`;
 export const SPATIAL_SCENE_SOURCE_URL = `${MAC_ASSET_BASE}sharp/portrait-source.jpg`;
 export const REFLECTION_DEMO_ID = 'planar-reflection';
@@ -77,7 +79,7 @@ export const MAC_APPS: MacAppDefinition[] = [
     home: true,
     dock: true,
     initialOpen: true,
-    initialZ: 11,
+    initialZ: 12,
   },
   {
     id: 'photo',
@@ -87,7 +89,7 @@ export const MAC_APPS: MacAppDefinition[] = [
     home: true,
     dock: true,
     initialOpen: true,
-    initialZ: 12,
+    initialZ: 11,
   },
   {
     id: 'spatial',
@@ -215,6 +217,37 @@ export function appDefinition(id: WindowId) {
 
 export function appTitle(id: WindowId) {
   return appDefinition(id)?.title ?? id;
+}
+
+const WINDOW_DEEP_LINKS: Partial<Record<WindowId, string>> = {
+  readme: 'readme',
+  photo: 'photo3d',
+  worklog: 'worklog',
+  projects: 'projects',
+  moments: 'moments',
+};
+
+export type MacDeepLink =
+  | { type: 'window'; id: WindowId }
+  | { type: 'folder'; id: FolderId };
+
+export function deepLinkHashForWindow(id: WindowId) {
+  return `#${WINDOW_DEEP_LINKS[id] ?? `app=${encodeURIComponent(id)}`}`;
+}
+
+export function parseMacDeepLink(hash: string): MacDeepLink | null {
+  const value = hash.replace(/^#/, '').trim().toLowerCase();
+  if (!value || value === 'home' || value === 'power-off') return null;
+  if (value === 'labs') return { type: 'folder', id: LABS_FOLDER_ID };
+
+  const alias = Object.entries(WINDOW_DEEP_LINKS).find(([, target]) => target === value);
+  if (alias) return { type: 'window', id: alias[0] as WindowId };
+
+  if (value.startsWith('app=')) {
+    const id = decodeURIComponent(value.slice(4)) as WindowId;
+    if (MAC_APPS.some((app) => app.id === id)) return { type: 'window', id };
+  }
+  return null;
 }
 
 export function videoLabAppDefinition(id: MacLabAppId) {

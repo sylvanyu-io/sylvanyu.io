@@ -36,6 +36,14 @@ export const PHOTO3D_WALLPAPER_ATLAS_META = {
   frameHeight: 640,
 } as const satisfies Photo3DAtlasMeta;
 
+export const PHOTO3D_WALLPAPER_MOBILE_ATLAS_META = {
+  columns: 3,
+  rows: 2,
+  padding: 8,
+  frameWidth: 512,
+  frameHeight: 320,
+} as const satisfies Photo3DAtlasMeta;
+
 export const PHOTO3D_APP_ATLAS_META = {
   columns: 3,
   rows: 2,

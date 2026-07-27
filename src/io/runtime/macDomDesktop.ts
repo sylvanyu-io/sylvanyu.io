@@ -172,6 +172,7 @@ export function createMacDomDesktop(
   clock.append(clockTime, clockDate);
 
   const status = div('mac-dom-widget mac-dom-widget--status');
+  const statusIdentity = span('mac-dom-widget__identity');
   const statusTitle = span('mac-dom-widget__title');
   const statusBody = span('mac-dom-widget__body');
   const statusFoot = span('mac-dom-widget__foot');
@@ -184,7 +185,7 @@ export function createMacDomDesktop(
     stats.append(item);
     return { value, label };
   });
-  status.append(statusTitle, statusBody, statusFoot, stats);
+  status.append(statusIdentity, statusTitle, statusBody, statusFoot, stats);
   widgets.append(clock, status);
 
   const icons = div('mac-dom-icons');
@@ -284,7 +285,8 @@ export function createMacDomDesktop(
       String(now.getMonth() + 1).padStart(2, '0'),
       String(now.getDate()).padStart(2, '0'),
     ].join('.');
-    const fps = Math.round(state.fps).toString();
+    const fpsActive = state.fps >= 1;
+    const fps = fpsActive ? Math.round(state.fps).toString() : '—';
     const key = `${state.lang}:${time}:${date}:${fps}`;
     if (key === dynamicKey) return;
     dynamicKey = key;
@@ -297,7 +299,12 @@ export function createMacDomDesktop(
     statusBody.textContent = copy.statusBody;
     statusFoot.textContent = copy.statusFoot;
     const values = [fps, '4+', 'RedNote', 'Shanghai'];
-    const labels = [copy.wFps, copy.wRenderer, copy.wWallpaper, copy.wUptime];
+    const labels = [
+      fpsActive ? copy.wFps : (state.lang === 'zh' ? '空闲' : 'IDLE'),
+      copy.wRenderer,
+      copy.wWallpaper,
+      copy.wUptime,
+    ];
     statRecords.forEach((record, index) => {
       record.value.textContent = values[index];
       record.label.textContent = labels[index];
@@ -339,6 +346,9 @@ export function createMacDomDesktop(
     status.style.setProperty('--mac-widget-scale', statusScale.toFixed(3));
 
     const copy = desktopCopy[state.lang];
+    statusIdentity.textContent = state.lang === 'zh'
+      ? 'Sylvan Yu · 俞宇锋 · 图形 / 视觉系统工程师'
+      : 'Sylvan Yu · Graphics / Visual Systems Engineer';
     iconRecords.forEach((record) => {
       record.button.hidden = true;
     });

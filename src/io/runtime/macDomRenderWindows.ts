@@ -7,6 +7,7 @@ import {
   MAC_LOADING_COPY,
   PHOTO3D_SHADER_URL,
   PHOTO_APP_ATLAS,
+  PHOTO_APP_COVER,
   REFLECTION_DEMO_ID,
   SPATIAL_SCENE_VIEWER_URL,
 } from './macCanvas/apps';
@@ -81,6 +82,7 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
   }
 
   root.dataset.mounting = 'true';
+  root.dataset.state = 'loading';
   setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'loading', MAC_LOADING_COPY.app);
   try {
     const [{ mountPhoto3D }, shaderBody] = await Promise.all([
@@ -103,6 +105,10 @@ async function mountPhotoIsland(record: MacDomWindowRecord) {
       controller.setActive(record.element.dataset.active === 'true');
       record.cleanup.push(() => controller.dispose());
     }
+  } catch (error) {
+    root.dataset.state = 'error';
+    setAppLoaderState(root.querySelector('[data-photo3d-status]'), 'error', 'Photo3D failed to load');
+    throw error;
   } finally {
     delete root.dataset.mounting;
   }
@@ -123,6 +129,7 @@ export function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   const stage = div('mac-photo__stage');
   const photoRoot = div('mac-photo__island');
   photoRoot.dataset.photo3dRoot = '';
+  photoRoot.dataset.state = 'loading';
   photoRoot.dataset.localAtlas = PHOTO_APP_ATLAS;
   photoRoot.dataset.fitY = '0.32';
   const wrap = div('mac-photo__wrap');
@@ -131,6 +138,11 @@ export function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   photoStage.dataset.photo3dStage = '';
   photoStage.dataset.macWindowCanvas = 'photo';
   photoStage.setAttribute('aria-label', 'Photo3D live render');
+  const cover = document.createElement('img');
+  cover.className = 'mac-photo__cover';
+  cover.src = PHOTO_APP_COVER;
+  cover.alt = lang === 'zh' ? 'Photo3D 交互预览封面' : 'Photo3D interactive preview cover';
+  cover.decoding = 'async';
   const status = createAppLoader(MAC_LOADING_COPY.app);
   status.classList.add('mac-photo__status');
   status.dataset.photo3dStatus = '';
@@ -160,6 +172,7 @@ export function renderPhoto(record: MacDomWindowRecord, lang: Lang) {
   photoParamPanel.classList.add('mac-calibration-panel--photo');
   record.photoParamPanel = photoParamPanel;
 
+  photoStage.append(cover);
   wrap.append(photoStage);
   photoRoot.append(wrap, status);
   stage.append(photoRoot, viewerLabel, photoParamPanel, hud);

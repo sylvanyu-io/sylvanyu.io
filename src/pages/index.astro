@@ -1,20 +1,21 @@
 ---
 import Base from '../layouts/Base.astro';
-import { PHOTO3D_SHADER_URL, WALLPAPER_ATLAS } from '../io/runtime/macCanvas/apps';
+import {
+  PHOTO3D_SHADER_URL,
+  WALLPAPER_ATLAS,
+  WALLPAPER_ATLAS_MOBILE,
+} from '../io/runtime/macCanvas/apps';
 import '../styles/io/macos.css';
 ---
 
-<Base title="Sylvan OS · Sylvan Yu" description="Sylvan Yu's macOS-inspired personal site with a WebGL desktop and native DOM apps.">
+<Base
+  title="Sylvan Yu (俞宇锋) — Graphics / Rendering Engineer"
+  description="Sylvan Yu (俞宇锋) is a graphics and visual systems engineer building real-time renderers, cross-platform runtimes, and editor tooling."
+>
   <Fragment slot="head">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href={WALLPAPER_ATLAS} as="image" type="image/webp" crossorigin="anonymous" fetchpriority="high" />
+    <link rel="preload" href={WALLPAPER_ATLAS_MOBILE} as="image" type="image/webp" crossorigin="anonymous" fetchpriority="high" media="(max-width: 700px)" />
+    <link rel="preload" href={WALLPAPER_ATLAS} as="image" type="image/webp" crossorigin="anonymous" fetchpriority="high" media="(min-width: 701px)" />
     <link rel="preload" href={PHOTO3D_SHADER_URL} as="fetch" crossorigin="anonymous" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
   </Fragment>
 
   <div class="mac-page" data-mac-single-canvas-root>
@@ -23,9 +24,28 @@ import '../styles/io/macos.css';
       data-mac-single-canvas
       aria-label="Sylvan OS Photo3D wallpaper and liquid-glass background"
     ></canvas>
-    <noscript>
-      <p class="mac-noscript">This page needs JavaScript to render the canvas desktop.</p>
-    </noscript>
+    <main class="mac-fallback" data-mac-fallback>
+      <div class="mac-fallback__panel">
+        <p class="mac-fallback__eyebrow">SYLVAN YU · 俞宇锋</p>
+        <h1>Graphics / Rendering Engineer</h1>
+        <p class="mac-fallback__role">Visual Systems Engineer · Shanghai</p>
+        <p class="mac-fallback__body">
+          I build production renderers, cross-platform graphics runtimes, and editor tooling.
+          Currently working across Web, React Native, iOS, and Android; previously on the
+          open-source Galacean engine at Ant Group.
+        </p>
+        <p class="mac-fallback__status" data-mac-fallback-status>
+          Loading the interactive Sylvan OS desktop…
+        </p>
+        <div class="mac-fallback__actions">
+          <a class="mac-fallback__primary" href="/home/">Open standard portfolio</a>
+          <a href="/resume/sylvan-yu-en.pdf">Resume</a>
+          <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
+          <a href="mailto:me@sylvanyu.io">Email</a>
+        </div>
+      </div>
+    </main>
+    <noscript><style>.mac-fallback__status{display:none}</style></noscript>
   </div>
 
   <script>

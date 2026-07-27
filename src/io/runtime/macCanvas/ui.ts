@@ -1411,9 +1411,10 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
   ctx.fillText(copy.statusFoot, statusX, y);
   y += emailFont * 1.25 + emailGap;
 
-  const wallpaperFps = Math.round(state.fps).toString();
+  const fpsActive = state.fps >= 1;
+  const wallpaperFps = fpsActive ? Math.round(state.fps).toString() : '—';
   const stats = [
-    [wallpaperFps, copy.wFps],
+    [wallpaperFps, fpsActive ? copy.wFps : (state.lang === 'zh' ? '空闲' : 'IDLE')],
     ['4+', copy.wRenderer],
     ['RedNote', copy.wWallpaper],
     ['Shanghai', copy.wUptime],

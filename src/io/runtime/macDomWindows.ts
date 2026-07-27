@@ -550,11 +550,13 @@ export function createMacDomWindows(
       setWindowActive(record, isActive);
       updateWindowLayout(record, win as WindowLayout, layout);
       updateWindowTexts(record, win as WindowLayout, state);
-      // Canvas apps are expensive to download and initialize. Keep inactive
-      // windows as DOM shells, except the Photo3D / SHARP comparison where both
-      // sides need a ready still frame even if only one window owns focus.
+      // Most canvas apps stay unmounted while inactive. Photo3D is the default
+      // showcase window, so it starts behind its static cover and transitions
+      // to a ready still frame even when README currently owns focus.
       const shouldMountForCompare = id === 'photo' && state.windows.spatial.open;
-      if ((isActive || shouldMountForCompare) && (id !== 'photo' || options.allowPhotoMount !== false)) {
+      const canMount = id !== 'photo' || options.allowPhotoMount !== false;
+      const shouldMountPhoto = id === 'photo' && canMount;
+      if (canMount && (isActive || shouldMountForCompare || shouldMountPhoto)) {
         ensureWindowContentMounted(record);
       }
 

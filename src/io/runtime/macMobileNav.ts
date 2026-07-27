@@ -1,6 +1,7 @@
 import { createMacPowerOffOverlay } from './macPowerOff';
 import { isEmbeddedBrowserHost, requestHostClose } from './hostClose';
 import { MAC_WINDOW_IDS, type WindowId } from './macCanvas/ui';
+import { deepLinkHashForWindow, parseMacDeepLink } from './macCanvas/apps';
 
 // The phone build maps the browser back button onto in-app navigation via the
 // History API. Three kinds of entry are pushed onto the stack:
@@ -74,7 +75,7 @@ export function createMacMobileNav(hooks: MacMobileNavHooks): MacMobileNav {
 
   function appHistoryUrl(id: WindowId) {
     const url = new URL(window.location.href);
-    url.hash = `app=${encodeURIComponent(id)}`;
+    url.hash = deepLinkHashForWindow(id);
     return url;
   }
 
@@ -133,6 +134,21 @@ export function createMacMobileNav(hooks: MacMobileNavHooks): MacMobileNav {
     if (appId) {
       historyReady = true;
       openWindow(appId, false);
+      return;
+    }
+
+    const deepLink = parseMacDeepLink(window.location.hash);
+    if (deepLink?.type === 'window' && topOpenWindowId() === deepLink.id) {
+      window.history.replaceState(
+        { ...historyBaseState(), [MAC_APP_HISTORY_KEY]: deepLink.id },
+        '',
+        appHistoryUrl(deepLink.id),
+      );
+      historyReady = true;
+      return;
+    }
+    if (deepLink?.type === 'folder') {
+      historyReady = true;
       return;
     }
 

@@ -87,12 +87,14 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
 
   if (win.id === 'photo') {
     const photoActive = record.photo3dController?.active ?? record.element.dataset.active === 'true';
+    const photoState = record.body.querySelector<HTMLElement>('[data-photo3d-root]')?.dataset.state;
+    const photoLoading = photoState === 'loading';
     const comparingSharp = state.windows.spatial.open;
     record.element.dataset.compareOpen = comparingSharp ? 'true' : 'false';
     setCanvasRendering(record, photoActive && Boolean(record.photo3dController?.rendering));
     const photoFps = photoActive ? record.photo3dController?.fps ?? 0 : 0;
-    const fpsText = Math.round(photoFps).toString().padStart(3, ' ');
-    setText(record.accessory, photoActive ? 'LIVE' : 'IDLE');
+    const fpsText = photoActive ? Math.round(photoFps).toString().padStart(3, ' ') : '  —';
+    setText(record.accessory, photoLoading ? 'LOADING' : photoActive ? 'LIVE' : 'IDLE');
     setText(record.photoHud, `FPS ${fpsText}    ${state.bufferText}    ${win.sourceText ?? 'SRC --'}  LDI 2L`);
     const compareAction = record.body.querySelector('[data-compare-action]');
     setText(compareAction, comparingSharp
@@ -110,7 +112,7 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     const demoActive = record.canvasDemoHandle?.active ?? record.element.dataset.active === 'true';
     setCanvasRendering(record, demoActive && Boolean(record.canvasDemoHandle?.rendering));
     const demoFps = demoActive ? record.canvasDemoHandle?.fps ?? 0 : 0;
-    const fpsText = Math.round(demoFps).toString().padStart(3, ' ');
+    const fpsText = demoActive ? Math.round(demoFps).toString().padStart(3, ' ') : '  —';
     setText(record.accessory, demoActive ? 'LIVE' : 'IDLE');
     if (record.canvasDemoHud) {
       record.canvasDemoHud.hidden = false;

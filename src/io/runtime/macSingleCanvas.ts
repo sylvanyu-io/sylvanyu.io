@@ -55,9 +55,15 @@ import {
   PHOTO_APP_ATLAS,
   PHOTO_APP_META,
   WALLPAPER_ATLAS,
+  WALLPAPER_ATLAS_MOBILE,
+  deepLinkHashForWindow,
+  parseMacDeepLink,
   type FolderId,
 } from './macCanvas/apps';
-import { PHOTO3D_WALLPAPER_ATLAS_META } from './photo3d/core';
+import {
+  PHOTO3D_WALLPAPER_ATLAS_META,
+  PHOTO3D_WALLPAPER_MOBILE_ATLAS_META,
+} from './photo3d/core';
 
 const WINDOW_DRAG_LIMITS = {
   fallbackWidth: 320,
@@ -85,6 +91,14 @@ const FOLDER_OPEN_DURATION_MS = 280;
 const FOLDER_CLOSE_DURATION_MS = 220;
 const FOLDER_PREHEAT_TIMEOUT_MS = 160;
 const PERF_HUD_PARAM = 'perf';
+
+function showMacFallback(root: Element, message: string) {
+  if (!(root instanceof HTMLElement)) return;
+  root.dataset.macEnhanced = 'false';
+  root.dataset.macRenderFailed = 'true';
+  const status = root.querySelector<HTMLElement>('[data-mac-fallback-status]');
+  if (status) status.textContent = message;
+}
 
 const blurredBackdropFragmentShader = `
 precision highp float;
@@ -162,6 +176,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   let wallpaperPass: Photo3DPass | null = null;
   let forceWallpaperFrame = false;
   let initialModeApplied = false;
+  let initialDeepLinkApplied = false;
 
   // env(safe-area-inset-*) is only readable through CSS, so a hidden probe
   // exposes the insets to the canvas layout.
@@ -325,6 +340,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
       state.folder = id;
       state.folderProgress = from;
       folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
+      window.history.replaceState(window.history.state, '', '#labs');
       markLayoutDirty();
       return;
     }
@@ -391,7 +407,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     state.windows[id].open = true;
     bringWindowFront(state, id);
     markLayoutDirty();
-    if (updateHistory) mobileNav.pushAppHistory(id);
+    if (updateHistory) {
+      mobileNav.pushAppHistory(id);
+      if (!layout.mobile) {
+        window.history.replaceState(window.history.state, '', deepLinkHashForWindow(id));
+      }
+    }
   }
 
   function enforceMobileSingleWindow() {
@@ -592,6 +613,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
     openWindow,
     minimizeWindow: (id) => domWindows.minimize(id),
   });
+  const onWebGLContextLost = (event: Event) => {
+    event.preventDefault();
+    showMacFallback(
+      root,
+      'The interactive desktop lost its graphics context. The standard portfolio remains available.',
+    );
+    stop();
+  };
+  canvas.addEventListener('webglcontextlost', onWebGLContextLost);
   // backgroundTarget contains only the Photo3D wallpaper and its shade. It is
   // the single source for screen presentation and liquid-glass blur; all text
   // and icons live in the native DOM layer above it.
@@ -635,8 +665,20 @@ export function mountMacSingleCanvas(rootInput: Element) {
         MAC_WINDOW_IDS.forEach((id) => {
           state.windows[id].open = false;
         });
-        layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
       }
+      if (!initialDeepLinkApplied) {
+        initialDeepLinkApplied = true;
+        const deepLink = parseMacDeepLink(window.location.hash);
+        if (deepLink?.type === 'window') {
+          if (layout.mobile) closeOtherWindows(deepLink.id);
+          state.windows[deepLink.id].open = true;
+          bringWindowFront(state, deepLink.id);
+        } else if (deepLink?.type === 'folder') {
+          state.folder = deepLink.id;
+          state.folderProgress = 1;
+        }
+      }
+      layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     } else if (enforceMobileSingleWindow()) {
       layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());
     }
@@ -1095,6 +1137,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
     if (action.type === 'lang') {
       state.lang = action.lang;
+      document.documentElement.lang = action.lang;
       markLayoutDirty();
       return;
     }
@@ -1220,6 +1263,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
   };
 
   const onPopState = mobileNav.handlePopState;
+  const onHashChange = () => {
+    const deepLink = parseMacDeepLink(window.location.hash);
+    if (!deepLink) return;
+    if (deepLink.type === 'folder') {
+      setOpenFolder(deepLink.id);
+      return;
+    }
+    openWindow(deepLink.id, false);
+  };
 
   const onRootPointerMove = (event: PointerEvent) => {
     const hoverBlocked = targetBlocksBackgroundPointer(event.target);
@@ -1290,6 +1342,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   canvas.addEventListener('click', onClick);
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('popstate', onPopState);
+  window.addEventListener('hashchange', onHashChange);
   const clockTimer = window.setInterval(() => {
     domDesktop.updateDynamic(state);
   }, 60_000);
@@ -1300,8 +1353,13 @@ export function mountMacSingleCanvas(rootInput: Element) {
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(root);
   resize();
+  root.dataset.macEnhanced = 'true';
 
-  createPhoto3DPass(PHOTO3D_SHADER_URL, WALLPAPER_ATLAS, MAC_WALLPAPER_MOTION.layers, PHOTO3D_WALLPAPER_ATLAS_META).then((pass) => {
+  const wallpaperAtlas = layout.mobile ? WALLPAPER_ATLAS_MOBILE : WALLPAPER_ATLAS;
+  const wallpaperAtlasMeta = layout.mobile
+    ? PHOTO3D_WALLPAPER_MOBILE_ATLAS_META
+    : PHOTO3D_WALLPAPER_ATLAS_META;
+  createPhoto3DPass(PHOTO3D_SHADER_URL, wallpaperAtlas, MAC_WALLPAPER_MOTION.layers, wallpaperAtlasMeta).then((pass) => {
     wallpaperPass = pass;
     // Safari falls back to timer-based folder preheating. If that timer ran
     // before the Photo3D atlas was ready, discard the placeholder snapshot and
@@ -1311,7 +1369,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     // Desktop opens Photo3D.app by default; its mount path will fetch the
     // atlas once. Only preload while the app is closed, mainly for mobile.
     if (!state.windows.photo.open) scheduleIdleImagePreload(PHOTO_APP_ATLAS);
-    markRenderDirty();
+    markLayoutDirty();
   }).catch((error) => {
     console.warn('mac single canvas:', error);
   });
@@ -1333,8 +1391,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('click', onClick);
+    canvas.removeEventListener('webglcontextlost', onWebGLContextLost);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     window.removeEventListener('popstate', onPopState);
+    window.removeEventListener('hashchange', onHashChange);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('pagehide', onPageHide);
     window.clearInterval(clockTimer);
@@ -1373,5 +1433,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
 }
 
 export function mountMacSingleCanvases() {
-  document.querySelectorAll('[data-mac-single-canvas-root]').forEach(mountMacSingleCanvas);
+  document.querySelectorAll('[data-mac-single-canvas-root]').forEach((root) => {
+    try {
+      mountMacSingleCanvas(root);
+    } catch (error) {
+      console.warn('Sylvan OS WebGL fallback:', error);
+      showMacFallback(
+        root,
+        'Interactive graphics are unavailable in this browser. Open the standard portfolio instead.',
+      );
+    }
+  });
 }
