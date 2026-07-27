@@ -85,6 +85,7 @@ export type LangSwitchLayout = Rect & {
 
 export type WidgetsLayout = {
   clock: GlassPanel | null;
+  identity: GlassPanel;
   status: GlassPanel;
 };
 
@@ -154,8 +155,7 @@ const LAYOUT = {
     mobile: {
       sidePad: 20,
       top: 18,
-      clockH: 88,
-      clockMinViewportH: 760,
+      identityH: 88,
       statusH: 240,
       gap: 12,
       radius: 22,
@@ -166,7 +166,9 @@ const LAYOUT = {
       top: 56,
       clockW: 230,
       clockH: 92,
-      statusTop: 160,
+      identityTop: 160,
+      identityH: 108,
+      statusTop: 280,
       statusW: 230,
       statusH: 244,
       radius: 18,
@@ -285,7 +287,9 @@ function desktopWidgetsForTier(tier: DesktopLayoutTier) {
       top: 52,
       clockW: 208,
       clockH: 86,
-      statusTop: 150,
+      identityTop: 150,
+      identityH: 102,
+      statusTop: 264,
       statusW: 208,
       statusH: 226,
       radius: 17,
@@ -298,7 +302,9 @@ function desktopWidgetsForTier(tier: DesktopLayoutTier) {
       top: 64,
       clockW: 274,
       clockH: 104,
-      statusTop: 182,
+      identityTop: 182,
+      identityH: 120,
+      statusTop: 316,
       statusW: 274,
       statusH: 272,
       radius: 20,
@@ -310,7 +316,9 @@ function desktopWidgetsForTier(tier: DesktopLayoutTier) {
     top: 58,
     clockW: 244,
     clockH: 96,
-    statusTop: 170,
+    identityTop: 168,
+    identityH: 112,
+    statusTop: 294,
     statusW: 244,
     statusH: 252,
   };
@@ -783,19 +791,16 @@ export function buildMacCanvasLayout(
     const widgetLayout = LAYOUT.widgets.mobile;
     const sidePad = widgetLayout.sidePad;
     const widgetW = width - sidePad * 2;
-    const clockY = safeTop + widgetLayout.top;
-    const showClock = height >= widgetLayout.clockMinViewportH;
-    const clock: GlassPanel | null = showClock
-      ? {
-        x: sidePad,
-        y: clockY,
-        w: widgetW,
-        h: widgetLayout.clockH,
-        r: widgetLayout.radius,
-        z: widgetLayout.z,
-      }
-      : null;
-    const statusY = clock ? clock.y + clock.h + widgetLayout.gap : clockY;
+    const identityY = safeTop + widgetLayout.top;
+    const identity: GlassPanel = {
+      x: sidePad,
+      y: identityY,
+      w: widgetW,
+      h: widgetLayout.identityH,
+      r: widgetLayout.radius,
+      z: widgetLayout.z,
+    };
+    const statusY = identity.y + identity.h + widgetLayout.gap;
     const status: GlassPanel = {
       x: sidePad,
       y: statusY,
@@ -804,7 +809,7 @@ export function buildMacCanvasLayout(
       r: widgetLayout.radius,
       z: widgetLayout.z,
     };
-    widgets = { clock, status };
+    widgets = { clock: null, identity, status };
   } else {
     const widgetLayout = desktopWidgets;
     widgets = {
@@ -813,6 +818,14 @@ export function buildMacCanvasLayout(
         y: widgetLayout.top,
         w: widgetLayout.clockW,
         h: widgetLayout.clockH,
+        r: widgetLayout.radius,
+        z: widgetLayout.z,
+      },
+      identity: {
+        x: width - widgetLayout.right,
+        y: widgetLayout.identityTop,
+        w: widgetLayout.statusW,
+        h: widgetLayout.identityH,
         r: widgetLayout.radius,
         z: widgetLayout.z,
       },
@@ -827,6 +840,7 @@ export function buildMacCanvasLayout(
     };
   }
   if (widgets.clock) widgetGlassPanels.push(widgets.clock);
+  widgetGlassPanels.push(widgets.identity);
   widgetGlassPanels.push(widgets.status);
 
   const iconsTop = mobile ? widgets.status.y + widgets.status.h + LAYOUT.widgets.iconGridGap : desktopIconGrid.top;
@@ -1335,7 +1349,7 @@ function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: n
 
 function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, state: MacCanvasState, now: Date) {
   const copy = desktopCopy[state.lang];
-  const { clock, status } = layout.widgets;
+  const { clock, identity, status } = layout.widgets;
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const date = now.toISOString().slice(0, 10).replace(/-/g, '.');
 
@@ -1365,6 +1379,38 @@ function drawWidgets(ctx: CanvasRenderingContext2D, layout: MacCanvasLayout, sta
     ctx.fillStyle = 'rgba(246, 250, 255, 0.62)';
     ctx.fillText(date, clockX, clockY);
   }
+
+  const identityScale = clampValue(Math.min(identity.w / 244, identity.h / 112), 0.78, 1.12);
+  const identityX = identity.x + clampValue(20 * identityScale, 18, 24);
+  const identityName = state.lang === 'zh' ? '俞宇锋 · Sylvan Yu' : 'Sylvan Yu · 俞宇锋';
+  const identityRole = state.lang === 'zh'
+    ? '图形 / 渲染 · 视觉系统工程师'
+    : 'Graphics / Visual Systems Engineer';
+  const identityStack = state.lang === 'zh'
+    ? 'WebGL · RN · Metal · 编辑器工具链'
+    : 'WebGL · RN · Metal · Editor Tooling';
+  const identityNameFont = 20 * identityScale;
+  const identityRoleFont = 9 * identityScale;
+  const identityStackFont = 8 * identityScale;
+  const identityGap = 5 * identityScale;
+  const identityBlockH = identityNameFont * 1.05
+    + identityGap
+    + identityRoleFont * 1.25
+    + identityGap
+    + identityStackFont * 1.2;
+  let identityY = identity.y + (identity.h - identityBlockH) * 0.5;
+
+  ctx.font = `700 ${identityNameFont}px ${mono}`;
+  ctx.fillStyle = 'rgba(250, 253, 255, 0.98)';
+  ctx.fillText(identityName, identityX, identityY);
+  identityY += identityNameFont * 1.05 + identityGap;
+  ctx.font = `650 ${identityRoleFont}px ${mono}`;
+  ctx.fillStyle = 'rgba(194, 238, 220, 0.94)';
+  ctx.fillText(identityRole, identityX, identityY);
+  identityY += identityRoleFont * 1.25 + identityGap;
+  ctx.font = `550 ${identityStackFont}px ${mono}`;
+  ctx.fillStyle = 'rgba(246, 250, 255, 0.58)';
+  ctx.fillText(identityStack, identityX, identityY);
 
   const statusW = Math.max(1, status.w - widgetInset * 2);
   const statusX = status.x + widgetInset;

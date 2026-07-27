@@ -171,8 +171,15 @@ export function createMacDomDesktop(
   const clockDate = span('mac-dom-widget__date');
   clock.append(clockTime, clockDate);
 
+  const identity = div('mac-dom-widget mac-dom-widget--identity');
+  const profile = div('mac-dom-widget__profile');
+  const profileName = span('mac-dom-widget__profile-name');
+  const profileRole = span('mac-dom-widget__profile-role');
+  const profileStack = span('mac-dom-widget__profile-stack');
+  profile.append(profileName, profileRole, profileStack);
+  identity.append(profile);
+
   const status = div('mac-dom-widget mac-dom-widget--status');
-  const statusIdentity = span('mac-dom-widget__identity');
   const statusTitle = span('mac-dom-widget__title');
   const statusBody = span('mac-dom-widget__body');
   const statusFoot = span('mac-dom-widget__foot');
@@ -185,8 +192,8 @@ export function createMacDomDesktop(
     stats.append(item);
     return { value, label };
   });
-  status.append(statusIdentity, statusTitle, statusBody, statusFoot, stats);
-  widgets.append(clock, status);
+  status.append(statusTitle, statusBody, statusFoot, stats);
+  widgets.append(clock, identity, status);
 
   const icons = div('mac-dom-icons');
   const iconRecords = new Map<string, IconRecord>();
@@ -295,6 +302,13 @@ export function createMacDomDesktop(
     menuTime.textContent = time;
     clockTime.textContent = time;
     clockDate.textContent = date;
+    profileName.textContent = state.lang === 'zh' ? '俞宇锋 · Sylvan Yu' : 'Sylvan Yu · 俞宇锋';
+    profileRole.textContent = state.lang === 'zh'
+      ? '图形 / 渲染 · 视觉系统工程师'
+      : 'Graphics / Visual Systems Engineer';
+    profileStack.textContent = state.lang === 'zh'
+      ? 'WebGL · RN · Metal · 编辑器工具链'
+      : 'WebGL · RN · Metal · Editor Tooling';
     statusTitle.textContent = copy.statusTitle;
     statusBody.textContent = copy.statusBody;
     statusFoot.textContent = copy.statusFoot;
@@ -338,6 +352,12 @@ export function createMacDomDesktop(
     } else {
       clock.hidden = true;
     }
+    setRect(identity, layout.widgets.identity);
+    const identityScale = Math.min(1.12, Math.max(0.78, Math.min(
+      layout.widgets.identity.w / 244,
+      layout.widgets.identity.h / 112,
+    )));
+    identity.style.setProperty('--mac-profile-scale', identityScale.toFixed(3));
     setRect(status, layout.widgets.status);
     const statusScale = Math.min(1.12, Math.max(0.78, Math.min(
       layout.widgets.status.w / 244,
@@ -346,9 +366,6 @@ export function createMacDomDesktop(
     status.style.setProperty('--mac-widget-scale', statusScale.toFixed(3));
 
     const copy = desktopCopy[state.lang];
-    statusIdentity.textContent = state.lang === 'zh'
-      ? 'Sylvan Yu · 俞宇锋 · 图形 / 视觉系统工程师'
-      : 'Sylvan Yu · Graphics / Visual Systems Engineer';
     iconRecords.forEach((record) => {
       record.button.hidden = true;
     });

@@ -166,6 +166,52 @@
     line-height: 1.25;
   }
 
+  .mac-dom-widget__profile {
+    display: grid;
+    gap: calc(5px * var(--mac-profile-scale, 1));
+    min-width: 0;
+  }
+
+  .mac-dom-widget__profile-name,
+  .mac-dom-widget__profile-role,
+  .mac-dom-widget__profile-stack {
+    display: block;
+    overflow: hidden;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mac-dom-widget--identity {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 0 max(18px, calc(20px * var(--mac-profile-scale, 1)));
+  }
+
+  .mac-dom-widget__profile-name {
+    color: rgba(250, 253, 255, .98);
+    font-size: calc(20px * var(--mac-profile-scale, 1));
+    font-weight: 700;
+    letter-spacing: -.03em;
+    line-height: 1.05;
+  }
+
+  .mac-dom-widget__profile-role {
+    color: rgba(194, 238, 220, .94);
+    font-size: calc(9px * var(--mac-profile-scale, 1));
+    font-weight: 650;
+    line-height: 1.25;
+  }
+
+  .mac-dom-widget__profile-stack {
+    color: rgba(246, 250, 255, .58);
+    font-size: calc(8px * var(--mac-profile-scale, 1));
+    font-weight: 550;
+    line-height: 1.2;
+  }
+
   .mac-dom-widget--status {
     --mac-widget-inset: clamp(18px, calc(20px * var(--mac-widget-scale, 1)), 24px);
     display: flex;
@@ -176,25 +222,11 @@
   }
 
   .mac-dom-widget__title,
-  .mac-dom-widget__identity,
   .mac-dom-widget__foot,
   .mac-dom-widget__stat-value,
   .mac-dom-widget__stat-label {
     display: block;
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-
-  .mac-dom-widget__identity {
-    display: none;
-    margin-bottom: calc(10px * var(--mac-widget-scale, 1));
-    color: rgba(194, 238, 220, .92);
-    font-size: calc(10px * var(--mac-widget-scale, 1));
-    font-weight: 600;
-    line-height: 1.35;
-  }
-
-  .mac-dom-desktop[data-mobile="true"] .mac-dom-widget__identity {
-    display: block;
   }
 
   .mac-dom-desktop[data-mobile="true"] .mac-dom-widget__title {
