@@ -324,7 +324,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   } | null = null;
   let folderReleaseAfterRender = false;
 
-  function setOpenFolder(id: FolderId | null) {
+  function setOpenFolder(id: FolderId | null, updateHistory = true) {
     if (id) {
       folderReleaseAfterRender = false;
       const from = state.folder === id ? state.folderProgress : 0;
@@ -340,7 +340,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
       state.folder = id;
       state.folderProgress = from;
       folderAnimation = { id, from, to: 1, startMs: nowMs, durationMs: FOLDER_OPEN_DURATION_MS };
-      window.history.replaceState(window.history.state, '', '#labs');
+      if (updateHistory) {
+        if (layout.mobile) mobileNav.pushFolderHistory(id);
+        else window.history.replaceState(window.history.state, '', '#labs');
+      }
       markLayoutDirty();
       return;
     }
@@ -355,6 +358,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
       startMs: nowMs,
       durationMs: FOLDER_CLOSE_DURATION_MS,
     };
+    if (updateHistory && !layout.mobile) {
+      window.history.replaceState(window.history.state, '', '#home');
+    }
     markLayoutDirty();
   }
 
@@ -610,7 +616,10 @@ export function mountMacSingleCanvas(rootInput: Element) {
     root,
     isMobile: () => layout.mobile,
     topOpenWindowId,
+    isFolderOpen: () => Boolean(state.folder),
     openWindow,
+    openFolder: (id) => setOpenFolder(id, false),
+    closeFolder: () => setOpenFolder(null, false),
     minimizeWindow: (id) => domWindows.minimize(id),
   });
   const onWebGLContextLost = (event: Event) => {
@@ -1148,6 +1157,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
     }
 
     if (action.type === 'folder-close') {
+      if (state.folder && mobileNav.requestFolderClose(state.folder)) return;
       setOpenFolder(null);
       return;
     }
@@ -1267,10 +1277,12 @@ export function mountMacSingleCanvas(rootInput: Element) {
     const deepLink = parseMacDeepLink(window.location.hash);
     if (!deepLink) return;
     if (deepLink.type === 'folder') {
-      setOpenFolder(deepLink.id);
+      setOpenFolder(deepLink.id, false);
+      mobileNav.adoptDeepLink(deepLink);
       return;
     }
     openWindow(deepLink.id, false);
+    mobileNav.adoptDeepLink(deepLink);
   };
 
   const onRootPointerMove = (event: PointerEvent) => {

@@ -235,6 +235,10 @@ export function deepLinkHashForWindow(id: WindowId) {
   return `#${WINDOW_DEEP_LINKS[id] ?? `app=${encodeURIComponent(id)}`}`;
 }
 
+export function deepLinkHashForFolder(id: FolderId) {
+  return `#${id}`;
+}
+
 export function parseMacDeepLink(hash: string): MacDeepLink | null {
   const value = hash.replace(/^#/, '').trim().toLowerCase();
   if (!value || value === 'home' || value === 'power-off') return null;
