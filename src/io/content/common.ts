@@ -9,6 +9,12 @@ export const profile = {
   socials: [
     { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'github' },
     {
+      key: 'linkedin',
+      label: 'LinkedIn',
+      href: 'https://www.linkedin.com/in/sylvan-yu-49a2a7425/',
+      icon: 'linkedin',
+    },
+    {
       key: 'rednote',
       label: 'RedNote',
       href: 'https://www.xiaohongshu.com/user/profile/5ebc23860000000001001c51',
