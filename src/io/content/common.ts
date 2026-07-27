@@ -6,10 +6,6 @@ export const profile = {
   email: 'me@sylvanyu.io',
   github: 'https://github.com/sylvanyu-io',
   website: 'https://sylvanyu.io',
-  resume: {
-    en: '/resume/sylvan-yu-en.pdf',
-    zh: '/resume/sylvan-yu-zh.pdf',
-  },
   socials: [
     { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'github' },
   ],

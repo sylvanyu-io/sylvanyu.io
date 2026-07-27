@@ -1186,14 +1186,6 @@
     background: #17191c;
   }
 
-  .mac-readme__resume {
-    min-width: 88px;
-    padding: 0 11px;
-    color: #17191c;
-    border: 1px solid rgba(23, 25, 28, .24);
-    background: rgba(255, 255, 255, .24);
-  }
-
   .mac-readme__socials {
     display: inline-flex;
     gap: 10px;

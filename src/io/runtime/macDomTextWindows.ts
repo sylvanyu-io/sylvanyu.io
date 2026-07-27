@@ -50,13 +50,6 @@ export function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   email.href = `mailto:${profile.email}`;
   email.textContent = profile.email;
 
-  const resume = document.createElement('a');
-  resume.className = 'mac-readme__resume';
-  resume.href = profile.resume[lang];
-  resume.target = '_blank';
-  resume.rel = 'noreferrer';
-  resume.textContent = lang === 'zh' ? '简历 PDF' : 'RESUME PDF';
-
   const socials = div('mac-readme__socials');
   profile.socials.forEach((social) => {
     const link = document.createElement('a');
@@ -71,7 +64,7 @@ export function renderReadme(record: MacDomWindowRecord, lang: Lang) {
     socials.append(link);
   });
 
-  actions.append(email, resume, socials);
+  actions.append(email, socials);
 
   record.body.append(eyebrow, title, body, chips, actions);
 }
