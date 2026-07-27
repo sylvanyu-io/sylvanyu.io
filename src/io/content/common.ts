@@ -8,6 +8,18 @@ export const profile = {
   website: 'https://sylvanyu.io',
   socials: [
     { key: 'github', label: 'GitHub', href: 'https://github.com/sylvanyu-io', icon: 'github' },
+    {
+      key: 'rednote',
+      label: 'RedNote',
+      href: 'https://www.xiaohongshu.com/user/profile/5ebc23860000000001001c51',
+      icon: 'rednote',
+    },
+    {
+      key: 'instagram',
+      label: 'Instagram',
+      href: 'https://www.instagram.com/sylvanyuio/',
+      icon: 'instagram',
+    },
   ],
   location: {
     en: 'Shanghai, China · always happy to connect',
