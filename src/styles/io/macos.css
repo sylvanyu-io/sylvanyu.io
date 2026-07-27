@@ -2097,19 +2097,17 @@
   }
 
   .mac-project__links a[data-variant="primary"] {
-    min-height: 29px;
-    padding: 0 12px;
-    border-color: #263b4c;
-    color: #f4f6ec;
-    background: #263b4c;
-    box-shadow: 0 5px 12px rgba(31, 48, 62, .18);
+    min-height: 27px;
+    padding: 0 10px;
+    border-color: rgba(38, 59, 76, .28);
+    color: #263b4c;
+    background: rgba(238, 243, 243, .58);
   }
 
   .mac-project__links a[data-variant="primary"]:hover {
-    border-color: #172a3a;
-    color: #fff;
-    background: #172a3a;
-    box-shadow: 0 7px 16px rgba(31, 48, 62, .24);
+    border-color: rgba(38, 59, 76, .42);
+    color: #172a3a;
+    background: rgba(248, 250, 247, .84);
   }
 
   .mac-project__metric {
