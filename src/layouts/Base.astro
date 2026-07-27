@@ -4,22 +4,43 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  lang?: 'en' | 'zh';
+  image?: string;
+  noindex?: boolean;
 }
 const {
   title = 'Sylvan Yu — Graphics & Engine Engineer',
   description = 'Sylvan Yu (俞宇锋) is a graphics and engine engineer in Shanghai, working on real-time rendering engines, cross-platform graphics, and editor tooling.',
+  lang = 'en',
+  image = '/og.png',
+  noindex = false,
 } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const socialImage = new URL(image, Astro.site ?? Astro.url.origin);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0a0b0f" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="sylvanyu.io" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:alt" content="Sylvan Yu's interactive graphics portfolio" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <slot name="head" />
   </head>

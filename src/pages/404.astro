@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Page not found — Sylvan Yu"
+  description="The requested page could not be found on sylvanyu.io."
+  noindex
+>
+  <main class="not-found">
+    <section>
+      <p class="code">404 · PAGE NOT FOUND</p>
+      <h1>This window does not exist.</h1>
+      <p>
+        Return to Sylvan OS, or open the standard portfolio if you prefer a conventional page.
+      </p>
+      <nav aria-label="Recovery links">
+        <a class="primary" href="/">Open Sylvan OS</a>
+        <a href="/home/">Standard portfolio</a>
+        <a href="/labs/">Labs</a>
+      </nav>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .not-found {
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    color: #edf6ff;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(101, 190, 255, .19), transparent 34%),
+      linear-gradient(145deg, #07111b, #0d2638 58%, #071019);
+  }
+
+  section {
+    width: min(660px, 100%);
+    padding: clamp(30px, 7vw, 62px);
+    border: 1px solid rgba(219, 237, 255, .18);
+    border-radius: 26px;
+    background: rgba(8, 21, 32, .7);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, .3);
+  }
+
+  .code {
+    margin: 0 0 24px;
+    color: #99d9bf;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(38px, 8vw, 70px);
+    line-height: 1;
+    letter-spacing: -.05em;
+  }
+
+  section > p:not(.code) {
+    max-width: 540px;
+    margin: 26px 0 0;
+    color: rgba(235, 245, 255, .7);
+    font-size: 17px;
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    align-items: center;
+    margin-top: 32px;
+  }
+
+  a {
+    padding: 10px 0;
+    color: rgba(238, 247, 255, .82);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .primary {
+    padding: 11px 16px;
+    color: #071821;
+    border-radius: 999px;
+    background: #a8efd2;
+  }
+</style>
