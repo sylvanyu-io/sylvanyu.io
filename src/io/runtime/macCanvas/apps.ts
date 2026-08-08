@@ -8,6 +8,7 @@ export type IconLabelKey =
   | 'iconReflection'
   | 'iconLog'
   | 'iconProjects'
+  | 'iconWebgpu'
   | 'iconMoments'
   | 'iconVideo'
   | 'iconLabs';
@@ -132,6 +133,16 @@ export const MAC_APPS: MacAppDefinition[] = [
     initialZ: 13,
   },
   {
+    id: 'webgpu',
+    title: 'WebGPU Lab',
+    icon: 'icon-webgpu-lab.svg',
+    labelKey: 'iconWebgpu',
+    home: false,
+    dock: false,
+    initialOpen: false,
+    initialZ: 10,
+  },
+  {
     id: 'moments',
     title: 'Moments.app',
     icon: 'icon-moments.svg',
@@ -196,6 +207,7 @@ export const MAC_FOLDERS: MacFolderDefinition[] = [
     title: 'Labs',
     labelKey: 'iconLabs',
     items: [
+      'webgpu',
       'photo',
       'spatial',
       'reflection',
@@ -224,6 +236,7 @@ const WINDOW_DEEP_LINKS: Partial<Record<WindowId, string>> = {
   photo: 'photo3d',
   worklog: 'worklog',
   projects: 'projects',
+  webgpu: 'webgpu-lab',
   moments: 'moments',
 };
 

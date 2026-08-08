@@ -5,6 +5,7 @@ import {
   profile,
 } from '../data';
 import type { Lang } from '../content/common';
+import { webGpuLabRepoUrl, webGpuProjects } from '../../labs/webgpu/catalog';
 import { div } from './macDomElements';
 import type { MacDomWindowRecord } from './macDomWindowContent';
 
@@ -144,5 +145,88 @@ export function renderProjects(record: MacDomWindowRecord, lang: Lang) {
   });
 
   shell.append(list);
+  record.body.append(shell);
+}
+
+export function renderWebGpuLab(record: MacDomWindowRecord, lang: Lang) {
+  record.body.replaceChildren();
+
+  const shell = div('mac-webgpu');
+  const header = div('mac-webgpu__header');
+  const heading = div('mac-webgpu__heading');
+  const eyebrow = document.createElement('span');
+  eyebrow.className = 'mac-webgpu__eyebrow';
+  eyebrow.textContent = 'WEBGPU LAB / 7 LIVE SYSTEMS';
+  const title = document.createElement('h2');
+  title.textContent = lang === 'zh' ? '在浏览器里压 GPU。' : 'Push the GPU in-browser.';
+  const intro = document.createElement('p');
+  intro.textContent = lang === 'zh'
+    ? '七个独立实验：计算着色器、程序化几何、大规模实例、体素与可变形表面。'
+    : 'Seven independent experiments in compute, procedural geometry, massive instancing, voxels, and deformable surfaces.';
+  heading.append(eyebrow, title, intro);
+
+  const headerLinks = div('mac-webgpu__header-links');
+  const fullPage = document.createElement('a');
+  fullPage.href = webGpuLabRepoUrl;
+  fullPage.target = '_blank';
+  fullPage.rel = 'noreferrer';
+  fullPage.textContent = lang === 'zh' ? '打开仓库 ↗' : 'Open repository ↗';
+  const source = document.createElement('a');
+  source.href = webGpuLabRepoUrl;
+  source.target = '_blank';
+  source.rel = 'noreferrer';
+  source.textContent = 'GitHub ↗';
+  headerLinks.append(fullPage, source);
+  header.append(heading, headerLinks);
+
+  const grid = div('mac-webgpu__grid');
+  webGpuProjects.forEach((project, index) => {
+    const article = document.createElement('article');
+    article.className = 'mac-webgpu-card';
+
+    const coverLink = document.createElement('a');
+    coverLink.className = 'mac-webgpu-card__cover';
+    coverLink.href = project.href;
+    coverLink.target = '_blank';
+    coverLink.rel = 'noreferrer';
+    coverLink.setAttribute('aria-label', `${project.title} live demo`);
+    const cover = document.createElement('img');
+    cover.src = project.cover;
+    cover.alt = project.coverAlt;
+    cover.loading = 'lazy';
+    cover.decoding = 'async';
+    coverLink.append(cover);
+
+    const copy = div('mac-webgpu-card__copy');
+    const meta = document.createElement('p');
+    meta.className = 'mac-webgpu-card__meta';
+    meta.textContent = `${String(index + 1).padStart(2, '0')} · ${project.label}`;
+    const cardTitle = document.createElement('h3');
+    cardTitle.textContent = project.title;
+    const description = document.createElement('p');
+    description.className = 'mac-webgpu-card__description';
+    description.textContent = project.description;
+    const footer = div('mac-webgpu-card__footer');
+    const metric = document.createElement('strong');
+    metric.textContent = project.metric;
+    const links = div('mac-webgpu-card__links');
+    [
+      { label: lang === 'zh' ? '运行' : 'Run', href: project.href },
+      { label: lang === 'zh' ? '源码' : 'Code', href: project.sourceHref },
+    ].forEach((item) => {
+      const link = document.createElement('a');
+      link.href = item.href;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.textContent = `${item.label} ↗`;
+      links.append(link);
+    });
+    footer.append(metric, links);
+    copy.append(meta, cardTitle, description, footer);
+    article.append(coverLink, copy);
+    grid.append(article);
+  });
+
+  shell.append(header, grid);
   record.body.append(shell);
 }

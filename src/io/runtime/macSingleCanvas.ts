@@ -82,6 +82,7 @@ const WINDOW_RESIZE_LIMITS = {
     reflection: { w: 360, h: 280 },
     worklog: { w: 420, h: 300 },
     projects: { w: 420, h: 380 },
+    webgpu: { w: 560, h: 420 },
     moments: { w: 360, h: 420 },
     video: { w: 240, h: 300 },
   } satisfies Record<WindowId, { w: number; h: number }>,
@@ -92,12 +93,10 @@ const FOLDER_CLOSE_DURATION_MS = 220;
 const FOLDER_PREHEAT_TIMEOUT_MS = 160;
 const PERF_HUD_PARAM = 'perf';
 
-function showMacFallback(root: Element, message: string) {
+function showMacFallback(root: Element) {
   if (!(root instanceof HTMLElement)) return;
   root.dataset.macEnhanced = 'false';
   root.dataset.macRenderFailed = 'true';
-  const status = root.querySelector<HTMLElement>('[data-mac-fallback-status]');
-  if (status) status.textContent = message;
 }
 
 const blurredBackdropFragmentShader = `
@@ -624,10 +623,7 @@ export function mountMacSingleCanvas(rootInput: Element) {
   });
   const onWebGLContextLost = (event: Event) => {
     event.preventDefault();
-    showMacFallback(
-      root,
-      'The interactive desktop lost its graphics context. The standard portfolio remains available.',
-    );
+    showMacFallback(root);
     stop();
   };
   canvas.addEventListener('webglcontextlost', onWebGLContextLost);
@@ -1446,14 +1442,15 @@ export function mountMacSingleCanvas(rootInput: Element) {
 
 export function mountMacSingleCanvases() {
   document.querySelectorAll('[data-mac-single-canvas-root]').forEach((root) => {
+    if (new URLSearchParams(window.location.search).get('fallback') === '1') {
+      showMacFallback(root);
+      return;
+    }
     try {
       mountMacSingleCanvas(root);
     } catch (error) {
       console.warn('Sylvan OS WebGL fallback:', error);
-      showMacFallback(
-        root,
-        'Interactive graphics are unavailable in this browser. Open the standard portfolio instead.',
-      );
+      showMacFallback(root);
     }
   });
 }

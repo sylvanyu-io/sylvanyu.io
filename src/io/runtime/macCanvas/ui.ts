@@ -197,6 +197,7 @@ const LAYOUT = {
     reflection: { x: 430, y: 118, w: 540, h: 360 },
     spatial: { x: 210, y: 82, w: 720, h: 500 },
     projects: { x: 180, y: 72, w: 620, h: 540 },
+    webgpu: { x: 205, y: 68, w: 760, h: 590 },
     moments: { x: 300, y: 58, w: 450, h: 560 },
     video: { x: 230, y: 92, w: 720, h: 510 },
   },
@@ -339,6 +340,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
       reflection: { x: 354, y: 106, w: 500, h: 342 },
       spatial: { x: 150, y: 74, w: 640, h: 460 },
       projects: { x: 150, y: 68, w: 560, h: 500 },
+      webgpu: { x: 145, y: 58, w: 690, h: 520 },
       moments: { x: 260, y: 58, w: 418, h: 510 },
       video: { x: 190, y: 86, w: 660, h: 475 },
     };
@@ -355,6 +357,7 @@ function desktopWindowsForTier(tier: DesktopLayoutTier) {
       reflection: { x: 504, y: 136, w: 620, h: 404 },
       spatial: { x: 250, y: 104, w: 820, h: 560 },
       projects: { x: 212, y: 88, w: 700, h: 596 },
+      webgpu: { x: 250, y: 82, w: 900, h: 650 },
       moments: { x: 360, y: 76, w: 510, h: 610 },
       video: { x: 280, y: 110, w: 840, h: 580 },
     };
@@ -974,6 +977,15 @@ export function buildMacCanvasLayout(
     titleH,
   };
 
+  const webgpu: WindowLayout = {
+    id: 'webgpu',
+    title: appTitle('webgpu'),
+    ...(mobile ? fullscreen : desktopWindows.webgpu),
+    r: mobile ? 0 : desktopWindows.radius,
+    z: state.windows.webgpu.z,
+    titleH,
+  };
+
   const moments: WindowLayout = {
     id: 'moments',
     title: appTitle('moments'),
@@ -1057,7 +1069,7 @@ export function buildMacCanvasLayout(
     });
   }
 
-  [readme, photo, spatial, reflection, worklog, projects, moments, video].forEach((windowLayout) => {
+  [readme, photo, spatial, reflection, worklog, projects, webgpu, moments, video].forEach((windowLayout) => {
     if (!state.windows[windowLayout.id].open) return;
     placeWindow(state, windowLayout, mobile);
     windows.push(windowLayout);

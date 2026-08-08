@@ -7,6 +7,7 @@ export const MAC_WINDOW_IDS = [
   'reflection',
   'worklog',
   'projects',
+  'webgpu',
   'moments',
   'video',
 ] as const;

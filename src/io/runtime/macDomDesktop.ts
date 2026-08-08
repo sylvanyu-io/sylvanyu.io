@@ -115,9 +115,8 @@ function actionForHomeCell(cell: IconCell, state: MacCanvasState): NonNullable<H
 
 function actionForFolderItem(id: MacLabAppId): NonNullable<HitTarget['action']> {
   const video = videoLabAppDefinition(id);
-  return video
-    ? { type: 'open', id: 'video', origin: 'folder', clipIndex: video.clipIndex }
-    : { type: 'open', id: id as Parameters<typeof appDefinition>[0], origin: 'folder' };
+  if (video) return { type: 'open', id: 'video', origin: 'folder', clipIndex: video.clipIndex };
+  return { type: 'open', id: id as Parameters<typeof appDefinition>[0], origin: 'folder' };
 }
 
 function createFolderThumbnail() {
