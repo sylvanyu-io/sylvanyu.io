@@ -33,53 +33,6 @@ export const profile = {
   },
 };
 
-export const designVariants = [
-  {
-    key: 'a',
-    label: 'A',
-    title: 'Spec Sheet',
-    href: '/io-design/a/',
-    summary: 'A conventional long-form portfolio with live WebGL demos, metrics, and work history.',
-  },
-  {
-    key: 'macos',
-    label: 'B',
-    title: 'Sylvan OS',
-    href: '/',
-    summary: 'A macOS-inspired desktop. Glass panels are drawn by a fullscreen Three.js canvas pass.',
-  },
-  {
-    key: 'y2k',
-    label: 'C',
-    title: 'Y2K Desktop',
-    href: '/io-design/y2k/',
-    summary: 'A Y2K desktop pass with Animal Well-inspired low-light pixels, CRT layers, and neon windows.',
-  },
-] as const;
-
-export const navCopy: Record<Lang, {
-  work: string;
-  demos: string;
-  experience: string;
-  contact: string;
-  portal: string;
-}> = {
-  en: {
-    work: 'WORK',
-    demos: 'DEMOS',
-    experience: 'EXPERIENCE',
-    contact: 'CONTACT',
-    portal: 'ALL DESIGNS',
-  },
-  zh: {
-    work: '项目',
-    demos: '演示',
-    experience: '经历',
-    contact: '联系',
-    portal: '全部设计',
-  },
-};
-
 export const heroCopy: Record<Lang, {
   kicker: string;
   title: string;
@@ -103,23 +56,4 @@ export const heroCopy: Record<Lang, {
     chips: ['实时渲染', '产品工程', '编辑器工具链 & AI 基建'],
     photoFig: '移动鼠标转动视角 · 实时渲染',
   },
-};
-
-export const metrics: Record<Lang, Array<{ value: string; label: string }>> = {
-  en: [
-    { value: '≈70%', label: 'faster coupon mount' },
-    { value: '10M+', label: 'monthly reach' },
-    { value: '50+', label: 'steady FPS' },
-    { value: 'LOW', label: 'mobile crash rate' },
-    { value: '10× class', label: 'playback YoY' },
-    { value: '≈½', label: 'geometry payload' },
-  ],
-  zh: [
-    { value: '约 70%', label: '发券挂载提速' },
-    { value: '千万级', label: '月度触达' },
-    { value: '50+', label: '稳定帧率' },
-    { value: '低位', label: '移动端崩溃率' },
-    { value: '数量级', label: '播放同比增长' },
-    { value: '约一半', label: '几何数据体积' },
-  ],
 };
