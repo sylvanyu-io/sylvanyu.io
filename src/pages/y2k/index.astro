@@ -1,9 +1,9 @@
 ---
-import DesktopWindow from '../../../components/io/DesktopWindow.astro';
-import Photo3DView from '../../../components/io/Photo3DView.astro';
-import Base from '../../../layouts/Base.astro';
-import { profile, y2kDesktopCopy, y2kLogLines, y2kProjects } from '../../../io/data';
-import '../../../styles/io/y2k.css';
+import DesktopWindow from '../../components/io/DesktopWindow.astro';
+import Photo3DView from '../../components/io/Photo3DView.astro';
+import Base from '../../layouts/Base.astro';
+import { profile, y2kDesktopCopy, y2kLogLines, y2kProjects } from '../../io/data';
+import '../../styles/io/y2k.css';
 
 const langs = ['en', 'zh'] as const;
 const taskbarWindows = [
@@ -28,7 +28,7 @@ const fireflies = Array.from({ length: 18 }, (_, index) => ({
 }));
 ---
 
-<Base title="IO Design C · Y2K Desktop" description="Y2K desktop personal site page inspired by Animal Well-like neon pixel scenes.">
+<Base title="Sylvan Y2K · Sylvan Yu" description="Sylvan Yu's Y2K desktop portfolio, inspired by low-light neon pixel scenes.">
   <Fragment slot="head">
     <script src="/io-design/assets/photo3d-view.js" defer></script>
   </Fragment>
@@ -145,8 +145,8 @@ const fireflies = Array.from({ length: 18 }, (_, index) => ({
   </div>
 
   <script>
-    import { mountDesktop } from '../../../io/runtime/desktop';
-    import { mountLanguageRoots } from '../../../io/runtime/language';
+    import { mountDesktop } from '../../io/runtime/desktop';
+    import { mountLanguageRoots } from '../../io/runtime/language';
 
     mountLanguageRoots();
     document.querySelectorAll('[data-desktop-root]').forEach(mountDesktop);

@@ -506,3 +506,45 @@
       display: none;
     }
   }
+
+  @media (max-width: 600px) {
+    .desktop-window,
+    .desktop-window[data-window="photo"],
+    .desktop-window[data-window="worklog"],
+    .desktop-window[data-window="projects"] {
+      top: 12px !important;
+      left: 12px !important;
+      width: calc(100vw - 24px);
+      max-width: none;
+      max-height: calc(100svh - 66px);
+    }
+
+    .window-body {
+      max-height: calc(100svh - 102px);
+      overflow: auto;
+    }
+
+    .y2k-readme {
+      padding: 14px;
+    }
+
+    .y2k-readme h1 {
+      font-size: 28px;
+    }
+
+    .y2k-readme div p {
+      font-size: 18px;
+    }
+
+    .y2k-icons {
+      top: 10px;
+      left: 8px;
+      gap: 5px;
+    }
+
+    .y2k-icons button,
+    .y2k-icons a {
+      width: 84px;
+      padding: 5px 3px;
+    }
+  }

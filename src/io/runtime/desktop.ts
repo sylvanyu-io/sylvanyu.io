@@ -80,6 +80,11 @@ export function mountDesktop(root: Element) {
     maxZ = Math.max(maxZ, state.z);
   });
 
+  if (root.dataset.desktopStyle === 'y2k' && window.matchMedia('(max-width: 600px)').matches) {
+    const photo = states.get('photo');
+    if (photo) photo.open = false;
+  }
+
   const syncChrome = () => {
     states.forEach((state, id) => {
       state.element.hidden = !state.open;

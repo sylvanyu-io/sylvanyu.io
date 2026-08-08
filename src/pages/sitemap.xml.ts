@@ -1,22 +1,7 @@
-import { galacean09Demos } from '../labs/galacean-0-9/demoCatalog';
-import { galaceanDemos } from '../labs/galacean-1-1/demoCatalog';
-import { liquidGlassDemos } from '../labs/liquid-glass/demoCatalog';
-
 const origin = 'https://sylvanyu.io';
 const routes = [
   '/',
-  '/home/',
-  '/io-design/',
-  '/io-design/a/',
-  '/io-design/y2k/',
-  '/labs/',
-  '/labs/photo3d/',
-  '/labs/liquid-glass/',
-  '/labs/galacean-0-9/',
-  '/labs/galacean-1-1/',
-  ...galacean09Demos.map((demo) => demo.href),
-  ...galaceanDemos.map((demo) => demo.href),
-  ...liquidGlassDemos.map((demo) => demo.href),
+  '/y2k/',
 ];
 
 export const prerender = true;
