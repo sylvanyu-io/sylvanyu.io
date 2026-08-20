@@ -5,7 +5,29 @@ import {
   WALLPAPER_ATLAS,
   WALLPAPER_ATLAS_MOBILE,
 } from '../io/runtime/macCanvas/apps';
+import {
+  portfolioArchiveProjects,
+  portfolioCases,
+  portfolioSideProjects,
+  profile,
+  videoClips,
+} from '../io/data';
+import type { PortfolioEvidence } from '../io/data';
+import { webGpuProjects } from '../labs/webgpu/catalog';
 import '../styles/io/macos.css';
+
+const projectsById = (ids: string[]) => ids
+  .map((id) => portfolioCases.en.find((project) => project.id === id))
+  .filter((project): project is (typeof portfolioCases.en)[number] => Boolean(project));
+const projectGroups = [
+  { id: 'predy', title: 'Predy / RedNote', projects: projectsById(['predy-runtime', 'photo3d', 'predy-agent', 'production']) },
+  { id: 'galacean', title: 'Galacean / Alipay', projects: projectsById(['galacean', 'alipay-products', 'xr']) },
+];
+const evidenceHref = (item: PortfolioEvidence) => {
+  if (item.type === 'link') return item.href;
+  if (item.type === 'video') return videoClips.en[item.clipIndex]?.src ?? '#';
+  return `#app=${item.windowId}`;
+};
 ---
 
 <Base
@@ -27,27 +49,78 @@ import '../styles/io/macos.css';
     <main class="mac-fallback" data-mac-fallback>
       <div class="mac-fallback__panel">
         <h1>Sylvan Yu / 俞宇锋</h1>
-        <p class="mac-fallback__role">Graphics &amp; Engine Engineer · Shanghai</p>
+        <p class="mac-fallback__role">Graphics · Engines · Tools</p>
         <p class="mac-fallback__body">
-          I work on rendering systems and tools for interactive products, from motion runtimes and editors to mobile clients.
+          I build renderers—and the tools that make them usable. My work spans real-time motion engines, web editors, mobile runtimes, and WebGPU experiments.
         </p>
-        <section class="mac-fallback__section" aria-labelledby="mac-fallback-now">
-          <h2 id="mac-fallback-now">Current role</h2>
-          <p>
-            <strong>Visual Systems Engineer, RedNote · 2025–present.</strong>
-            I work on Predy and PlayKit, the company’s motion runtime and editor tooling, across Web, React Native, iOS, and Android.
-          </p>
-        </section>
-        <section class="mac-fallback__section" aria-labelledby="mac-fallback-before">
-          <h2 id="mac-fallback-before">Earlier</h2>
-          <p>
-            <strong>Graphics Engineer, Ant Group / Alipay · 2022–2025.</strong>
-            I worked on the Galacean engine and its tooling, as well as rendering features and interactive graphics for Alipay products.
-          </p>
+        <div class="mac-fallback__showcase">
+          <a href="https://sylvanyu.io/webgpu-2d-gi/"><img src="/lab-covers/webgpu-2d-gi.png" alt="WebGPU 2D global illumination" /><strong>2D Global Illumination</strong></a>
+          <a href="#app=photo3d"><img src={videoClips.en[0].poster} alt="Photo3D spatial photo" /><strong>Photo3D</strong></a>
+          <a href="https://sylvanyu.io/y2k-type-lab/"><img src="/lab-covers/y2k-type-lab.webp" alt="Y2K Type Lab editor" /><strong>Y2K Type Lab</strong></a>
+          <a href="https://github.com/sylvanyu-io/tab-recap"><img src="/lab-covers/tab-recap.jpg" alt="TabRecap browser side panel" /><strong>TabRecap</strong></a>
+        </div>
+        {projectGroups.map((group) => (
+          <section class="mac-fallback__section" aria-labelledby={`mac-fallback-${group.id}`}>
+            <h2 id={`mac-fallback-${group.id}`}>{group.title}</h2>
+            <div class="mac-fallback__cases">
+              {group.projects.map((project) => (
+                <article>
+                  <p class="mac-fallback__meta">{project.meta}</p>
+                  <h3>{project.title}</h3>
+                  <p>{project.lead}</p>
+                  <ul>
+                    {project.highlights.map((highlight) => <li>{highlight}</li>)}
+                  </ul>
+                  <div class="mac-fallback__inline-links">
+                    {project.evidence.map((item) => (
+                      <a href={evidenceHref(item)} rel="noreferrer">{item.label}</a>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+        <section class="mac-fallback__section" aria-labelledby="mac-fallback-independent">
+          <h2 id="mac-fallback-independent">Independent</h2>
+          <div class="mac-fallback__side-projects">
+            {portfolioSideProjects.en.map((project) => (
+              <article>
+                {project.cover && <img src={project.cover} alt={project.coverAlt ?? ''} loading="lazy" />}
+                <p class="mac-fallback__meta">{project.meta}</p>
+                <h3>{project.title}</h3>
+                <p>{project.description}</p>
+                {project.details.map((detail) => <p>{detail}</p>)}
+                <div class="mac-fallback__inline-links">
+                  {project.evidence.map((item) => (
+                    <a href={evidenceHref(item)} rel="noreferrer">{item.label}</a>
+                  ))}
+                </div>
+                {project.labSlugs && (
+                  <div class="mac-fallback__lab-links">
+                    {project.labSlugs.map((slug) => {
+                      const lab = webGpuProjects.find((entry) => entry.slug === slug);
+                      return lab && <a href={lab.href}>{lab.title}</a>;
+                    })}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+          <div class="mac-fallback__archive">
+            {portfolioArchiveProjects.en.map((project) => (
+              <a href={project.href} rel="noreferrer">
+                <strong>{project.title}</strong>
+                <span>{project.note}</span>
+              </a>
+            ))}
+          </div>
         </section>
         <div class="mac-fallback__actions">
-          <a href="https://github.com/sylvanyu-io" rel="noreferrer">GitHub</a>
-          <a href="mailto:me@sylvanyu.io">Email</a>
+          <a href={`mailto:${profile.email}`}>{profile.email}</a>
+          {profile.socials.map((social) => (
+            <a href={social.href} rel="noreferrer">{social.label}</a>
+          ))}
         </div>
       </div>
     </main>

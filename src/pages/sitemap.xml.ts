@@ -2,6 +2,14 @@ const origin = 'https://sylvanyu.io';
 const routes = [
   '/',
   '/y2k/',
+  '/y2k-type-lab/',
+  '/webgpu-2d-gi/',
+  '/webgpu-flock-field/',
+  '/webgpu-grass-system/',
+  '/webgpu-mimic/',
+  '/webgpu-relic-block/',
+  '/webgpu-snowplow/',
+  '/webgpu-sword-vortex/',
 ];
 
 export const prerender = true;

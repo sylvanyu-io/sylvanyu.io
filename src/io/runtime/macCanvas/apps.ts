@@ -7,8 +7,7 @@ export type IconLabelKey =
   | 'iconSpatial'
   | 'iconReflection'
   | 'iconLog'
-  | 'iconProjects'
-  | 'iconWebgpu'
+  | 'iconFeatured'
   | 'iconMoments'
   | 'iconVideo'
   | 'iconLabs';
@@ -79,7 +78,7 @@ export const MAC_APPS: MacAppDefinition[] = [
     labelKey: 'iconReadme',
     home: true,
     dock: true,
-    initialOpen: true,
+    initialOpen: false,
     initialZ: 12,
   },
   {
@@ -89,7 +88,7 @@ export const MAC_APPS: MacAppDefinition[] = [
     labelKey: 'iconPhoto',
     home: true,
     dock: true,
-    initialOpen: true,
+    initialOpen: false,
     initialZ: 11,
   },
   {
@@ -123,24 +122,14 @@ export const MAC_APPS: MacAppDefinition[] = [
     initialZ: 10,
   },
   {
-    id: 'projects',
-    title: '~/projects',
-    icon: 'icon-projects.svg',
-    labelKey: 'iconProjects',
+    id: 'featured',
+    title: 'Sylvan Yu',
+    icon: 'icon-portfolio.svg',
+    labelKey: 'iconFeatured',
     home: true,
     dock: true,
-    initialOpen: false,
-    initialZ: 13,
-  },
-  {
-    id: 'webgpu',
-    title: 'WebGPU Lab',
-    icon: 'icon-webgpu-lab.svg',
-    labelKey: 'iconWebgpu',
-    home: false,
-    dock: false,
-    initialOpen: false,
-    initialZ: 10,
+    initialOpen: true,
+    initialZ: 14,
   },
   {
     id: 'moments',
@@ -207,7 +196,6 @@ export const MAC_FOLDERS: MacFolderDefinition[] = [
     title: 'Labs',
     labelKey: 'iconLabs',
     items: [
-      'webgpu',
       'photo',
       'spatial',
       'reflection',
@@ -235,8 +223,7 @@ const WINDOW_DEEP_LINKS: Partial<Record<WindowId, string>> = {
   readme: 'readme',
   photo: 'photo3d',
   worklog: 'worklog',
-  projects: 'projects',
-  webgpu: 'webgpu-lab',
+  featured: 'portfolio',
   moments: 'moments',
 };
 

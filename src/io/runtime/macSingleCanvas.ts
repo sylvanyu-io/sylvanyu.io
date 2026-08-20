@@ -81,8 +81,7 @@ const WINDOW_RESIZE_LIMITS = {
     spatial: { w: 420, h: 440 },
     reflection: { w: 360, h: 280 },
     worklog: { w: 420, h: 300 },
-    projects: { w: 420, h: 380 },
-    webgpu: { w: 560, h: 420 },
+    featured: { w: 560, h: 420 },
     moments: { w: 360, h: 420 },
     video: { w: 240, h: 300 },
   } satisfies Record<WindowId, { w: number; h: number }>,
@@ -662,10 +661,11 @@ export function mountMacSingleCanvas(rootInput: Element) {
     layoutDirty = false;
     if (!layout.mobile) mobileNav.resetForDesktop();
 
-    // The phone variant boots onto the "home screen": apps start closed and
-    // open fullscreen from their icons instead of floating pre-opened.
+    // Desktop and phone both enter through the portfolio. A deep link still
+    // takes precedence and opens the requested app or folder instead.
     if (!initialModeApplied) {
       initialModeApplied = true;
+      const deepLink = parseMacDeepLink(window.location.hash);
       if (layout.mobile) {
         MAC_WINDOW_IDS.forEach((id) => {
           state.windows[id].open = false;
@@ -673,7 +673,6 @@ export function mountMacSingleCanvas(rootInput: Element) {
       }
       if (!initialDeepLinkApplied) {
         initialDeepLinkApplied = true;
-        const deepLink = parseMacDeepLink(window.location.hash);
         if (deepLink?.type === 'window') {
           if (layout.mobile) closeOtherWindows(deepLink.id);
           state.windows[deepLink.id].open = true;
@@ -681,6 +680,9 @@ export function mountMacSingleCanvas(rootInput: Element) {
         } else if (deepLink?.type === 'folder') {
           state.folder = deepLink.id;
           state.folderProgress = 1;
+        } else if (layout.mobile) {
+          state.windows.featured.open = true;
+          bringWindowFront(state, 'featured');
         }
       }
       layout = buildMacCanvasLayout(cssWidth, cssHeight, state, layoutOptions());

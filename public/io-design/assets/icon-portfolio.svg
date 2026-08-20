@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Sylvan Yu</title>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="12" x2="111" y2="119" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171126"/>
+      <stop offset="1" stop-color="#080b13"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="25" y1="32" x2="54" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff5bd6"/>
+      <stop offset=".48" stop-color="#fff"/>
+      <stop offset="1" stop-color="#35e5ff"/>
+    </linearGradient>
+    <linearGradient id="vortex" x1="75" y1="37" x2="106" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72f0ff"/>
+      <stop offset=".5" stop-color="#a479ff"/>
+      <stop offset="1" stop-color="#ff4dbc"/>
+    </linearGradient>
+    <clipPath id="tileClip">
+      <rect x="20" y="22" width="88" height="84" rx="19"/>
+    </clipPath>
+  </defs>
+  <rect x="7" y="7" width="114" height="114" rx="27" fill="url(#bg)"/>
+  <g clip-path="url(#tileClip)">
+    <path d="M19 22h31v84H19z" fill="#21122a"/>
+    <path d="M50 22h31v84H50z" fill="#182231"/>
+    <path d="M81 22h28v84H81z" fill="#0c101b"/>
+    <path d="M32 39c11-7 20 1 16 11-4 9-17 9-20 21-2 7 2 13 11 17" fill="none" stroke="url(#chrome)" stroke-linecap="round" stroke-width="8"/>
+    <path d="M50 77c8-16 15-24 23-23 6 1 9 7 13 14l-5 38H50Z" fill="#eaf4f7"/>
+    <path d="m59 80 13-10 10 11-13 9Z" fill="#ff7b42"/>
+    <path d="M61 93c8-4 14-4 21 0" fill="none" stroke="#91d8f2" stroke-linecap="round" stroke-width="3"/>
+    <path d="M89 37c17 8 20 27 8 37-8 7-16 4-14-4 3-11 22-8 24 12 1 8-3 14-11 20" fill="none" stroke="url(#vortex)" stroke-linecap="round" stroke-width="5"/>
+    <path d="M87 41c13 6 15 18 7 24" fill="none" stroke="#fff" stroke-linecap="round" stroke-opacity=".8" stroke-width="2"/>
+  </g>
+  <rect x="20.75" y="22.75" width="86.5" height="82.5" rx="18.25" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.5"/>
+  <rect x="7.75" y="7.75" width="112.5" height="112.5" rx="26.25" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="1.5"/>
+</svg>

@@ -20,8 +20,7 @@ export const desktopCopy: Record<Lang, {
   iconSpatial: string;
   iconReflection: string;
   iconLog: string;
-  iconProjects: string;
-  iconWebgpu: string;
+  iconFeatured: string;
   iconMoments: string;
   iconVideo: string;
   iconLabs: string;
@@ -49,8 +48,7 @@ export const desktopCopy: Record<Lang, {
     iconSpatial: 'SpatialScene.app',
     iconReflection: 'Reflection.app',
     iconLog: 'work.log',
-    iconProjects: 'projects/',
-    iconWebgpu: 'WebGPU Lab',
+    iconFeatured: 'Sylvan Yu',
     iconMoments: 'moments',
     iconVideo: 'video',
     iconLabs: 'Labs',
@@ -78,8 +76,7 @@ export const desktopCopy: Record<Lang, {
     iconSpatial: '空间场景.app',
     iconReflection: '平面反射.app',
     iconLog: 'work.log',
-    iconProjects: 'projects/',
-    iconWebgpu: 'WebGPU 实验室',
+    iconFeatured: '俞宇锋',
     iconMoments: '动态',
     iconVideo: '视频',
     iconLabs: 'Labs',
@@ -157,7 +154,7 @@ export const desktopProjects: Record<Lang, Array<{
       title: 'WebGPU Lab',
       meta: 'INDEPENDENT · REAL-TIME GRAPHICS · 2026',
       body:
-        'Seven standalone browser experiments that turn WebGPU techniques into playable, inspectable systems: GPU global illumination, 131K-instance flocking, two million grass blades, destructible voxel terrain, procedural creatures, raw-WebGPU choreography, and heightfield snow transport.',
+        'Seven standalone browser experiments across GPU-driven simulation, procedural geometry, large-scale instancing, volumetric terrain, and deformable surfaces.',
       metric: '7',
       metricLabel: 'live experiments',
       links: [{ label: 'GitHub', href: 'https://github.com/sylvanyu-io/WebGPU-Lab', variant: 'primary' }],
@@ -225,7 +222,7 @@ export const desktopProjects: Record<Lang, Array<{
       title: 'WebGPU Lab',
       meta: '个人项目 · 实时图形 · 2026',
       body:
-        '七个可独立运行的浏览器图形实验，把 WebGPU 技术做成可玩、可检查的系统：GPU 全局光照、13.1 万实例集群、两百万株草、可破坏体素地形、程序化生物、Raw WebGPU 编舞与高度场积雪输运。',
+        '七个可独立运行的浏览器图形实验，覆盖 GPU 模拟、程序化几何、大规模实例、体数据和可变形表面。',
       metric: '7',
       metricLabel: '个在线实验',
       links: [{ label: 'GitHub', href: 'https://github.com/sylvanyu-io/WebGPU-Lab', variant: 'primary' }],

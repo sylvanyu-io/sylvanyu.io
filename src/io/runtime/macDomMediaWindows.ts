@@ -41,6 +41,15 @@ export function ensureVideoGlassMounted(record: MacDomWindowRecord) {
   }
 
   record.videoGlassMountingToken = token;
+  // Opening the player is a direct result of a user click. Start playback
+  // before the lazy glass module crosses an async boundary so browsers can
+  // still associate play() with that activation.
+  if (video.paused) {
+    void video.play().catch(() => {
+      // A deep link or restored tab may not carry user activation. In that
+      // case the poster and play button remain available.
+    });
+  }
   void loadVideoGlassModule().then(({ mountMacVideoGlass }) => {
     if (
       record.videoGlassMountToken !== token
@@ -337,17 +346,19 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   close.addEventListener('click', () => record.close.click());
 
   const stage = div('mac-video__stage');
+  stage.dataset.glassReady = 'false';
   let mediaAspect = clip.aspectRatio;
   stage.style.setProperty('--mac-video-aspect', String(mediaAspect));
   const video = document.createElement('video');
   video.className = 'mac-video__media';
   video.src = clip.src;
   video.poster = clip.poster;
+  video.autoplay = true;
   video.loop = true;
   video.playsInline = true;
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
-  video.preload = 'metadata';
+  video.preload = 'auto';
   video.disablePictureInPicture = true;
   video.disableRemotePlayback = true;
   video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback');

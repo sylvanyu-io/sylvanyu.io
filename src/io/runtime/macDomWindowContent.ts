@@ -1,5 +1,4 @@
 import {
-  desktopProjects,
   mediaMomentPosts,
   mediaWindowCopy,
 } from '../data';
@@ -12,7 +11,11 @@ import type { MacCanvasState, WindowId, WindowLayout } from './macCanvas/ui';
 import { REFLECTION_DEMO_ID } from './macCanvas/apps';
 import { setText } from './macDomElements';
 import { renderMoments, renderVideo } from './macDomMediaWindows';
-import { renderProjects, renderReadme, renderWebGpuLab, renderWorklog } from './macDomTextWindows';
+import {
+  renderReadme,
+  renderWorklog,
+} from './macDomTextWindows';
+import { renderPortfolio } from './macDomPortfolio';
 import {
   renderPhoto,
   renderReflection,
@@ -70,11 +73,8 @@ export function renderWindowContent(record: MacDomWindowRecord, lang: Lang) {
     case 'worklog':
       renderWorklog(record, lang);
       break;
-    case 'projects':
-      renderProjects(record, lang);
-      break;
-    case 'webgpu':
-      renderWebGpuLab(record, lang);
+    case 'featured':
+      renderPortfolio(record, lang);
       break;
     case 'moments':
       renderMoments(record, lang);
@@ -132,13 +132,8 @@ export function updateWindowTexts(record: MacDomWindowRecord, win: WindowLayout,
     return;
   }
 
-  if (win.id === 'projects') {
-    setText(record.accessory, `${desktopProjects[state.lang].length} ITEMS`);
-    return;
-  }
-
-  if (win.id === 'webgpu') {
-    setText(record.accessory, '7 LIVE');
+  if (win.id === 'featured') {
+    setText(record.accessory, 'RENDERING · TOOLS · LABS');
     return;
   }
 

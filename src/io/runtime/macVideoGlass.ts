@@ -194,6 +194,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     posterLoadId += 1;
     const loadId = posterLoadId;
     posterTextureReady = false;
+    stage.dataset.glassReady = 'false';
     posterTexture?.dispose();
     posterTexture = null;
     if (!src) return;
@@ -218,8 +219,8 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
 
   function sourceTexture() {
     if (video.seeking && sourceReady) return null;
-    if (stage.dataset.hasStarted !== 'true' && posterTexture && posterTextureReady) {
-      return posterTexture;
+    if (stage.dataset.hasStarted !== 'true') {
+      return posterTexture && posterTextureReady ? posterTexture : null;
     }
     if (hasLiveVideoFrame()) {
       videoTexture.needsUpdate = true;
@@ -307,6 +308,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     }
 
     glassPipeline.renderPanels(sourceTarget.texture, collectPanels(), cssWidth, cssHeight, null);
+    stage.dataset.glassReady = 'true';
     frameLimiter.consumeDelta(nowMs);
   }
 
@@ -425,6 +427,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
     dispose() {
       if (disposed) return;
       disposed = true;
+      delete stage.dataset.glassReady;
       stop();
       resizeObserver.disconnect();
       video.removeEventListener('loadeddata', onVideoFrame);

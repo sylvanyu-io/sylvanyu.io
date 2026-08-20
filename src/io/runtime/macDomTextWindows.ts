@@ -1,11 +1,5 @@
-import {
-  desktopCopy,
-  desktopProjects,
-  logLines,
-  profile,
-} from '../data';
+import { desktopCopy, logLines, profile } from '../data';
 import type { Lang } from '../content/common';
-import { webGpuLabRepoUrl, webGpuProjects } from '../../labs/webgpu/catalog';
 import { div } from './macDomElements';
 import type { MacDomWindowRecord } from './macDomWindowContent';
 
@@ -66,7 +60,6 @@ export function renderReadme(record: MacDomWindowRecord, lang: Lang) {
   });
 
   actions.append(email, socials);
-
   record.body.append(eyebrow, title, body, chips, actions);
 }
 
@@ -82,151 +75,4 @@ export function renderWorklog(record: MacDomWindowRecord, lang: Lang) {
   });
 
   record.body.replaceChildren(panel);
-}
-
-export function renderProjects(record: MacDomWindowRecord, lang: Lang) {
-  record.body.replaceChildren();
-
-  const projects = desktopProjects[lang];
-  const shell = div('mac-projects');
-  const header = div('mac-projects__header');
-  const headerCopy = div('mac-projects__header-copy');
-  const eyebrow = document.createElement('span');
-  eyebrow.className = 'mac-projects__eyebrow';
-  eyebrow.textContent = lang === 'zh' ? 'PROJECT INDEX / 视觉系统' : 'PROJECT INDEX / VISUAL SYSTEMS';
-  const title = document.createElement('h2');
-  title.textContent = lang === 'zh' ? '从引擎到产品现场' : 'Systems that reached product';
-  const intro = document.createElement('p');
-  intro.textContent = lang === 'zh'
-    ? '把实时渲染、编辑器、AI 基建和跨端运行时放在同一个可扫读的项目索引里。'
-    : 'A scan-first index of real-time rendering, editor tooling, AI infrastructure, and cross-platform runtime work.';
-  headerCopy.append(eyebrow, title, intro);
-  header.append(headerCopy);
-  shell.append(header);
-
-  const list = div('mac-projects__list');
-  projects.forEach((project, index) => {
-    const article = document.createElement('article');
-    article.className = 'mac-project';
-    article.dataset.index = String(index + 1).padStart(2, '0');
-
-    const copy = div('mac-project__copy');
-    const title = document.createElement('h2');
-    title.textContent = project.title;
-    const meta = document.createElement('p');
-    meta.className = 'mac-project__meta';
-    meta.textContent = project.meta;
-    const body = document.createElement('p');
-    body.className = 'mac-project__body';
-    body.textContent = project.body;
-    const projectLinks = div('mac-project__links');
-    project.links?.forEach((item) => {
-      const link = document.createElement('a');
-      link.href = item.href;
-      link.textContent = `${item.label} ↗`;
-      link.dataset.variant = item.variant ?? 'secondary';
-      if (item.href.startsWith('http')) {
-        link.target = '_blank';
-        link.rel = 'noreferrer';
-      }
-      projectLinks.append(link);
-    });
-    copy.append(title, meta, body, projectLinks);
-
-    const metric = div('mac-project__metric');
-    const value = document.createElement('strong');
-    value.textContent = project.metric;
-    const label = document.createElement('span');
-    label.textContent = project.metricLabel;
-    metric.append(value, label);
-
-    article.append(copy, metric);
-    list.append(article);
-  });
-
-  shell.append(list);
-  record.body.append(shell);
-}
-
-export function renderWebGpuLab(record: MacDomWindowRecord, lang: Lang) {
-  record.body.replaceChildren();
-
-  const shell = div('mac-webgpu');
-  const header = div('mac-webgpu__header');
-  const heading = div('mac-webgpu__heading');
-  const eyebrow = document.createElement('span');
-  eyebrow.className = 'mac-webgpu__eyebrow';
-  eyebrow.textContent = 'WEBGPU LAB / 7 LIVE SYSTEMS';
-  const title = document.createElement('h2');
-  title.textContent = lang === 'zh' ? '在浏览器里压 GPU。' : 'Push the GPU in-browser.';
-  const intro = document.createElement('p');
-  intro.textContent = lang === 'zh'
-    ? '七个独立实验：计算着色器、程序化几何、大规模实例、体素与可变形表面。'
-    : 'Seven independent experiments in compute, procedural geometry, massive instancing, voxels, and deformable surfaces.';
-  heading.append(eyebrow, title, intro);
-
-  const headerLinks = div('mac-webgpu__header-links');
-  const fullPage = document.createElement('a');
-  fullPage.href = webGpuLabRepoUrl;
-  fullPage.target = '_blank';
-  fullPage.rel = 'noreferrer';
-  fullPage.textContent = lang === 'zh' ? '打开仓库 ↗' : 'Open repository ↗';
-  const source = document.createElement('a');
-  source.href = webGpuLabRepoUrl;
-  source.target = '_blank';
-  source.rel = 'noreferrer';
-  source.textContent = 'GitHub ↗';
-  headerLinks.append(fullPage, source);
-  header.append(heading, headerLinks);
-
-  const grid = div('mac-webgpu__grid');
-  webGpuProjects.forEach((project, index) => {
-    const article = document.createElement('article');
-    article.className = 'mac-webgpu-card';
-
-    const coverLink = document.createElement('a');
-    coverLink.className = 'mac-webgpu-card__cover';
-    coverLink.href = project.href;
-    coverLink.target = '_blank';
-    coverLink.rel = 'noreferrer';
-    coverLink.setAttribute('aria-label', `${project.title} live demo`);
-    const cover = document.createElement('img');
-    cover.src = project.cover;
-    cover.alt = project.coverAlt;
-    cover.loading = 'lazy';
-    cover.decoding = 'async';
-    coverLink.append(cover);
-
-    const copy = div('mac-webgpu-card__copy');
-    const meta = document.createElement('p');
-    meta.className = 'mac-webgpu-card__meta';
-    meta.textContent = `${String(index + 1).padStart(2, '0')} · ${project.label}`;
-    const cardTitle = document.createElement('h3');
-    cardTitle.textContent = project.title;
-    const description = document.createElement('p');
-    description.className = 'mac-webgpu-card__description';
-    description.textContent = project.description;
-    const footer = div('mac-webgpu-card__footer');
-    const metric = document.createElement('strong');
-    metric.textContent = project.metric;
-    const links = div('mac-webgpu-card__links');
-    [
-      { label: lang === 'zh' ? '运行' : 'Run', href: project.href },
-      { label: lang === 'zh' ? '源码' : 'Code', href: project.sourceHref },
-    ].forEach((item) => {
-      const link = document.createElement('a');
-      link.href = item.href;
-      link.target = '_blank';
-      link.rel = 'noreferrer';
-      link.textContent = `${item.label} ↗`;
-      links.append(link);
-    });
-    footer.append(metric, links);
-    copy.append(meta, cardTitle, description, footer);
-    article.append(coverLink, copy);
-    grid.append(article);
-  });
-
-  shell.append(header, grid);
-  record.body.append(shell);
 }
