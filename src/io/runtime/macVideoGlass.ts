@@ -118,7 +118,12 @@ function loadPosterTexture(src: string, onLoad: () => void) {
   const loader = new THREE.TextureLoader();
   loader.setCrossOrigin('anonymous');
   return loader.load(src, (texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
+    // This custom shader works in display-referred RGB. Three uploads regular
+    // sRGB images to SRGB8 (decoded while sampling), but forces VideoTexture to
+    // linear RGBA8 and only inserts its video decode for built-in map slots.
+    // Leaving both custom-sampled sources untagged keeps their transfer curves
+    // identical, so the glass does not change when poster becomes video.
+    texture.colorSpace = THREE.NoColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
@@ -148,7 +153,7 @@ export function mountMacVideoGlass(stage: HTMLElement, video: HTMLVideoElement, 
 
   const placeholder = makePlaceholderTexture();
   const videoTexture = new THREE.VideoTexture(video);
-  videoTexture.colorSpace = THREE.SRGBColorSpace;
+  videoTexture.colorSpace = THREE.NoColorSpace;
   videoTexture.minFilter = THREE.LinearFilter;
   videoTexture.magFilter = THREE.LinearFilter;
   videoTexture.generateMipmaps = false;

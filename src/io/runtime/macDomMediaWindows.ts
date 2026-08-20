@@ -354,6 +354,9 @@ export function renderVideo(record: MacDomWindowRecord, lang: Lang) {
   video.src = clip.src;
   video.poster = clip.poster;
   video.autoplay = true;
+  video.defaultMuted = true;
+  video.muted = true;
+  video.setAttribute('muted', '');
   video.loop = true;
   video.playsInline = true;
   video.setAttribute('playsinline', '');
